@@ -1,0 +1,1 @@
+Parcelles produites par preparer.html (API Carto, IGN). En ligne, l’atlas les lit directement.

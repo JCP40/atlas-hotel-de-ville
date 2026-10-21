@@ -1,0 +1,1 @@
+Dessins de coupe (PNG/JPG) référencés dans data/config.json > axes > image.

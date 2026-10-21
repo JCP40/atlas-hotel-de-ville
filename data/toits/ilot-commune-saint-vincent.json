@@ -1,0 +1,337 @@
+{
+ "_note": "Toitures de l'îlot entre la rue de la Commune, la rue Saint-Vincent et la rue du Général-Leclerc-de-Hauteclocque (parcelles EY 59 à 63), lues par js/toits.js (même format que data/toits/hotel-de-ville.json). Coordonnées en mètres, repère de l'atlas (x est, z sud), relatives à « origine ». Chaque corps = bâtiment OSM (ou partie de bâtiment découpée par une boîte) : emprise réelle stricte, gabarit = rectangle minimal de l'emprise, toit à deux pans (faîtage parallèle à l'un des côtés du gabarit, position ajustée) ou terrasse, hauteurs ajustées sur le MNH LiDAR HD (moindres carrés). Le jardin de la parcelle EY 63 (sud de l'îlot) n'est pas bâti.",
+ "titre": "Îlot rue de la Commune – rue Saint-Vincent",
+ "id": "ilot-commune-saint-vincent",
+ "origine": {
+  "lat": 47.218385,
+  "lon": -1.55452
+ },
+ "date": "2026-10-14",
+ "remarquable": {
+  "id": "ilot-commune-saint-vincent",
+  "fiche": "ilot-commune-saint-vincent",
+  "etiquette": null
+ },
+ "perimetre": {
+  "description": "îlot délimité par les axes de la rue de la Commune, de la rue Saint-Vincent et de la rue du Général-Leclerc-de-Hauteclocque (2 289 m² ; parcelles EY 59, 60, 61, 62 et 63)",
+  "source": "OpenStreetMap (axes des voies, ODbL) ; cadastre API Carto IGN (Licence Ouverte Etalab 2.0)",
+  "polygone": [[79.0, 4.4], [74.5, 7.9], [69.6, 10.2], [58.6, 14.9], [49.7, 20.2], [41.8, 26.9], [36.0, 33.5], [19.2, 47.7], [21.9, 53.0], [22.5, 57.5], [23.4, 64.5], [29.8, 63.3], [77.2, 54.6], [83.1, 53.7], [82.9, 45.9], [82.8, 37.8], [82.9, 14.6]]
+ },
+ "sources": {
+  "bdtopo": "IGN BD TOPO V3, couche batiment (WFS Géoplateforme), Licence Ouverte Etalab 2.0, interrogée le 14/10/2026",
+  "orthophoto": "IGN BD ORTHO, WMS Géoplateforme, Licence Ouverte Etalab 2.0 : contrôle visuel des toits et du jardin",
+  "lidar": "IGN LiDAR HD, modèle numérique de hauteur (MNH, 50 cm), WMS Géoplateforme, Licence Ouverte Etalab 2.0",
+  "cadastre": "API Carto IGN (parcelles EY 59 à 63), Licence Ouverte Etalab 2.0",
+  "osm": "OpenStreetMap, bâtiments way/85440299, 85439906, 85438795, 85441383, © contributeurs OpenStreetMap, ODbL",
+  "psmv": "Descriptif du secteur sauvegardé (A.U.P., 2014-2016), fiches 33 à 37 : niveaux, matériaux, dates"
+ },
+ "methode": "Emprises = bâtiments OSM de l'atlas (aucun corps libre : la parcelle EY 60, en L, est découpée en trois corps par des boîtes). Toit de chaque corps ajusté automatiquement sur le MNH LiDAR HD (points à 0,5 m à l'intérieur de l'emprise) : deux pans à pignons (faîtage parallèle à un côté du rectangle minimal, position libre) ou terrasse, au plus petit écart quadratique ; hauteurs d'égout et de faîtage = plans ajustés. Étages : niveaux du PSMV quand ils existent, sinon hauteur d'égout / 3,4 m.",
+ "confiance": {
+  "bonne": "forme et hauteurs lisibles sur la photo et le MNH",
+  "moyenne": "forme lisible, écart au LiDAR inférieur à 1,2 m",
+  "faible": "forme supposée ou écart au LiDAR supérieur à 1,2 m"
+ },
+ "objets_bdtopo": [
+  {
+   "cleabs": "BATIMENT0000000302931191",
+   "identifiants_rnb": "R5CD86RFGJDT",
+   "hauteur": 13.9,
+   "altitude_minimale_sol": 11.5,
+   "altitude_maximale_sol": 13.3,
+   "altitude_minimale_toit": 25.4,
+   "altitude_maximale_toit": 29.7,
+   "nombre_d_etages": 4,
+   "materiaux_des_murs": null,
+   "materiaux_de_la_toiture": null,
+   "usage_1": "Résidentiel",
+   "date_d_apparition": "1870-01-01Z",
+   "corps": ["saint-vincent-11"]
+  },
+  {
+   "cleabs": "BATIMENT0000000302931192",
+   "identifiants_rnb": "9GTKHNE56SZ2",
+   "hauteur": 14.9,
+   "altitude_minimale_sol": 11.5,
+   "altitude_maximale_sol": 13.1,
+   "altitude_minimale_toit": 26.4,
+   "altitude_maximale_toit": 30.3,
+   "nombre_d_etages": 4,
+   "materiaux_des_murs": null,
+   "materiaux_de_la_toiture": null,
+   "usage_1": "Résidentiel",
+   "date_d_apparition": null,
+   "corps": ["commune-1", "commune-1-passage", "saint-vincent-9", "aile-en-retour", "communs"]
+  },
+  {
+   "cleabs": "BATIMENT0000000302931193",
+   "identifiants_rnb": "6WSM266NXY41",
+   "hauteur": 15.1,
+   "altitude_minimale_sol": 11.5,
+   "altitude_maximale_sol": 12.1,
+   "altitude_minimale_toit": 26.6,
+   "altitude_maximale_toit": 30.5,
+   "nombre_d_etages": 5,
+   "materiaux_des_murs": null,
+   "materiaux_de_la_toiture": null,
+   "usage_1": "Commercial et services",
+   "date_d_apparition": "1950-01-01Z",
+   "corps": ["commune-3"]
+  },
+  {
+   "cleabs": "BATIMENT0000000302931194",
+   "identifiants_rnb": "Q8X84VX5RAVM",
+   "hauteur": 15.4,
+   "altitude_minimale_sol": 11.5,
+   "altitude_maximale_sol": 11.8,
+   "altitude_minimale_toit": 26.9,
+   "altitude_maximale_toit": 29.7,
+   "nombre_d_etages": 5,
+   "materiaux_des_murs": null,
+   "materiaux_de_la_toiture": null,
+   "usage_1": "Résidentiel",
+   "date_d_apparition": "1890-01-01Z",
+   "corps": ["commune-5"]
+  }
+ ],
+ "cours": [],
+ "corps": [
+  {
+   "id": "saint-vincent-11",
+   "nom": "11 rue Saint-Vincent (EY 59, PSMV fiche 33, type B)",
+   "objet_bdtopo": "BATIMENT0000000302931191",
+   "emprise": [[75.43, 16.2], [75.46, 18.08], [67.11, 18.48], [67.53, 24.28], [78.66, 24.06], [78.8, 16.52], [78.44, 16.11]],
+   "gabarit": [[78.95, 24.05], [78.79, 16.1], [67.07, 16.34], [67.23, 24.28]],
+   "toit": {
+    "type": "deux-pans",
+    "h_egout": 12.8,
+    "h_faitage": 14.7,
+    "faitage": [[75.43, 24.12], [75.27, 16.17]]
+   },
+   "materiaux": {
+    "murs": "enduit",
+    "toit": "ardoise",
+    "source": "PSMV (façade « moellon enduit ») et photos ; toiture d'ardoise d'après l'orthophoto ; BD TOPO muette",
+    "confiance": "moyenne"
+   },
+   "etages_estimes": 3,
+   "etages": {
+    "n": 3,
+    "source": "PSMV : R+2+c"
+   },
+   "observation": "Maison à boutique classique nantaise (1re moitié du XVIIIe siècle), ferronneries à entrelacs, devanture en applique XIXe ; propriété de la Ville, vacante en 2013.",
+   "sources": {
+    "emprise": ["osm"],
+    "forme": ["lidar", "orthophoto"],
+    "hauteurs": ["lidar"]
+   },
+   "confiance": "moyenne",
+   "ajustement": {"points_lidar": 243, "ecart_quadratique_m": 0.46}
+  },
+  {
+   "id": "commune-1",
+   "nom": "1 rue de la Commune (EY 60, PSMV fiche 37, type B)",
+   "objet_bdtopo": "BATIMENT0000000302931192",
+   "emprise": [[63.2, 24.15], [67.3, 24.15], [67.3, 21.12], [67.11, 18.48], [67.3, 18.47], [67.3, 16.18], [61.52, 17.44]],
+   "gabarit": [[67.3, 24.15], [67.3, 16.18], [61.52, 16.18], [61.52, 24.15]],
+   "toit": {
+    "type": "deux-pans",
+    "h_egout": 12.4,
+    "h_faitage": 15.8,
+    "faitage": [[63.26, 24.15], [63.26, 16.18]]
+   },
+   "materiaux": {
+    "murs": "enduit",
+    "toit": "ardoise",
+    "source": "PSMV (façade « moellon enduit ») et photos ; toiture d'ardoise d'après l'orthophoto ; BD TOPO muette",
+    "confiance": "moyenne"
+   },
+   "etages_estimes": 4,
+   "etages": {
+    "n": 4,
+    "source": "PSMV : R entresolé+2"
+   },
+   "observation": "Maison à boutique classique nantaise (1re moitié du XVIIIe siècle), grandes baies, ferronneries à entrelacs, rez-de-chaussée dénaturé ; communique avec le 9 rue Saint-Vincent. Façade couverte de graffitis et barrières de chantier en 2026.",
+   "sources": {
+    "emprise": ["osm"],
+    "forme": ["lidar", "orthophoto"],
+    "hauteurs": ["lidar"]
+   },
+   "confiance": "moyenne",
+   "ajustement": {"points_lidar": 109, "ecart_quadratique_m": 0.7}
+  },
+  {
+   "id": "commune-1-passage",
+   "nom": "1 rue de la Commune, partie basse le long de la rue (EY 60)",
+   "objet_bdtopo": "BATIMENT0000000302931192",
+   "emprise": [[75.43, 16.2], [67.3, 16.18], [67.3, 18.47], [75.46, 18.08]],
+   "toit": {
+    "type": "terrasse",
+    "h_egout": 13.1
+   },
+   "materiaux": {
+    "murs": "enduit",
+    "toit": "ardoise",
+    "source": "PSMV (façade « moellon enduit ») et photos ; toiture d'ardoise d'après l'orthophoto ; BD TOPO muette",
+    "confiance": "moyenne"
+   },
+   "etages_estimes": 4,
+   "observation": "Bande de 2 m entre la rue et le 11 rue Saint-Vincent (rez-de-chaussée et étages bas) ; hauteur médiane du LiDAR.",
+   "sources": {
+    "emprise": ["osm"],
+    "forme": ["lidar", "orthophoto"],
+    "hauteurs": ["lidar"]
+   },
+   "confiance": "moyenne",
+   "ajustement": {"points_lidar": 45, "ecart_quadratique_m": 0.29}
+  },
+  {
+   "id": "saint-vincent-9",
+   "nom": "9 rue Saint-Vincent (EY 60, PSMV fiche 34, type A)",
+   "objet_bdtopo": "BATIMENT0000000302931192",
+   "emprise": [[66.48, 38.05], [67.39, 37.64], [74.1, 36.49], [74.12, 34.0], [78.46, 33.66], [78.65, 24.15], [73.96, 24.15], [67.53, 24.28], [67.52, 24.15], [66.3, 24.15], [66.3, 32.79]],
+   "gabarit": [[66.3, 24.15], [66.3, 38.05], [78.65, 38.05], [78.65, 24.15]],
+   "toit": {
+    "type": "deux-pans",
+    "h_egout": 15.3,
+    "h_faitage": 18.5,
+    "faitage": [[71.24, 24.15], [71.24, 38.05]]
+   },
+   "materiaux": {
+    "murs": "enduit",
+    "toit": "ardoise",
+    "source": "PSMV (façade « moellon enduit ») et photos ; toiture d'ardoise d'après l'orthophoto ; BD TOPO muette",
+    "confiance": "moyenne"
+   },
+   "etages_estimes": 4,
+   "etages": {
+    "n": 4,
+    "source": "PSMV : R+3"
+   },
+   "observation": "Immeuble de rapport classique nantais (1re moitié du XVIIIe siècle), ferronneries à entrelacs, bel escalier XVIIIe ; toit à deux pans (PSMV), faîtage parallèle à la rue Saint-Vincent (LiDAR).",
+   "sources": {
+    "emprise": ["osm"],
+    "forme": ["lidar", "orthophoto"],
+    "hauteurs": ["lidar"]
+   },
+   "confiance": "moyenne",
+   "ajustement": {"points_lidar": 504, "ecart_quadratique_m": 0.4}
+  },
+  {
+   "id": "aile-en-retour",
+   "nom": "Aile en retour du 9 rue Saint-Vincent (EY 60)",
+   "objet_bdtopo": "BATIMENT0000000302931192",
+   "emprise": [[53.88, 31.5], [64.13, 31.5], [66.23, 30.87], [66.3, 31.5], [66.3, 24.15], [63.2, 24.15], [63.48, 25.29], [57.77, 27.67], [53.32, 30.42]],
+   "gabarit": [[66.3, 24.15], [53.32, 24.15], [53.32, 31.5], [66.3, 31.5]],
+   "toit": {
+    "type": "deux-pans",
+    "h_egout": 15.1,
+    "h_faitage": 17.2,
+    "faitage": [[66.3, 26.35], [53.32, 26.35]]
+   },
+   "materiaux": {
+    "murs": "enduit",
+    "toit": "ardoise",
+    "source": "PSMV (façade « moellon enduit ») et photos ; toiture d'ardoise d'après l'orthophoto ; BD TOPO muette",
+    "confiance": "moyenne"
+   },
+   "etages_estimes": 4,
+   "observation": "Aile en retour XVIIIe sur cour pavée (PSMV), entre le 9 rue Saint-Vincent et le 5 rue de la Commune ; forme ajustée sur le LiDAR.",
+   "sources": {
+    "emprise": ["osm"],
+    "forme": ["lidar", "orthophoto"],
+    "hauteurs": ["lidar"]
+   },
+   "confiance": "moyenne",
+   "ajustement": {"points_lidar": 179, "ecart_quadratique_m": 0.77}
+  },
+  {
+   "id": "communs",
+   "nom": "Communs sur la cour du 9 rue Saint-Vincent (EY 60)",
+   "objet_bdtopo": "BATIMENT0000000302931192",
+   "emprise": [[57.93, 39.23], [60.86, 37.77], [62.06, 39.76], [64.68, 38.66], [63.9, 36.74], [62.42, 37.34], [59.16, 33.0], [64.13, 31.5], [53.88, 31.5]],
+   "toit": {
+    "type": "terrasse",
+    "h_egout": 9.0
+   },
+   "materiaux": {
+    "murs": "enduit",
+    "toit": "ardoise",
+    "source": "PSMV (façade « moellon enduit ») et photos ; toiture d'ardoise d'après l'orthophoto ; BD TOPO muette",
+    "confiance": "moyenne"
+   },
+   "etages_estimes": 3,
+   "observation": "Communs bas autour de la cour pavée (PSMV : communs, escalier bois refait) ; forme ajustée sur le LiDAR. Hauteur estimée à 9 m (LiDAR hétérogène : cour à 6-10 m, aile à 15 m).",
+   "sources": {
+    "emprise": ["osm"],
+    "forme": ["lidar", "orthophoto"],
+    "hauteurs": ["lidar"]
+   },
+   "confiance": "faible",
+   "ajustement": {"points_lidar": 120, "ecart_quadratique_m": 3.53}
+  },
+  {
+   "id": "commune-3",
+   "nom": "3 rue de la Commune (EY 61, PSMV fiche 36, type A)",
+   "objet_bdtopo": "BATIMENT0000000302931193",
+   "emprise": [[54.48, 21.62], [54.73, 21.52], [57.77, 27.67], [63.48, 25.29], [61.52, 17.44], [54.1, 20.78]],
+   "gabarit": [[61.52, 17.44], [54.1, 20.78], [57.36, 28.04], [64.79, 24.7]],
+   "toit": {
+    "type": "deux-pans",
+    "h_egout": 15.8,
+    "h_faitage": 17.9,
+    "faitage": [[63.81, 22.53], [56.38, 25.87]]
+   },
+   "materiaux": {
+    "murs": "tuffeau",
+    "toit": "ardoise",
+    "source": "PSMV (moellon enduit, chaînes et encadrements de pierre) et photos ; ardoise d'après l'orthophoto",
+    "confiance": "moyenne"
+   },
+   "etages_estimes": 5,
+   "etages": {
+    "n": 5,
+    "source": "PSMV : R entresolé+3"
+   },
+   "observation": "Maison à boutique classique nantaise (1re moitié du XVIIIe siècle), ferronneries à entrelacs, devanture XIXe ; pizzeria au rez-de-chaussée, auvent de protection sur l'entresol en 2026.",
+   "sources": {
+    "emprise": ["osm"],
+    "forme": ["lidar", "orthophoto"],
+    "hauteurs": ["lidar"]
+   },
+   "confiance": "moyenne",
+   "ajustement": {"points_lidar": 175, "ecart_quadratique_m": 0.96}
+  },
+  {
+   "id": "commune-5",
+   "nom": "5 rue de la Commune (EY 62, PSMV fiche 35, sans intérêt)",
+   "objet_bdtopo": "BATIMENT0000000302931194",
+   "emprise": [[57.93, 39.23], [53.32, 30.42], [57.77, 27.67], [54.73, 21.52], [54.48, 21.62], [45.66, 28.39], [50.6, 35.54], [52.62, 34.4], [54.2, 37.05], [52.01, 38.2], [53.61, 41.19]],
+   "gabarit": [[53.93, 41.71], [63.55, 35.74], [54.7, 21.48], [45.08, 27.45]],
+   "toit": {
+    "type": "deux-pans",
+    "h_egout": 15.0,
+    "h_faitage": 17.7,
+    "faitage": [[48.18, 32.44], [57.8, 26.47]]
+   },
+   "materiaux": {
+    "murs": "enduit",
+    "toit": "ardoise",
+    "source": "PSMV (façade « moellon enduit ») et photos ; toiture d'ardoise d'après l'orthophoto ; BD TOPO muette",
+    "confiance": "moyenne"
+   },
+   "etages_estimes": 4,
+   "etages": {
+    "n": 4,
+    "source": "PSMV : R+3"
+   },
+   "observation": "Immeuble de rapport éclectique de la fin du XIXe siècle, balcons filants ; escalier XIXe à colonnettes de fonte.",
+   "sources": {
+    "emprise": ["osm"],
+    "forme": ["lidar", "orthophoto"],
+    "hauteurs": ["lidar"]
+   },
+   "confiance": "moyenne",
+   "ajustement": {"points_lidar": 341, "ecart_quadratique_m": 0.65}
+  }
+ ]
+}

@@ -1,0 +1,1 @@
+Images calées (plans anciens, calque PSMV, dessins) référencées dans data/calques.json.

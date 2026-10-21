@@ -1,0 +1,48 @@
+/* Onglet Vues (js/vues.js, js/pieton.js, js/parcours.js) : points de vue, observateur, parcours. Feuille ajoutée par js/vues.js. */
+.choix-projection { display: flex; border: 1px solid var(--ardoise); border-radius: 2px; overflow: hidden; margin: 6px 0; }
+.choix-projection button { all: unset; flex: 1; text-align: center; padding: 6px 4px; font-size: 13px; cursor: pointer; }
+.choix-projection button + button { border-left: 1px solid var(--trait); }
+.choix-projection button[aria-checked='true'] { background: var(--ardoise); color: var(--calque-plein); }
+.choix-projection button:focus-visible { outline: 2px solid var(--ardoise); outline-offset: -3px; }
+.ligne-focale { display: flex; align-items: center; gap: 10px; font-size: 14px; margin: 4px 0 8px; }
+.ligne-focale select, .ajout-vue input, .liste-vues input { font: inherit; font-size: 13px; padding: 3px 5px; border: 1px solid var(--ardoise); border-radius: 2px; background: #fff; color: var(--ardoise); }
+.ajout-vue { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; margin: 6px 0; }
+.liste-vues { list-style: none; margin: 8px 0; padding: 0; display: grid; gap: 5px; }
+.liste-vues li {
+  display: grid; grid-template-columns: 76px minmax(0, 1fr); grid-template-areas: 'img texte' 'img actions'; gap: 2px 8px; align-items: center;
+  padding: 4px; border: 1px solid var(--trait); background: var(--calque-plein); border-radius: 2px;
+}
+.liste-vues li.courante { border-color: var(--ardoise); box-shadow: inset 3px 0 0 var(--ardoise); background: #fff; }
+.liste-vues .vignette-vue { all: unset; grid-area: img; width: 76px; height: 48px; cursor: pointer; background: var(--ciel); display: grid; place-items: center; font-family: var(--serif); }
+.liste-vues .vignette-vue img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.liste-vues .vignette-vue:focus-visible, .liste-vues .nom-vue:focus-visible { outline: 2px solid var(--ardoise); outline-offset: 2px; }
+.liste-vues .texte-vue { grid-area: texte; display: flex; flex-direction: column; min-width: 0; }
+.liste-vues .nom-vue { all: unset; cursor: pointer; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.liste-vues .texte-vue .note { font-size: 11px; margin: 0; }
+.liste-vues .actions-vue { grid-area: actions; display: flex; gap: 3px; flex-wrap: wrap; }
+.liste-vues .mini, .mini-vue {
+  all: unset; cursor: pointer; min-width: 24px; height: 24px; text-align: center; line-height: 24px; font-size: 13px;
+  border: 1px solid var(--trait); border-radius: 2px; background: #fff;
+}
+.liste-vues .mini:disabled { opacity: 0.35; cursor: default; }
+.liste-vues .mini.danger:hover { border-color: var(--coupe); color: var(--coupe); }
+.liste-vues .mini:focus-visible { outline: 2px solid var(--ardoise); }
+@media (max-width: 600px) { .liste-vues .mini { min-width: 32px; height: 32px; line-height: 32px; } }
+.champs-pieton { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 14px; margin: 6px 0; }
+.champs-pieton input { width: 5em; font: inherit; font-size: 13px; padding: 3px 5px; border: 1px solid var(--ardoise); border-radius: 2px; }
+.champs-pieton select { font: inherit; font-size: 13px; padding: 3px 5px; border: 1px solid var(--ardoise); border-radius: 2px; background: #fff; }
+.consigne-pieton:empty { display: none; }
+.consigne-pieton { color: #a8481b; }
+body.vue-pieton #regle-chapitres, body.vue-pieton #carte-chapitre { visibility: hidden; }
+.pad-pieton {
+  position: fixed; z-index: 30; left: 16px; bottom: 120px; display: grid; gap: 6px;
+  grid-template-columns: repeat(3, 52px); grid-template-rows: repeat(2, 52px); grid-template-areas: '. av sortir' 'ga ar dr';
+}
+.pad-pieton[hidden] { display: none; }
+.pad-pieton button {
+  all: unset; display: grid; place-items: center; font-size: 20px; background: var(--calque); color: var(--ardoise);
+  border: 1px solid var(--trait); border-radius: 4px; box-shadow: var(--ombre); touch-action: none; user-select: none;
+}
+.pad-pieton [data-cle='av'] { grid-area: av; } .pad-pieton [data-cle='ga'] { grid-area: ga; }
+.pad-pieton [data-cle='dr'] { grid-area: dr; } .pad-pieton [data-cle='ar'] { grid-area: ar; }
+.pad-pieton .sortir { grid-area: sortir; font-size: 24px; }

@@ -1,0 +1,9 @@
+{
+  "_note": "Images calées sur le sol. Les entrées sans « points » sont en attente de calage : outil Couches > Plans anciens et calques > Caler (mode présentateur), puis enregistrer ce fichier.",
+  "calques": [
+    { "id": "psmv-numerotation-sud", "nom": "PSMV, plan des fiches (partie sud)", "fichier": "psmv-numerotation-sud.jpg", "periode": "A.U.P. 2014", "opacite": 0.7, "altitude": 0.23 },
+    { "id": "psmv-numerotation-nord", "nom": "PSMV, plan des fiches (partie nord)", "fichier": "psmv-numerotation-nord.jpg", "periode": "A.U.P. 2014", "opacite": 0.7, "altitude": 0.235 },
+    { "id": "plan-cacault-1759", "nom": "Plan Cacault", "fichier": "psmv-plan-cacault-1759.jpg", "periode": "1759", "opacite": 0.8, "altitude": 0.24 },
+    { "id": "psmv-plan-historique", "nom": "Plan historique de l'A.U.P.", "fichier": "psmv-plan-historique-aup.jpg", "periode": "synthèse PSMV", "opacite": 0.75, "altitude": 0.245 }
+  ]
+}

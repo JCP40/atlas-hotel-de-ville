@@ -1,0 +1,226 @@
+{
+ "source": "Météo-France, données climatologiques de base horaires, station 44020001 Nantes-Bouguenais, Licence Ouverte Etalab 2.0",
+ "periode": "2016-2025",
+ "jours_valides": 3653,
+ "def": "Journée civile (Europe/Paris), au moins 20 h de mesures ; Tmin = minimum de TN, Tmax = maximum de TX, Tmoy = moyenne horaire de T. Déciles sur la température moyenne journalière. Saison la plus froide / chaude : fenêtre glissante de 31 jours sur la moyenne interannuelle de chaque jour de l'année.",
+ "plus_froid": {
+  "date": "2018-02-28",
+  "tmin": -7.0,
+  "tmax": 0.1,
+  "tmoy": -3.5
+ },
+ "plus_chaud": {
+  "date": "2022-07-18",
+  "tmin": 22.4,
+  "tmax": 42.0,
+  "tmoy": 32.5
+ },
+ "plus_froid_moyenne": {
+  "date": "2016-12-31",
+  "tmin": -4.4,
+  "tmax": -2.8,
+  "tmoy": -3.8
+ },
+ "plus_chaud_moyenne": {
+  "date": "2022-07-18",
+  "tmin": 22.4,
+  "tmax": 42.0,
+  "tmoy": 32.5
+ },
+ "froids": [
+  {
+   "date": "2018-02-28",
+   "tmin": -7.0,
+   "tmax": 0.1,
+   "tmoy": -3.5
+  },
+  {
+   "date": "2017-01-21",
+   "tmin": -6.7,
+   "tmax": 5.8,
+   "tmoy": -0.7
+  },
+  {
+   "date": "2017-01-20",
+   "tmin": -6.5,
+   "tmax": 2.1,
+   "tmoy": -2.2
+  },
+  {
+   "date": "2022-12-10",
+   "tmin": -6.1,
+   "tmax": 6.1,
+   "tmoy": -0.3
+  },
+  {
+   "date": "2021-01-08",
+   "tmin": -5.8,
+   "tmax": 5.6,
+   "tmoy": -0.8
+  },
+  {
+   "date": "2018-02-27",
+   "tmin": -5.3,
+   "tmax": 1.0,
+   "tmoy": -2.7
+  },
+  {
+   "date": "2024-01-20",
+   "tmin": -5.1,
+   "tmax": 4.0,
+   "tmoy": -1.0
+  },
+  {
+   "date": "2021-01-02",
+   "tmin": -4.9,
+   "tmax": 6.4,
+   "tmoy": 0.6
+  },
+  {
+   "date": "2024-01-19",
+   "tmin": -4.8,
+   "tmax": 5.5,
+   "tmoy": -0.1
+  },
+  {
+   "date": "2025-01-14",
+   "tmin": -4.8,
+   "tmax": 4.8,
+   "tmoy": -0.3
+  }
+ ],
+ "chauds": [
+  {
+   "date": "2022-07-18",
+   "tmin": 22.4,
+   "tmax": 42.0,
+   "tmoy": 32.5
+  },
+  {
+   "date": "2020-08-07",
+   "tmin": 18.9,
+   "tmax": 39.6,
+   "tmoy": 28.8
+  },
+  {
+   "date": "2022-06-18",
+   "tmin": 21.4,
+   "tmax": 39.1,
+   "tmoy": 30.4
+  },
+  {
+   "date": "2019-07-23",
+   "tmin": 18.2,
+   "tmax": 38.8,
+   "tmoy": 28.0
+  },
+  {
+   "date": "2019-06-27",
+   "tmin": 24.2,
+   "tmax": 38.6,
+   "tmoy": 31.3
+  },
+  {
+   "date": "2022-08-13",
+   "tmin": 19.6,
+   "tmax": 37.7,
+   "tmoy": 27.0
+  },
+  {
+   "date": "2022-06-17",
+   "tmin": 19.5,
+   "tmax": 37.6,
+   "tmoy": 29.3
+  },
+  {
+   "date": "2025-08-11",
+   "tmin": 19.3,
+   "tmax": 37.0,
+   "tmoy": 27.1
+  },
+  {
+   "date": "2025-06-30",
+   "tmin": 21.2,
+   "tmax": 36.9,
+   "tmoy": 29.1
+  },
+  {
+   "date": "2022-07-13",
+   "tmin": 18.6,
+   "tmax": 36.8,
+   "tmoy": 28.3
+  }
+ ],
+ "deciles": {
+  "p10_tmoy": 5.5,
+  "p90_tmoy": 20.7,
+  "mois_froids": {
+   "1": 35.0,
+   "2": 19.0,
+   "3": 7.3,
+   "4": 1.6,
+   "11": 10.3,
+   "12": 26.6
+  },
+  "mois_chauds": {
+   "5": 5.7,
+   "6": 24.6,
+   "7": 28.6,
+   "8": 28.1,
+   "9": 12.2,
+   "10": 0.5
+  },
+  "episodes_froids": [
+   {
+    "debut": "2022-12-01",
+    "fin": "2022-12-18",
+    "jours": 18,
+    "tmoy": 2.4
+   },
+   {
+    "debut": "2020-12-29",
+    "fin": "2021-01-11",
+    "jours": 14,
+    "tmoy": 1.9
+   },
+   {
+    "debut": "2016-12-27",
+    "fin": "2017-01-07",
+    "jours": 12,
+    "tmoy": 1.6
+   }
+  ],
+  "episodes_chauds": [
+   {
+    "debut": "2022-07-28",
+    "fin": "2022-08-13",
+    "jours": 17,
+    "tmoy": 24.4
+   },
+   {
+    "debut": "2019-07-03",
+    "fin": "2019-07-17",
+    "jours": 15,
+    "tmoy": 22.7
+   },
+   {
+    "debut": "2022-07-08",
+    "fin": "2022-07-19",
+    "jours": 12,
+    "tmoy": 26.2
+   }
+  ]
+ },
+ "saison_froide": {
+  "debut": "12-27",
+  "fin": "01-26",
+  "centre": "01-11",
+  "tmoy": 6.2
+ },
+ "saison_chaude": {
+  "debut": "07-16",
+  "fin": "08-15",
+  "centre": "07-31",
+  "tmoy": 20.6
+ }
+}

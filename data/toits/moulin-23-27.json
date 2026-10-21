@@ -1,0 +1,163 @@
+{
+ "_note": "Toitures des 23 bis, 25 et 27 rue du Moulin (parcelle EO 195). Lues par js/toits.js (même format que data/toits/hotel-de-ville.json). Coordonnées en mètres, repère de l'atlas (x est, z sud), relatives à « origine ». Ni photo de façade ni Panoramax : étages, toit et revêtement seulement.",
+ "titre": "23 bis à 27 rue du Moulin (EO 195)",
+ "id": "moulin-23-27",
+ "origine": {
+  "lat": 47.218385,
+  "lon": -1.55452
+ },
+ "date": "2026-10-14",
+ "remarquable": {
+  "id": "moulin-23-27",
+  "fiche": "moulin-23-27",
+  "etiquette": null
+ },
+ "perimetre": {
+  "description": "parcelle EO 195 (615 m²), 23 bis, 25 et 27 rue du Moulin",
+  "source": "cadastre API Carto IGN (Licence Ouverte Etalab 2.0), contour élargi de 0,5 m",
+  "polygone": [[-24.1, 134.8], [-24.1, 137.8], [-40.4, 140.5], [-40.7, 149.8], [-34.0, 150.1], [-33.8, 153.2], [-33.4, 153.6], [-28.0, 152.2], [-23.9, 160.2], [-23.3, 160.4], [-13.0, 156.9], [-13.9, 149.8], [-6.8, 148.8], [-7.6, 143.4], [-11.3, 134.5], [-13.9, 128.4], [-20.6, 116.0], [-25.2, 119.2], [-21.8, 125.3], [-23.2, 126.2], [-23.2, 127.3], [-19.8, 132.0], [-22.8, 133.6], [-22.9, 134.3]]
+ },
+ "sources": {
+  "bdtopo": "IGN BD TOPO V3, couche batiment (WFS Géoplateforme), Licence Ouverte Etalab 2.0, interrogée le 14/10/2026 (matériaux : codes des fichiers fonciers)",
+  "orthophoto": "IGN BD ORTHO, WMS Géoplateforme, Licence Ouverte Etalab 2.0 : contrôle des couvertures (ardoise grise) et des cours",
+  "lidar": "IGN LiDAR HD, modèle numérique de hauteur (MNH, 50 cm), WMS Géoplateforme, Licence Ouverte Etalab 2.0",
+  "cadastre": "API Carto IGN (parcelle EO 195), Licence Ouverte Etalab 2.0",
+  "osm": "OpenStreetMap, bâtiments way/85440867, 85441463, © contributeurs OpenStreetMap, ODbL",
+  "psmv": "Descriptif du secteur sauvegardé (A.U.P., 2014-2016), fiches 18 et 19 : niveaux, façade, dates"
+ },
+ "methode": "Emprises = bâtiments OSM de l'atlas, découpés par des boîtes en ailes de hauteur homogène (emprise réelle stricte). Toit de chaque aile ajusté automatiquement sur le MNH LiDAR HD (points à 0,5 m à l'intérieur de l'emprise) : deux pans à pignons (faîtage parallèle à un côté du rectangle minimal, position libre), comble brisé ou terrasse, au plus petit écart quadratique ; égout fixé à la main quand le LiDAR mêle le bâtiment aux cours (voir « ajustement »). Étages : PSMV ou BD TOPO (sinon estimés d'après l'égout). Revêtement : BD TOPO (matériaux des murs), précisé par le PSMV ; couverture d'après l'orthophoto. Pas de photo de façade.",
+ "confiance": {
+  "bonne": "forme et hauteurs lisibles sur l'orthophoto et le MNH ; revêtement donné par la BD TOPO et le PSMV concordants",
+  "moyenne": "forme lisible, écart au LiDAR inférieur à 1,2 m ; revêtement d'une seule source ou déduit",
+  "faible": "forme supposée ou écart au LiDAR supérieur à 1,2 m ; revêtement supposé"
+ },
+ "objets_bdtopo": [
+  {
+   "cleabs": "BATIMENT0000000302930690",
+   "identifiants_rnb": "998Q8WHG1R8R",
+   "hauteur": 13.7,
+   "altitude_minimale_sol": 8.4,
+   "altitude_maximale_sol": 9.4,
+   "altitude_minimale_toit": 22.1,
+   "altitude_maximale_toit": 24.7,
+   "nombre_d_etages": 4,
+   "materiaux_des_murs": "10 (pierre)",
+   "materiaux_de_la_toiture": "20 (ardoises)",
+   "usage_1": "Résidentiel",
+   "date_d_apparition": "1966-01-01Z",
+   "corps": ["moulin-nord", "moulin-sud"]
+  },
+  {
+   "cleabs": "BATIMENT0000000302930686",
+   "identifiants_rnb": "B7Z915RBYPET",
+   "hauteur": 7.5,
+   "altitude_minimale_sol": 7.8,
+   "altitude_maximale_sol": 8.7,
+   "altitude_minimale_toit": 15.3,
+   "altitude_maximale_toit": 17.5,
+   "nombre_d_etages": null,
+   "materiaux_des_murs": null,
+   "materiaux_de_la_toiture": null,
+   "usage_1": "Indifférencié",
+   "date_d_apparition": null,
+   "corps": ["moulin-annexe"]
+  }
+ ],
+ "cours": [],
+ "corps": [
+  {
+   "id": "moulin-nord",
+   "nom": "23 bis-27 rue du Moulin, partie nord (EO 195)",
+   "objet_bdtopo": "BATIMENT0000000302930690",
+   "emprise": [[-14.34, 128.65], [-20.73, 116.52], [-24.67, 119.31], [-21.13, 125.45], [-22.75, 126.4], [-22.71, 127.15], [-21.27, 129.24], [-19.03, 132.18], [-19.95, 132.61], [-22.41, 134.0], [-22.34, 134.61], [-23.64, 135.09], [-23.58, 135.5], [-11.48, 135.5]],
+   "toit": {
+    "type": "terrasse",
+    "h_egout": 8.9
+   },
+   "materiaux": {
+    "murs": "enduit",
+    "toit": "ardoise",
+    "source": "BD TOPO : murs en pierre (code 10) ; PSMV : moellon enduit (n° 27) et enduit ciment (n° 23 bis-25) ; couverture ardoise (BD TOPO, orthophoto)",
+    "confiance": "moyenne"
+   },
+   "etages_estimes": 2,
+   "etages": {
+    "n": 2,
+    "source": "PSMV : R+1+c (LiDAR : égout vers 9 m)"
+   },
+   "observation": "Maisons et petit hôtel des XVIIe-XVIIIe siècles, façades modifiées (PSMV fiches 18 et 19, type A ; R+1+c d'après le PSMV) ; la BD TOPO donne 4 étages et 9 logements (1966).",
+   "sources": {
+    "emprise": ["osm"],
+    "forme": ["lidar", "orthophoto"],
+    "hauteurs": ["lidar"]
+   },
+   "confiance": "moyenne",
+   "ajustement": {
+    "points_lidar": 245,
+    "ecart_quadratique_m": 0.69,
+    "remarque": "terrasse à la médiane du LiDAR (comble peu lisible)"
+   }
+  },
+  {
+   "id": "moulin-sud",
+   "nom": "23 bis-27 rue du Moulin, partie sud (EO 195)",
+   "objet_bdtopo": "BATIMENT0000000302930690",
+   "emprise": [[-15.18, 157.29], [-13.46, 156.68], [-14.47, 149.38], [-7.32, 148.53], [-8.11, 143.61], [-11.48, 135.5], [-23.58, 135.5], [-23.51, 135.95], [-23.82, 136.02], [-23.49, 138.26], [-25.73, 138.56], [-25.35, 140.76], [-23.03, 140.37], [-21.24, 152.51], [-26.98, 153.11], [-23.48, 159.92]],
+   "gabarit": [[-26.98, 135.5], [-26.98, 159.92], [-7.32, 159.92], [-7.32, 135.5]],
+   "toit": {
+    "type": "deux-pans",
+    "h_egout": 12.8,
+    "h_faitage": 15.7,
+    "faitage": [[-17.15, 135.5], [-17.15, 159.92]]
+   },
+   "materiaux": {
+    "murs": "enduit",
+    "toit": "ardoise",
+    "source": "BD TOPO : murs en pierre (code 10) ; PSMV : moellon enduit (n° 27) et enduit ciment (n° 23 bis-25) ; couverture ardoise (BD TOPO, orthophoto)",
+    "confiance": "moyenne"
+   },
+   "etages_estimes": 4,
+   "etages": {
+    "n": 4,
+    "source": "BD TOPO : 4 (PSMV : R+1+c)"
+   },
+   "observation": "Maisons et petit hôtel des XVIIe-XVIIIe siècles, façades modifiées (PSMV fiches 18 et 19, type A ; R+1+c d'après le PSMV) ; la BD TOPO donne 4 étages et 9 logements (1966).",
+   "sources": {
+    "emprise": ["osm"],
+    "forme": ["lidar", "orthophoto"],
+    "hauteurs": ["lidar"]
+   },
+   "confiance": "moyenne",
+   "ajustement": {"points_lidar": 810, "ecart_quadratique_m": 0.8}
+  },
+  {
+   "id": "moulin-annexe",
+   "nom": "Annexe sur cour, rue du Moulin (EO 195)",
+   "objet_bdtopo": "BATIMENT0000000302930686",
+   "emprise": [[-40.16, 149.59], [-33.55, 149.64], [-33.27, 153.04], [-27.66, 151.61], [-28.46, 144.88], [-28.83, 144.39], [-40.2, 144.63]],
+   "toit": {
+    "type": "terrasse",
+    "h_egout": 6.9
+   },
+   "materiaux": {
+    "murs": "enduit",
+    "toit": "terrasse",
+    "source": "BD TOPO muette ; enduit supposé d'après le PSMV (extension dans la cour) ; toit-terrasse d'après le LiDAR",
+    "confiance": "faible"
+   },
+   "etages_estimes": 2,
+   "observation": "Annexe basse dans la cour (BD TOPO : hauteur 7,5 m, usage indifférencié).",
+   "sources": {
+    "emprise": ["osm"],
+    "forme": ["lidar", "orthophoto"],
+    "hauteurs": ["lidar"]
+   },
+   "confiance": "moyenne",
+   "ajustement": {"points_lidar": 156, "ecart_quadratique_m": 1.1},
+   "etages": {
+    "n": 2,
+    "source": "estimé d'après l'égout (≈ 3,4 m par niveau)"
+   }
+  }
+ ]
+}

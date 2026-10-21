@@ -1,0 +1,259 @@
+{
+  "_note": "Fiches du site. Textes entre crochets à compléter. Images dans data/medias/. Mise en forme : **gras**, *italique*, [lien](url). Les fiches des parcelles et du PSMV sont produites automatiquement (clic sur une parcelle).",
+  "fiches": [
+    {
+      "id": "mairie",
+      "titre": "L'Hôtel de Ville",
+      "type": "Monument",
+      "chapitre": "enceinte",
+      "etats": {
+        "avant": {
+          "texte": [
+            "[À compléter : l'Hôtel de Ville et ses abords avant les bombardements, d'après les plans et photographies des archives.]"
+          ]
+        },
+        "actuel": {
+          "texte": [
+            "Selon le descriptif du secteur sauvegardé : le **manoir de Derval** (XVe siècle, agrandi en 1605 et 1829), l'**hôtel Monti de Rezé** (début XVIIe), l'**hôtel de Rosmadec** par Gilles Corbineau (1654-1657, modifié par Étienne Coutan en 1929-1936), le **bâtiment des archives** (1899) et les extensions de 1957 et 1979.",
+            "Le bâtiment est *surélevé* et *retranché* par rapport à la rue : grilles, cour, emmarchements.",
+            "Les fiches détaillées (parcelle EY 64) s'ouvrent en cliquant la parcelle avec la couche cadastre."
+          ]
+        }
+      },
+      "images": [
+        {
+          "fichier": "psmv-extrait-cadastral.jpg",
+          "legende": "Extrait du plan cadastral, descriptif du PSMV (A.U.P.)"
+        }
+      ],
+      "source": "Descriptif du secteur sauvegardé, A.U.P. 2014-2016"
+    },
+    {
+      "id": "psmv",
+      "titre": "Le secteur sauvegardé",
+      "type": "Règle",
+      "chapitre": "tissu",
+      "texte": [
+        "Le site est couvert par le Plan de sauvegarde et de mise en valeur (PSMV) de Nantes, révisé et approuvé par arrêté du 12 juin 2017, puis modifié (modification n° 1, enquête publique en 2023).",
+        "**Tissu urbain** : ancien parcellaire laniéré recoupé dans sa longueur par des alignements du XIXe siècle ; largeur moyenne de parcelle de 8 mètres ; densité moyenne à forte.",
+        "**Rues structurantes** : rue Saint-Léonard, place et rue de l'Hôtel de Ville, rue de la Commune, rue Léon Blum, allée de l'Erdre, rue Siméon Foucault, rue Armand Brossard, rue Saint-Vincent, rue Bossuet, rue du Moulin, rue des Trois Croissants, rue Fénelon, rue Fanny Peccot, rue Fléchier.",
+        "Le descriptif compte 73 fiches d'immeubles. L'« intérêt de protection » (type A, type B, sans intérêt…) reprend le classement du document ; sa portée réglementaire est à lire dans le règlement du PSMV."
+      ],
+      "liens": [
+        {
+          "titre": "Descriptif des environs de l'Hôtel de Ville (PDF)",
+          "url": "data/documents/psmv-descriptif-hotel-de-ville.pdf"
+        }
+      ],
+      "source": "Descriptif du secteur sauvegardé, A.U.P. architectes urbanistes, pour le ministère de la Culture (DRAC Pays de la Loire) et Nantes Métropole, 2014-2016"
+    },
+    {
+      "id": "evolution",
+      "titre": "Évolution historique",
+      "type": "Histoire",
+      "chapitre": "evolution",
+      "texte": [
+        "Au sud, des îlots de structure ancienne avec quelques hôtels particuliers antérieurs au XVIIe siècle et deux maisons en pan de bois. Au nord-ouest, l'îlot où s'installe la Retraite des Femmes en 1733, et un second îlot construit après l'arasement de la fortification médiévale, lors de la canalisation de l'Erdre vers la fin du XVIIIe siècle. Les deux immeubles de la place du Port-Communeau sont dessinés par Ceineray avant 1769.",
+        "Le secteur est transformé par les percements de la rue de l'Hôtel de Ville et de la rue de Strasbourg entre 1852 et 1867, puis fortement touché par les bombardements de 1943.",
+        "**Cartes anciennes disponibles dans l'atlas** : carte de Cassini (XVIIIe siècle) et carte de l'état-major (1820-1866) en fond au sol ; plan Cacault de 1759 et plan historique de l'A.U.P. à caler.",
+        "**À chercher** : cadastre napoléonien de Nantes (Archives départementales, 88 feuilles), plans d'Ancien Régime et plans de la ville jusqu'à la Reconstruction (Archives de Nantes), photographies aériennes de 1935 à 1995 (bibliothèque de l'ENSA Nantes)."
+      ],
+      "images": [
+        {
+          "fichier": "psmv-plan-cacault-1759.jpg",
+          "legende": "Extrait du plan Cacault, 1759 (Archives municipales, II 157 n° 6), dans le descriptif du PSMV"
+        },
+        {
+          "fichier": "psmv-plan-historique-aup.jpg",
+          "legende": "Extrait du plan historique, A.U.P."
+        }
+      ],
+      "liens": [
+        {
+          "titre": "Archives de Nantes, iconothèque",
+          "url": "https://archives.nantes.fr/home/rechercher-et-consulter/iconotheque.html"
+        },
+        {
+          "titre": "Cadastre napoléonien de Nantes",
+          "url": "https://france-cadastre.fr/cadastre-ancien/44/nantes/"
+        },
+        {
+          "titre": "Remonter le temps (IGN)",
+          "url": "https://remonterletemps.ign.fr"
+        }
+      ],
+      "source": "Descriptif du secteur sauvegardé, A.U.P."
+    },
+    {
+      "id": "tour-bretagne",
+      "titre": "La Tour Bretagne",
+      "type": "Repère",
+      "chapitre": "situation",
+      "texte": [
+        "Tour de bureaux d'environ 144 m, achevée au milieu des années 1970, émergence moderne à l'ouest du périmètre."
+      ]
+    },
+    {
+      "id": "cathedrale",
+      "titre": "La cathédrale Saint-Pierre-et-Saint-Paul",
+      "type": "Repère",
+      "chapitre": "situation",
+      "texte": [
+        "Construite de 1434 à 1891, émergence gothique à l'est du périmètre. L'axe A relie la Tour Bretagne à la cathédrale."
+      ]
+    },
+    {
+      "id": "bombardements-1943",
+      "titre": "Les bombardements de septembre 1943",
+      "type": "Mémoire",
+      "chapitre": "memoire",
+      "texte": [
+        "Les 16 et 23 septembre 1943, des bombardements alliés frappent le centre de Nantes. Le programme du studio indique par erreur les 12 et 13 septembre.",
+        "Bilan souvent cité, à vérifier aux Archives de Nantes : environ 700 immeubles détruits, 3 000 rendus inhabitables, 10 000 sans-abri.",
+        "Selon le descriptif du PSMV, la majorité des immeubles détruits autour de l'Hôtel de Ville n'a pas été reconstruite, laissant place entre autres au square de l'Amiral-Halgan.",
+        "Le bâti disparu se restitue en volumes bleus, dessinés avec l'outil Relevé sur un plan ancien calé. Leur opacité dit le degré de certitude : **attesté** par un document, **restitué** par déduction, **hypothétique**."
+      ],
+      "liens": [
+        {
+          "titre": "Archives de Nantes",
+          "url": "https://archives.nantes.fr"
+        }
+      ]
+    },
+    {
+      "id": "square-halgan",
+      "titre": "Le square de l'Amiral-Halgan",
+      "type": "Existant",
+      "chapitre": "memoire",
+      "texte": [
+        "Square aménagé à l'emplacement d'immeubles détruits en 1943 et non reconstruits, au sud de la place de l'Hôtel de Ville. L'axe de coupe B le relie à la mairie.",
+        "[À compléter : date d'aménagement, arbres, usages.]"
+      ]
+    },
+    {
+      "id": "parcelle-63",
+      "titre": "La « parcelle 63 » du programme",
+      "type": "Site",
+      "chapitre": "tissu",
+      "texte": [
+        "Deux lectures possibles, à faire confirmer :",
+        "**Hypothèse 1**, numéro cadastral : parcelle **EY 63**, rue de la Commune, entre l'immeuble EY 62 (5 rue de la Commune) et le site de l'Hôtel de Ville (EY 64). C'est elle qui est hachurée sur la maquette.",
+        "**Hypothèse 2**, numéro de fiche du PSMV : fiche n° 63, **3 rue Léon Blum** (parcelle EY 21), jugée « sans intérêt » de protection."
+      ]
+    },
+    {
+      "id": "parcelle-51",
+      "titre": "La « parcelle 51 » du programme",
+      "type": "Site",
+      "chapitre": "tissu",
+      "texte": [
+        "Deux lectures possibles, à faire confirmer :",
+        "**Hypothèse 1**, numéro cadastral : parcelle **EO 51**, voisine des parcelles EO 52 à 55 (11 et 9 rue du Général-Leclerc-de-Hauteclocque). C'est elle qui est hachurée sur la maquette.",
+        "**Hypothèse 2**, numéro de fiche du PSMV : fiche n° 51, **24 ter rue Armand Brossard** (parcelle EY 73), intérêt de type B."
+      ]
+    },
+    {
+      "id": "rue-hotel-de-ville",
+      "titre": "La rue de l'Hôtel de Ville",
+      "type": "Flux",
+      "chapitre": "flux",
+      "texte": [
+        "Percée entre 1852 et 1867 avec la rue de Strasbourg. Une rue *passante* et *frontale* : lignes de bus, arrêts, circulation automobile devant la façade de la mairie.",
+        "[À compléter : lignes et fréquences d'après les horaires Naolib.]"
+      ],
+      "motsCles": [
+        "Passante",
+        "Frontale"
+      ]
+    },
+    {
+      "id": "magnolias",
+      "titre": "Les magnolias",
+      "type": "Existant",
+      "chapitre": "climat",
+      "texte": [
+        "Nantes abrite les collections nationales de magnolias et de camélias agréées par le CCVS. [À compléter : relevé des magnolias du site, espèces, âge ; les ajouter avec l'outil Relevé > Arbre.]"
+      ]
+    },
+    {
+      "id": "climat",
+      "titre": "Le climat du site",
+      "type": "Climat",
+      "chapitre": "climat",
+      "texte": [
+        "Climat océanique doux. Normales 1991-2020 à Nantes-Bouguenais : 12,7 °C en moyenne annuelle, de 3,0 °C (minimales de février) à 25,4 °C (maximales d'août) ; 820 mm de pluie par an, surtout d'octobre à janvier.",
+        "Deux régimes de vent (1971-2000) : sud à ouest-sud-ouest (36,5 % des vents, les plus forts), nord-est (24,7 %, plutôt faibles). L'outil Climat calcule une rose des vents récente et donne les conditions du moment.",
+        "La station est à l'aéroport : le centre-ville, plus minéral, est en général un peu plus chaud, et les rues canalisent le vent."
+      ]
+    },
+    {
+      "id": "ilot-saint-vincent",
+      "titre": "L'îlot Saint-Vincent (27 rue de Strasbourg)",
+      "type": "Existant",
+      "chapitre": "tissu",
+      "texte": [
+        "Petit îlot triangulaire entre la **rue Saint-Vincent**, la **rue de Strasbourg** et la **place Saint-Jean**, en face de l'angle sud-est de l'Hôtel de Ville (parcelle cadastrale **EW 256**, 399 m²), bordé au sud par la rue du Général-Leclerc-de-Hauteclocque.",
+        "Un seul immeuble de rapport (BD TOPO : 1860, 10 logements, commerces) : rez-de-chaussée et entresol commerciaux en granit, quatre étages de tuffeau à balcons filants, **comble brisé** à lucarnes (brisis d'ardoise, terrasson de zinc) ; courette intérieure.",
+        "Maquette détaillée : corniche à 18,4 m (photo redressée), brisis jusqu'à 22,5 m, sommet du terrasson à 25,3 m (LiDAR HD de l'IGN) ; photos de façade sur la rue de Strasbourg, la rue du Général-Leclerc et la place Saint-Jean (Panoramax, immergis, Licence Ouverte 2.0). Pas de fiche du PSMV pour cet îlot dans le descriptif de l'atlas."
+      ],
+      "source": "BD TOPO, LiDAR HD et cadastre de l'IGN ; OpenStreetMap ; Panoramax (immergis)"
+    },
+    {
+      "id": "ilot-commune-saint-vincent",
+      "titre": "L'îlot rue de la Commune – rue Saint-Vincent",
+      "type": "Existant",
+      "chapitre": "tissu",
+      "texte": [
+        "Îlot en face de l'Hôtel de Ville, entre la **rue de la Commune**, la **rue Saint-Vincent** et la rue du Général-Leclerc-de-Hauteclocque (parcelles **EY 59 à 63**, propriété de la Ville de Nantes). Au sud, la parcelle **EY 63** (732 m²) est un jardin non bâti : c'est la « parcelle 63 » du programme dans l'hypothèse cadastrale.",
+        "Cinq maisons et immeubles des XVIIIe et XIXe siècles, quatre bâtiments dans OpenStreetMap (fiches 33 à 37 du PSMV) : **1 rue de la Commune** (maison à boutique, type B), **3 rue de la Commune** (maison à boutique, type A), **5 rue de la Commune** (immeuble éclectique fin XIXe, sans intérêt), **9 rue Saint-Vincent** (immeuble de rapport XVIIIe, type A, bel escalier) et **11 rue Saint-Vincent** (maison à boutique, type B). Vacants pour la plupart en 2013 ; graffitis, barrières et auvent de protection en 2026.",
+        "Maquette détaillée : toits à deux pans ajustés sur le LiDAR HD de l'IGN (égouts de 12,4 à 15,8 m, faîtages jusqu'à 18,5 m), étages du PSMV ; photos de façade du n° 1 (Panoramax, immergis, Licence Ouverte 2.0) et des n° 3, n° 5 et 9 rue Saint-Vincent (photos du PSMV, 2013)."
+      ],
+      "source": "Descriptif du secteur sauvegardé (A.U.P.), fiches 33 à 37 ; BD TOPO, LiDAR HD et cadastre de l'IGN ; OpenStreetMap ; Panoramax (immergis)"
+    },
+    {
+      "id": "ilot-fanny-peccot",
+      "titre": "L'îlot rue Fanny Peccot – rue Saint-Vincent",
+      "type": "Existant",
+      "chapitre": "tissu",
+      "texte": [
+        "Îlot au sud de la rue du Général-Leclerc-de-Hauteclocque, entre la **place de l'Hôtel de Ville**, la **rue Fanny Peccot** et la **rue Saint-Vincent** (parcelles **EO 51 à 55, 199 et 200**). À l'ouest, la parcelle **EO 51** n'est pas bâtie (parking et square).",
+        "Cinq bâtiments (fiches 28 à 32 du PSMV) : **9 rue du Général-Leclerc** (immeuble de rapport éclectique du milieu du XIXe siècle, type A), **11 rue du Général-Leclerc** en deux parties (immeuble de rapport en pierre à comble brisé, type A ; immeuble ordinaire à façade cimentée, type B), **3 rue Saint-Vincent** (résidence Saint-Vincent des Arts, années 1990, sans intérêt) et l'angle du **3 rue Fanny Peccot / 1 rue Saint-Vincent** (immeuble éclectique de la fin du XIXe siècle à angle coupé, type A ; pignon ouest peint d'une fresque au toucan).",
+        "Maquette détaillée : combles brisés, toits à deux pans et terrasses ajustés sur le LiDAR HD de l'IGN (égouts de 12 à 16,2 m, faîtages jusqu'à 19,2 m), étages du PSMV ; photos de façade des n° 9 et 11 rue du Général-Leclerc et du pignon à fresque (Panoramax, immergis, Licence Ouverte 2.0), des n° 1 et 3 rue Saint-Vincent et du 3 rue Fanny Peccot (photos du PSMV, 2013)."
+      ],
+      "source": "Descriptif du secteur sauvegardé (A.U.P.), fiches 28 à 32 ; BD TOPO, LiDAR HD et cadastre de l'IGN ; OpenStreetMap ; Panoramax (immergis)"
+    },
+    {
+      "id": "hotel-de-charette",
+      "titre": "L'hôtel de Charette (29 rue du Moulin, EO 26)",
+      "type": "Existant",
+      "chapitre": "tissu",
+      "texte": [
+        "**Hôtel sur cour** construit vers 1623 et modifié, 29 rue du Moulin (parcelle **EO 26**, 811 m² ; PSMV fiche 3, intérêt de type A) : R+3+c, toitures à pentes multiples, façades en moellon enduit ; extensions dans la cour, 11 logements et un cabinet médical.",
+        "Maquette détaillée : corps principal en L à comble brisé (égout 16 m, sommet 18,9 m), corps ouest sur cour à deux pans (15,2 / 17,5 m), aile en retour à deux pans (11 / 15,9 m), d'après le LiDAR HD de l'IGN ; revêtement enduit (BD TOPO : pierre ; PSMV : moellon enduit), couverture d'ardoise d'après l'orthophoto. Photo de la façade principale sur cour, vue de la rue du Moulin par-dessus le mur de clôture (Panoramax, immergis, 2026, Licence Ouverte 2.0) ; façades sur la rue Bossuet et au nord en teinte (aucune vue exploitable)."
+      ],
+      "source": "Descriptif du secteur sauvegardé (A.U.P.), fiche 3 ; BD TOPO, LiDAR HD, BD ORTHO et cadastre de l'IGN ; OpenStreetMap"
+    },
+    {
+      "id": "moulin-23-27",
+      "titre": "23 bis à 27 rue du Moulin (EO 195)",
+      "type": "Existant",
+      "chapitre": "tissu",
+      "texte": [
+        "Maison (n° 27) et petit hôtel (n° 23 bis-25) des XVIIe-XVIIIe siècles, parcelle **EO 195** (615 m² ; PSMV fiches 18 et 19, type A) : R+1+c d'après le PSMV, façades en moellon enduit et enduit ciment, très dégradées en 2013 ; la BD TOPO donne 4 étages (1966).",
+        "Maquette détaillée : partie nord basse en terrasse (8,9 m, R+1+c), partie sud à deux pans (12,8 / 15,7 m), annexe sur cour en terrasse (6,9 m), d'après le LiDAR HD ; revêtement enduit (BD TOPO : pierre ; PSMV : moellon enduit), couverture d'ardoise. Pas de photo de façade."
+      ],
+      "source": "Descriptif du secteur sauvegardé (A.U.P.), fiches 18 et 19 ; BD TOPO, LiDAR HD, BD ORTHO et cadastre de l'IGN ; OpenStreetMap"
+    },
+    {
+      "id": "fenelon-flechier",
+      "titre": "Rue Fénelon – rue Fléchier (EO 49 et 162)",
+      "type": "Existant",
+      "chapitre": "tissu",
+      "texte": [
+        "Deux parcelles contiguës au sud du square : **EO 49**, 3 rue Fléchier / 2 rue Fanny Peccot, immeuble de rapport éclectique du milieu du XIXe siècle (PSMV fiche 23, type A ; pierre et enduit ; BD TOPO : 5 étages, 1880) ; **EO 162**, 4 et 6 rue Fénelon, hôtels sur cour des XVIIe-XVIIIe siècles (fiches 25 et 26, type A ; moellon enduit ; R+3+c et R+1+a).",
+        "Maquette détaillée : EO 49 en L à deux pans (égouts 17-17,6 m, faîtages jusqu'à 19,9 m) et extension sur cour en terrasse ; EO 162 autour de sa cour, corps sur rue et ailes à deux pans, comble brisé ou terrasse (égouts de 10 à 17,4 m), d'après le LiDAR HD ; revêtements tuffeau (EO 49) et enduit (EO 162), couverture d'ardoise d'après l'orthophoto. Pas de photo de façade."
+      ],
+      "source": "Descriptif du secteur sauvegardé (A.U.P.), fiches 23, 25 et 26 ; BD TOPO, LiDAR HD, BD ORTHO et cadastre de l'IGN ; OpenStreetMap"
+    }
+  ]
+}

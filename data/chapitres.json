@@ -1,0 +1,256 @@
+{
+  "_note": "Chapitres de l'analyse du site. Options : etat, couches, camera {position, cible} en mètres locaux ou {lat, lon, hauteur}, vue (\"3d\" ou \"2d\"), fonds {principal, comparaison} (identifiants de config.json > fonds), coupe, soleil {jour, heure}, roseVents, vueMaquette, fiche. Caméras en mètres locaux (x est, y haut, z sud), relatives à config.origine : le 13/10/2026, passage de l'origine au centroïde de la parcelle EY 64, caméras translatées de (+54,4 ; -35,1) m, sauf les cadrages centrés sur l'origine (chapitres 1, 4 et 6), qui restent centrés sur la mairie. « masque »: true retire un chapitre de la règle sans le supprimer (chapitres 3 « Mémoire de 1943 » et 4 « Évolution historique » masqués le 21/10/2026) ; les chapitres affichés sont renumérotés à la suite.",
+  "chapitres": [
+    {
+      "id": "situation",
+      "numero": 0,
+      "titre": "Entre deux émergences",
+      "sousTitre": "De la Tour Bretagne à la cathédrale",
+      "texte": [
+        "L'Hôtel de Ville se tient entre deux signaux du paysage nantais, la Tour Bretagne à l'ouest et la cathédrale à l'est, au contact du centre commerçant et du quartier administratif.",
+        "Le disque blanc au centre correspond au plateau de la maquette au 1/500."
+      ],
+      "etat": "actuel",
+      "vue": "3d",
+      "couches": {
+        "fantomes": false,
+        "flux": false,
+        "cadastre": false,
+        "psmv": false,
+        "parcelles": false,
+        "batimentsPSMV": false
+      },
+      "roseVents": false,
+      "camera": {
+        "position": [
+          -375.6,
+          340,
+          394.9
+        ],
+        "cible": [
+          -5.6,
+          0,
+          -35.1
+        ]
+      }
+    },
+    {
+      "id": "enceinte",
+      "numero": 1,
+      "titre": "L'Hôtel de Ville",
+      "sousTitre": "Un ensemble d'hôtels réunis derrière une enceinte",
+      "motsSite": [
+        "Retranchée",
+        "Surélevée"
+      ],
+      "texte": [
+        "Manoir de Derval, hôtel de Rosmadec, hôtel Monti de Rezé, bâtiment des archives et extensions du XXe siècle : la mairie assemble des édifices de plusieurs siècles, tenus à distance de la rue par des grilles, une cour et des emmarchements."
+      ],
+      "etat": "actuel",
+      "vue": "3d",
+      "couches": {
+        "cadastre": false,
+        "psmv": false,
+        "batimentsPSMV": false
+      },
+      "camera": {
+        "position": [
+          -85,
+          62,
+          115
+        ],
+        "cible": [
+          0,
+          5,
+          0
+        ]
+      },
+      "fiche": "mairie",
+      "roseVents": false
+    },
+    {
+      "id": "tissu",
+      "numero": 2,
+      "titre": "Le tissu ancien",
+      "sousTitre": "Parcelles, immeubles et protections du secteur sauvegardé",
+      "motsSite": [
+        "Discontinue"
+      ],
+      "texte": [
+        "Un parcellaire laniéré d'environ 8 m de large, recoupé par les alignements du XIXe siècle. Les aplats indiquent les immeubles décrits par le PSMV, du plus foncé (intérêt de type A) au plus clair.",
+        "Parcelles et bâtiments prennent la couleur de leur fiche du PSMV ; les options Couches permettent de masquer ou révéler chaque coloration. Cliquez une parcelle ou un bâtiment pour lire sa fiche."
+      ],
+      "etat": "actuel",
+      "vue": "2d",
+      "couches": {
+        "cadastre": true,
+        "psmv": true,
+        "parcelles": true,
+        "fantomes": false,
+        "batimentsPSMV": true
+      },
+      "camera": {
+        "position": [
+          54.4,
+          260,
+          -35.1
+        ],
+        "cible": [
+          44.4,
+          0,
+          -15.1
+        ]
+      },
+      "fiche": "psmv",
+      "roseVents": false
+    },
+    {
+      "id": "memoire",
+      "numero": 3,
+      "titre": "Mémoire de 1943",
+      "sousTitre": "Le bâti détruit par les bombardements",
+      "motsSite": [
+        "Discontinue"
+      ],
+      "texte": [
+        "Les bombardements des 16 et 23 septembre 1943 ont détruit une grande partie des immeubles ; la plupart n'ont pas été reconstruits, laissant place au square de l'Amiral-Halgan et à des parkings.",
+        "Pour restituer le bâti disparu : caler un plan ancien (plan Cacault, cadastre napoléonien, plans des Archives) dans Couches, puis dessiner les emprises avec l'outil Relevé, sur la vue en plan."
+      ],
+      "etat": "avant",
+      "vue": "3d",
+      "couches": {
+        "fantomes": true,
+        "cadastre": false,
+        "psmv": false,
+        "batimentsPSMV": false
+      },
+      "camera": {
+        "position": [
+          -95.6,
+          70,
+          34.9
+        ],
+        "cible": [
+          2.4,
+          8,
+          -20.1
+        ]
+      },
+      "fiche": "bombardements-1943",
+      "roseVents": false,
+      "masque": true
+    },
+    {
+      "id": "evolution",
+      "numero": 4,
+      "titre": "Évolution historique",
+      "sousTitre": "Comparer les fonds de plan",
+      "texte": [
+        "Glissez le rideau pour comparer la photo aérienne actuelle et celle des années 1950-1965, prise après les bombardements. Les plans du XVIIIe siècle du PSMV peuvent être calés sur la maquette depuis l'outil Couches."
+      ],
+      "etat": "actuel",
+      "vue": "2d",
+      "couches": {
+        "cadastre": false,
+        "psmv": false,
+        "fantomes": false,
+        "batimentsPSMV": false
+      },
+      "fonds": {
+        "principal": "actuelle",
+        "comparaison": "1950-1965"
+      },
+      "camera": {
+        "position": [
+          0,
+          380,
+          0
+        ],
+        "cible": [
+          0,
+          0,
+          0
+        ]
+      },
+      "fiche": "evolution",
+      "roseVents": false,
+      "masque": true
+    },
+    {
+      "id": "flux",
+      "numero": 5,
+      "titre": "Axes et flux",
+      "sousTitre": "Une rue de passage devant la mairie",
+      "motsSite": [
+        "Passante",
+        "Frontale"
+      ],
+      "texte": [
+        "Bus, voitures et stationnements occupent l'espace devant l'Hôtel de Ville. Les rubans sombres montrent le nombre de passages de bus par rue ; les colonnes, les places libres dans les parkings voisins."
+      ],
+      "etat": "actuel",
+      "vue": "3d",
+      "couches": {
+        "flux": true,
+        "fantomes": false,
+        "cadastre": false,
+        "psmv": false,
+        "batimentsPSMV": false
+      },
+      "fonds": {
+        "principal": "",
+        "comparaison": ""
+      },
+      "camera": {
+        "position": [
+          134.4,
+          170,
+          224.9
+        ],
+        "cible": [
+          54.4,
+          0,
+          -15.1
+        ]
+      },
+      "fiche": "rue-hotel-de-ville",
+      "roseVents": false
+    },
+    {
+      "id": "climat",
+      "numero": 6,
+      "titre": "Soleil, vent et climat",
+      "sousTitre": "Le confort de l'espace public",
+      "texte": [
+        "Un climat océanique doux : 12,7 °C en moyenne et 820 mm de pluie par an. Deux régimes de vent : sud à ouest-sud-ouest, les plus fréquents et les plus forts, et nord-est, plus faibles. L'outil Soleil calcule les ombres portées ; l'outil Climat détaille les saisons."
+      ],
+      "etat": "actuel",
+      "vue": "3d",
+      "couches": {
+        "flux": false,
+        "fantomes": false,
+        "cadastre": false,
+        "psmv": false,
+        "batimentsPSMV": false
+      },
+      "roseVents": true,
+      "soleil": {
+        "jour": 172,
+        "heure": 15
+      },
+      "camera": {
+        "position": [
+          -260,
+          300,
+          330
+        ],
+        "cible": [
+          0,
+          0,
+          0
+        ]
+      },
+      "fiche": "climat"
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "description": "Outil Chaleur (onglet Ambiance) : propriétés des matériaux de surface. albedo = réflectance solaire (0 à 1) ; emissivite = émissivité infrarouge ; effusivite = effusivité thermique (J m-2 K-1 s-1/2, racine de conductivité x capacité volumique), qui règle l'inertie dans le modèle force-restore ; evaporation = part du rayonnement net dissipée par évapotranspiration le jour (0 pour un sol minéral) ; transmission = part du soleil qui traverse (verrière). Valeurs moyennes de la littérature, fourchette dans « plage ». Modifiable à la main (ordres de grandeur, matériaux vieillis).",
+  "classes": {
+    "enrobe": { "libelle": "Asphalte / enrobé", "type": "sol", "couleur": "#4a4b4f", "albedo": 0.10, "plage": "0,05 (neuf) à 0,18 (vieilli)", "emissivite": 0.93, "effusivite": 1300, "evaporation": 0, "refs": [1, 2, 3, 5] },
+    "paves": { "libelle": "Pavés de granit", "type": "sol", "couleur": "#8d8b86", "albedo": 0.25, "plage": "0,20 à 0,35", "emissivite": 0.90, "effusivite": 2400, "evaporation": 0, "refs": [1, 2, 7] },
+    "dalles": { "libelle": "Dalles calcaires / béton clair", "type": "sol", "couleur": "#dcd5c3", "albedo": 0.40, "plage": "0,25 (béton vieilli) à 0,50 (calcaire clair)", "emissivite": 0.92, "effusivite": 1700, "evaporation": 0, "refs": [1, 3, 5] },
+    "stabilise": { "libelle": "Stabilisé (sable, gravillons compactés)", "type": "sol", "couleur": "#cbb48a", "albedo": 0.30, "plage": "0,25 à 0,40", "emissivite": 0.92, "effusivite": 1100, "evaporation": 0.05, "refs": [1, 2, 7] },
+    "bois": { "libelle": "Platelage bois", "type": "sol", "couleur": "#9c7650", "albedo": 0.30, "plage": "0,20 (grisé) à 0,40", "emissivite": 0.90, "effusivite": 400, "evaporation": 0, "refs": [1, 6] },
+    "pelouse": { "libelle": "Pelouse / végétal bas", "type": "sol", "couleur": "#86b46b", "albedo": 0.23, "plage": "0,16 à 0,26", "emissivite": 0.97, "effusivite": 1200, "evaporation": 0.45, "refs": [1, 2] },
+    "sousArbres": { "libelle": "Sol sous arbres (terre, paillage, herbe à l'ombre)", "type": "sol", "couleur": "#4e7c49", "albedo": 0.18, "plage": "0,15 à 0,20", "emissivite": 0.96, "effusivite": 1000, "evaporation": 0.30, "refs": [1, 2] },
+    "eau": { "libelle": "Eau (bassin, fontaine, rivière)", "type": "sol", "couleur": "#4a8fc2", "albedo": 0.07, "plage": "0,03 à 0,10 (soleil haut)", "emissivite": 0.96, "effusivite": 15000, "evaporation": 0.30, "refs": [1, 2], "remarque": "Effusivité « effective » d'une eau brassée (bien supérieure à celle de l'eau immobile, 1 580) : la surface varie peu dans la journée." },
+    "ardoise": { "libelle": "Toit en ardoise", "type": "toit", "couleur": "#5d6670", "albedo": 0.10, "plage": "0,08 à 0,15", "emissivite": 0.90, "effusivite": 700, "evaporation": 0, "refs": [1, 4] , "remarque": "Couverture mince sur liteaux et comble : faible inertie effective." },
+    "zinc": { "libelle": "Toit en zinc / métal", "type": "toit", "couleur": "#aeb6bb", "albedo": 0.30, "plage": "0,25 (zinc patiné) à 0,60 (neuf brillant)", "emissivite": 0.25, "effusivite": 150, "evaporation": 0, "refs": [4, 6], "remarque": "Métal patiné : émissivité basse (0,2 à 0,3), il évacue mal sa chaleur par rayonnement ; très faible inertie." },
+    "tuile": { "libelle": "Toit en tuile terre cuite", "type": "toit", "couleur": "#c27a55", "albedo": 0.30, "plage": "0,25 à 0,35", "emissivite": 0.90, "effusivite": 900, "evaporation": 0, "refs": [3, 4] },
+    "terrasse": { "libelle": "Toit-terrasse (étanchéité, gravillons)", "type": "toit", "couleur": "#9a958c", "albedo": 0.15, "plage": "0,05 (bitume) à 0,30 (gravillons clairs)", "emissivite": 0.90, "effusivite": 1300, "evaporation": 0, "refs": [3, 4] },
+    "verriere": { "libelle": "Verrière", "type": "toit", "couleur": "#9fc4d0", "albedo": 0.08, "plage": "réflexion 0,07 à 0,10, transmission 0,6 à 0,8", "emissivite": 0.84, "effusivite": 300, "evaporation": 0, "transmission": 0.70, "refs": [6] }
+  },
+  "references": [
+    { "n": 1, "texte": "Oke T. R., Mills G., Christen A., Voogt J. A. (2017), Urban Climates, Cambridge University Press, annexe A2 (propriétés radiatives et thermiques des matériaux urbains)." },
+    { "n": 2, "texte": "Oke T. R. (1987), Boundary Layer Climates, 2e éd., Routledge, tableaux 1.1 et 1.2 (albédo, émissivité, conductivité, admittance)." },
+    { "n": 3, "texte": "US EPA (2008), Reducing Urban Heat Islands: Compendium of Strategies, chapitres « Cool Pavements » et « Cool Roofs »." },
+    { "n": 4, "texte": "Lawrence Berkeley National Laboratory, Heat Island Group, Cool Roof Materials Database (réflectance solaire et émissivité mesurées)." },
+    { "n": 5, "texte": "Santamouris M. (2013), Using cool pavements as a mitigation strategy to fight urban heat island — A review, Renewable and Sustainable Energy Reviews 26, p. 224-240." },
+    { "n": 6, "texte": "ASHRAE Handbook — Fundamentals (2017), chap. 33 « Physical Properties of Materials » (émissivité des métaux, du verre et du bois)." },
+    { "n": 7, "texte": "ADEME (2021), Plus fraîche ma ville — fiches solutions « revêtements perméables et clairs » ; APUR (2017), Les îlots de chaleur urbains du centre de l'agglomération parisienne." }
+  ],
+  "modele": [
+    "Deardorff J. W. (1978), Efficient prediction of ground surface temperature and moisture, Journal of Geophysical Research 83 (C4), p. 1889-1903 (méthode force-restore).",
+    "Brutsaert W. (1975), On a derivable formula for long-wave radiation from clear skies, Water Resources Research 11, p. 742-744 (émissivité du ciel).",
+    "McAdams W. H. (1954), Heat Transmission, McGraw-Hill (coefficient de convection h = 5,7 + 3,8 v).",
+    "Erbs D. G., Klein S. A., Duffie J. A. (1982), Estimation of the diffuse radiation fraction, Solar Energy 28, p. 293-302."
+  ],
+  "verification": "Revêtements OSM contrôlés sur l'orthophoto IGN (BD ORTHO, WMS Géoplateforme, 0,5 m, téléchargée le 16/10/2026 ; pixels le long des voies, hors ombres portées) : asphalte 51 % foncé et 36 % moyen ; pavés (paving_stones, sett) 45 à 47 % moyen ; stabilisé (compacted) 44 % clair ; espaces verts 50 % végétal (le reste : allées, ombres, houppiers) ; plans d'eau 91 % foncé. L'orthophoto distingue bien le végétal et les sols clairs, mal l'enrobé des pavés gris : elle complète OSM sans le remplacer. Toitures : BD TOPO (materiaux_de_la_toiture) gardée quand la couleur du toit ne la dément pas, sinon couleur de l'orthophoto (voir toitures.json)."
+}

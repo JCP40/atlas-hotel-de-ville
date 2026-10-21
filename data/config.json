@@ -1,0 +1,225 @@
+{
+  "titre": "Hôtel de Ville",
+  "sousTitre": "Atlas du site, Nantes",
+  "auteur": "Jean-Charles Poullain, L3 FPC, ENSA Nantes, 2026-2027",
+  "modeParDefaut": "presentateur",
+  "origine": {
+    "lat": 47.21761,
+    "lon": -1.55452,
+    "nom": "Point choisi dans l'atlas"
+  },
+  "origine_note": "Origine du repère local (x est, z sud, mètres) : centroïde surfacique de la parcelle EY 64, emprise de l'Hôtel de Ville (API Carto IGN, module cadastre, Licence Ouverte Etalab 2.0 ; identique à l'aire amenity=townhall d'OpenStreetMap). Jusqu'au 13/10/2026 : 47.2187, -1.5538, point approximatif au coin nord-est (rue de Strasbourg), 65 m à l'est-nord-est du centre ; les données en mètres locaux ont été translatées de (+54,4 ; -35,1) m. Toute donnée exprimée en mètres locaux dépend de cette origine (voir LISEZMOI.md). Rayons : la parcelle s'étend jusqu'à 94 m du centre, le plateau de 105 m (maquette de 42 cm au 1/500) la contient avec 11 m de marge ; rayonConfort et rayonEtude inchangés.",
+  "adresse": "2 rue de l'Hôtel de Ville, 44000 Nantes",
+  "liens": {
+    "cadastre": {
+      "libelle": "Cadastre",
+      "titre": "Plan cadastral (cadastre.data.gouv.fr, Etalab), centré sur l'Hôtel de Ville",
+      "url": "https://cadastre.data.gouv.fr/map?style=vector#18/47.218385/-1.55452"
+    },
+    "geoportailUrbanisme": {
+      "libelle": "Géoportail de l'urbanisme",
+      "titre": "Documents d'urbanisme (PLUm, secteur sauvegardé, servitudes), centré sur l'Hôtel de Ville",
+      "url": "https://www.geoportail-urbanisme.gouv.fr/map/#tile=1&lon=-1.55452&lat=47.218385&zoom=18"
+    },
+    "googleMaps": {
+      "libelle": "Google Maps",
+      "titre": "Google Maps (plan, photo aérienne, Street View), centré sur l'Hôtel de Ville",
+      "url": "https://www.google.com/maps/@47.218385,-1.55452,19z"
+    }
+  },
+  "liens_note": "Liens externes affichés avec l'adresse en tête du panneau Couches (onglet Site), masqués en mode borne. cadastre.data.gouv.fr lit la position dans l'ancre #zoom/latitude/longitude ; le Géoportail de l'urbanisme dans #tile=1&lon=…&lat=…&zoom=….",
+  "rayonPlateau": 42,
+  "rayonEtude": 420,
+  "rayonConfort": 105,
+  "hauteurNiveau": 3.2,
+  "hauteurParDefaut": 14,
+  "remarquables": [
+    {
+      "id": "mairie",
+      "tag": "amenity",
+      "valeur": "townhall",
+      "nom": "^(Hôtel de Ville|Mairie de Nantes)",
+      "fiche": "mairie",
+      "etiquette": "Hôtel de Ville"
+    },
+    {
+      "id": "tour-bretagne",
+      "nom": "Tour Bretagne",
+      "hauteur": 144,
+      "fiche": "tour-bretagne",
+      "etiquette": "Tour Bretagne"
+    },
+    {
+      "id": "cathedrale",
+      "nom": "Cathédrale|Saint-Pierre-et-Saint-Paul",
+      "hauteur": 38,
+      "fiche": "cathedrale",
+      "etiquette": "Cathédrale"
+    }
+  ],
+  "axes": [
+    {
+      "id": "A",
+      "nom": "Tour Bretagne, cathédrale",
+      "de": {
+        "nom": "^Tour Bretagne$",
+        "repli": [
+          47.21738,
+          -1.55868
+        ]
+      },
+      "a": {
+        "nom": "^Cathédrale",
+        "repli": [
+          47.21817,
+          -1.55053
+        ]
+      }
+    },
+    {
+      "id": "B",
+      "nom": "Mairie, square Amiral-Halgan",
+      "de": {
+        "remarquable": "mairie",
+        "repli": [
+          47.218385,
+          -1.55452
+        ]
+      },
+      "a": {
+        "nom": "Halgan",
+        "repli": [
+          47.2178,
+          -1.5548
+        ]
+      }
+    }
+  ],
+  "flux": {
+    "bus": {
+      "_note": "Passages par heure et par sens, à reprendre des horaires GTFS Naolib (heure de pointe). Clé = numéro de ligne tel qu'il apparaît dans OSM.",
+      "frequenceParDefaut": 6,
+      "frequences": {},
+      "acceleration": 8
+    },
+    "parkings": {
+      "url": "https://data.nantesmetropole.fr/api/explore/v2.1/catalog/datasets/244400404_parkings-publics-nantes-disponibilites/records?limit=100",
+      "rayon": 800,
+      "direct": true
+    }
+  },
+  "soleil": {
+    "lat": 47.218385,
+    "lon": -1.55452
+  },
+  "attente": {
+    "delaiSecondes": 60,
+    "dureeChapitre": 22
+  },
+  "epoques": false,
+  "epoques_note": "false : sélecteur d'époque « Avant 1943 / Aujourd'hui » (en haut à droite) et touches 1 et 2 retirés, l'atlas reste sur « Aujourd'hui ». Code et données gardés : mettre true pour les remettre.",
+  "vueMaquetteParDefaut": true,
+  "vueMaquette_note": "true : au démarrage, vue maquette (plateau de rayonPlateau seul ; bâti, toits, façades, projet et imports coupés net au bord, faces de coupe pochées, socle). Touche M ou case de l'onglet Site > Couches pour revenir à la vue étendue.",
+  "etats": [
+    "avant",
+    "actuel"
+  ],
+  "axes_note": "Extrémités cherchées par leur nom dans OpenStreetMap (« nom » est une expression régulière), sinon position de repli [lat, lon]. On peut aussi donner directement [lat, lon]. « remarquable »: \"mairie\" : centre du périmètre des toitures détaillées (data/toits/hotel-de-ville.json, parcelle EY 64), l'aire townhall d'OSM n'étant pas un bâtiment.",
+  "fonds": [
+    {
+      "id": "plan-ign",
+      "nom": "Plan IGN",
+      "periode": "actuel",
+      "layer": "GEOGRAPHICALGRIDSYSTEMS.PLANIGNV2"
+    },
+    {
+      "id": "osm",
+      "nom": "Carte OpenStreetMap",
+      "periode": "actuel",
+      "type": "xyz",
+      "url": "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+      "zmax": 19,
+      "attribution": "© contributeurs OpenStreetMap."
+    },
+    {
+      "id": "actuelle",
+      "nom": "Photo aérienne actuelle",
+      "periode": "IGN, BD ORTHO",
+      "layer": "ORTHOIMAGERY.ORTHOPHOTOS",
+      "anciensFichiers": [
+        "ortho_actuelle"
+      ]
+    },
+    {
+      "id": "1965-1980",
+      "nom": "Photo aérienne 1965-1980",
+      "periode": "IGN",
+      "layer": "ORTHOIMAGERY.ORTHOPHOTOS.1965-1980"
+    },
+    {
+      "id": "1950-1965",
+      "nom": "Photo aérienne 1950-1965",
+      "periode": "IGN, après les bombardements",
+      "layer": "ORTHOIMAGERY.ORTHOPHOTOS.1950-1965",
+      "anciensFichiers": [
+        "ortho_1950_1965"
+      ],
+      "note": "Prise après 1943 : elle montre les vides laissés par les bombardements et le début de la Reconstruction."
+    },
+    {
+      "id": "etat-major",
+      "nom": "Carte de l'état-major",
+      "periode": "1820-1866, 1/40 000",
+      "layer": "GEOGRAPHICALGRIDSYSTEMS.ETATMAJOR40",
+      "note": "Échelle du territoire : utile pour la ville et l'Erdre avant les comblements, trop grossière pour les parcelles."
+    },
+    {
+      "id": "cassini",
+      "nom": "Carte de Cassini",
+      "periode": "XVIIIe siècle, 1/86 400",
+      "layer": "BNF-IGNF_GEOGRAPHICALGRIDSYSTEMS.CASSINI",
+      "note": "Carte du royaume : situation de la ville close, sans détail parcellaire."
+    },
+    {
+      "id": "google-plan",
+      "nom": "Google Maps, plan",
+      "periode": "clé d'API nécessaire",
+      "type": "google",
+      "mapType": "roadmap",
+      "pasDeCache": true,
+      "attribution": "Carte © Google."
+    }
+  ],
+  "temps": {
+    "_note": "Bâtiments existants construits après 1943 (masqués dans l'état « avant »). Outil Relevé > Identifier un bâtiment, puis Exporter config.json.",
+    "apres1943": []
+  },
+  "parcellesProgramme": [
+    {
+      "section": "EY",
+      "numero": "63",
+      "libelle": "Parcelle 63",
+      "fiche": "parcelle-63",
+      "note": "hypothèse 1 : parcelle cadastrale EY 63 (rue de la Commune, entre EY 62 et le site de la mairie EY 64). Hypothèse 2 : fiche n° 63 du PSMV, 3 rue Léon Blum (parcelle EY 21). À faire confirmer."
+    },
+    {
+      "section": "EO",
+      "numero": "51",
+      "libelle": "Parcelle 51",
+      "fiche": "parcelle-51",
+      "note": "hypothèse 1 : parcelle cadastrale EO 51 (vers la rue du Général-Leclerc-de-Hauteclocque, voisine de EO 52-55). Hypothèse 2 : fiche n° 51 du PSMV, 24 ter rue Armand Brossard (parcelle EY 73). À faire confirmer."
+    }
+  ],
+  "topographie": {
+    "source": "nantes",
+    "pas": 8,
+    "intervalle": 1,
+    "_note": "source : \"nantes\" (modèle numérique de terrain de Nantes Métropole, points tous les 20 m) ou \"ign\" (RGE ALTI). Le fichier data/ign/altimetrie.json, s'il existe, est prioritaire."
+  },
+  "reseaux": [],
+  "reseaux_note": "Jeux de l'Open Data de Nantes Métropole affichés d'office : [{\"id\": \"identifiant-du-jeu\", \"titre\": \"...\"}]. Plus simple : outil Réseaux > Chercher.",
+  "maquette": {
+    "diametreCm": 42,
+    "echelle": 200
+  }
+}

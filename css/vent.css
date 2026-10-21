@@ -1,0 +1,70 @@
+/* Outil Vent (js/vent.js) : rose cliquable, tableau des saisons, graphique mensuel, boussole, bascules.
+   Feuille ajoutée par le module à l'ouverture du panneau (index.html n'est pas modifié). */
+.panneau-vent h3:first-of-type { margin-top: 10px; }
+.panneau-vent .note { margin: 4px 0; }
+.panneau-vent .info-vent { font-size: 12px; color: var(--ardoise); min-height: 2.6em; }
+.panneau-vent .source-vent { font-size: 11px; }
+.panneau-vent .actions.serrees { margin: 6px 0; gap: 4px; }
+.panneau-vent .deux-champs .champ select { padding: 4px 6px; }
+
+/* Rose des vents cliquable (12 secteurs) */
+.rose-conteneur { min-height: 60px; }
+.graphique.rose-vent { max-width: 228px; margin: 2px auto; }
+.rose-vent .secteur { cursor: pointer; outline: none; }
+.rose-vent .tout { fill: #6f93b1; }
+.rose-vent .fort { fill: #2f4f6f; }
+.rose-vent .cible { fill: transparent; }
+.rose-vent .secteur:hover .tout, .rose-vent .secteur:focus-visible .tout { fill: #8fb0c9; }
+.rose-vent .secteur:focus-visible .cible { stroke: var(--ardoise); stroke-width: 1; stroke-dasharray: 2 2; }
+.rose-vent .secteur.actif .tout { fill: #d9a36b; }
+.rose-vent .secteur.actif .fort { fill: #b0602b; }
+.rose-vent .secteur.actif .cible { fill: rgba(217, 163, 107, 0.12); }
+.rose-vent .cardinal { font-family: var(--serif); font-size: 13px; fill: var(--ardoise); }
+.rose-vent .aiguille { stroke: var(--coupe); stroke-width: 1.6; stroke-linecap: round; pointer-events: none; }
+.rose-vent .moyeu { fill: var(--coupe); pointer-events: none; }
+
+/* Bascules à deux positions (vent moyen / fort, avec / sans le projet) */
+.segment-vent { display: flex; margin: 6px 0; border: 1px solid var(--trait); border-radius: 2px; background: var(--calque); padding: 2px; }
+.segment-vent button {
+  flex: 1; appearance: none; border: 0; background: none; cursor: pointer; padding: 4px 6px; min-height: 28px;
+  font: inherit; font-size: 13px; color: var(--ardoise-doux); border-radius: 2px;
+}
+.segment-vent button[aria-pressed='true'] { background: var(--ardoise); color: var(--calque-plein); }
+.segment-vent button:disabled { opacity: 0.45; cursor: default; }
+
+/* Tableau des saisons */
+.tableau-vent { width: 100%; border-collapse: collapse; margin: 8px 0 4px; font-size: 12px; font-variant-numeric: tabular-nums; }
+.tableau-vent caption { text-align: left; font-size: 12px; color: var(--ardoise-doux); padding-bottom: 3px; }
+.tableau-vent th { text-align: right; font-weight: 600; color: var(--ardoise-doux); border-bottom: 1px solid var(--trait); padding: 2px 4px; }
+.tableau-vent td { text-align: right; padding: 3px 4px; border-bottom: 1px dotted var(--trait); }
+.tableau-vent th:first-child, .tableau-vent td:first-child { text-align: left; }
+.tableau-vent tbody tr { cursor: pointer; }
+.tableau-vent tbody tr:hover, .tableau-vent tbody tr:focus-visible { background: rgba(255, 255, 255, 0.7); outline: none; }
+.tableau-vent tbody tr.actif { background: rgba(217, 163, 107, 0.22); box-shadow: inset 3px 0 0 #b0602b; }
+
+/* Graphique mensuel cliquable */
+.graphique-mois .cible { fill: transparent; cursor: pointer; outline: none; }
+.graphique-mois .cible:hover { fill: rgba(47, 59, 69, 0.05); }
+.graphique-mois .cible:focus-visible { stroke: var(--ardoise); stroke-dasharray: 2 2; }
+.graphique-mois .mois-actif { fill: rgba(217, 163, 107, 0.18); }
+
+/* Direction : curseur et boussole */
+.ligne-direction { display: flex; align-items: center; gap: 10px; }
+.ligne-direction input { flex: 1; min-width: 0; }
+.boussole-vent { width: 38px; height: 38px; flex: none; }
+.boussole-vent circle { fill: #fff; stroke: var(--trait); }
+.boussole-vent text { font-family: var(--serif); font-size: 7px; fill: var(--ardoise-doux); }
+.boussole-vent .fleche-boussole { fill: #2f4f6f; transform-origin: 18px 18px; transform-box: view-box; transition: transform 0.2s; }
+.vues-vent .bouton { flex: 1 1 auto; white-space: nowrap; padding-left: 6px; padding-right: 6px; }
+
+/* Flèche de direction posée sur la maquette */
+.etiquette-fleche-vent { font-weight: 600; border-color: #2f4f6f; }
+
+@media (max-width: 820px) {
+  .graphique.rose-vent { max-width: 200px; }
+  .tableau-vent { font-size: 11.5px; }
+  .segment-vent button, .vues-vent .bouton { min-height: 34px; }
+}
+.panneau-vent .titre-action { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.panneau-vent .titre-action > h3 { margin-right: auto; }
+.panneau-vent .titre-action .titre-info { flex: 1; }

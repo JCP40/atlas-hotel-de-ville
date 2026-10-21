@@ -1,0 +1,23 @@
+/* Outil Parcours (js/parcours.js, onglet Vues) : enregistrement, liste et lecture. Feuille ajoutée par le module. */
+.nom-nouveau-parcours { width: 100%; font: inherit; font-size: 13px; padding: 3px 5px; border: 1px solid var(--ardoise); border-radius: 2px; margin: 2px 0 6px; }
+.statut-parcours:empty { display: none; }
+.statut-parcours { color: #1f6680; font-variant-numeric: tabular-nums; }
+.liste-parcours { list-style: none; margin: 8px 0; padding: 0; display: grid; gap: 5px; }
+.liste-parcours li {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto auto auto; gap: 4px; align-items: center;
+  padding: 4px 6px; border: 1px solid var(--trait); background: var(--calque-plein); border-radius: 2px;
+}
+.liste-parcours li.choisi { border-color: #2a7f9e; box-shadow: inset 3px 0 0 #2a7f9e; background: #fff; }
+.liste-parcours .nom-parcours { all: unset; cursor: pointer; display: flex; flex-direction: column; min-width: 0; }
+.liste-parcours .nom-parcours span { font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.liste-parcours .nom-parcours em { font-style: normal; font-size: 11px; color: var(--ardoise-doux); }
+.liste-parcours .nom-parcours:focus-visible { outline: 2px solid #2a7f9e; outline-offset: 2px; }
+.liste-parcours .mini {
+  all: unset; cursor: pointer; min-width: 26px; height: 26px; text-align: center; line-height: 26px; font-size: 13px;
+  border: 1px solid var(--trait); border-radius: 2px; background: #fff;
+}
+.liste-parcours .mini.danger:hover { border-color: var(--coupe); color: var(--coupe); }
+.liste-parcours .mini:focus-visible { outline: 2px solid #2a7f9e; }
+.lecture-parcours { align-items: center; font-size: 14px; }
+.lecture-parcours select { font: inherit; font-size: 13px; padding: 2px 4px; border: 1px solid var(--ardoise); border-radius: 2px; background: #fff; }
+@media (max-width: 600px) { .liste-parcours .mini { min-width: 34px; height: 34px; line-height: 34px; } }

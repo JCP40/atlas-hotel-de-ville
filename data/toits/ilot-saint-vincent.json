@@ -1,0 +1,97 @@
+{
+ "_note": "Toitures de l'îlot Saint-Vincent (triangle entre la rue Saint-Vincent, la rue de Strasbourg et la place Saint-Jean, parcelle EW 256), lues par js/toits.js comme l'Hôtel de Ville (même format, voir data/toits/hotel-de-ville.json). Coordonnées en mètres dans le repère de l'atlas (x vers l'est, z vers le sud), relatives à « origine » (recalées à la lecture si config.origine change). Un seul bâtiment (OSM relation/1273706, BD TOPO BATIMENT0000000302931519) : emprise = bâtiment OSM, courette intérieure OSM en « trous ». Type « comble-brise » : comble brisé sur tout le pourtour, gabarit = emprise (polygone convexe) ; chaque côté porte un brisis (de h_egout à h_brisis sur « retrait » m) puis un terrasson (jusqu'à h_faitage, atteint à « retrait_faitage » m du bord) ; au-delà, terrasse à h_faitage.",
+ "titre": "Îlot Saint-Vincent",
+ "id": "ilot-saint-vincent",
+ "origine": {
+  "lat": 47.218385,
+  "lon": -1.55452
+ },
+ "date": "2026-10-13",
+ "remarquable": {
+  "id": "ilot-saint-vincent",
+  "fiche": "ilot-saint-vincent",
+  "etiquette": null
+ },
+ "perimetre": {
+  "description": "îlot délimité par les axes de la rue Saint-Vincent, de la rue de Strasbourg et de la place Saint-Jean (1 459 m², parcelle EW 256 de 399 m²)",
+  "source": "OpenStreetMap (axes des voies, ODbL) ; cadastre API Carto IGN (Licence Ouverte Etalab 2.0)",
+  "polygone": [[79.0, 4.4], [82.9, 14.6], [82.8, 37.8], [82.9, 45.9], [83.1, 53.7], [102.6, 50.2], [108.2, 49.2], [110.6, 48.8], [121.9, 45.8], [116.6, 36.1], [115.4, 33.0], [112.7, 28.1], [109.0, 21.7], [104.9, 14.5], [92.4, -6.8], [87.6, -3.6], [85.3, -1.7], [81.6, 1.9]]
+ },
+ "sources": {
+  "bdtopo": "IGN BD TOPO V3, couche batiment (WFS Géoplateforme), Licence Ouverte Etalab 2.0, interrogée le 13/10/2026",
+  "orthophoto": "IGN BD ORTHO (ORTHOIMAGERY.ORTHOPHOTOS), WMS Géoplateforme, Licence Ouverte Etalab 2.0 : interprétation visuelle (type de toit, courette)",
+  "lidar": "IGN LiDAR HD, modèle numérique de hauteur (MNH, 50 cm), WMS Géoplateforme, Licence Ouverte Etalab 2.0",
+  "cadastre": "API Carto IGN (cadastre, parcelle EW 256), Licence Ouverte Etalab 2.0",
+  "osm": "OpenStreetMap, bâtiment relation/1273706 (building=apartments, building:levels=5, roof:levels=2), © contributeurs OpenStreetMap, ODbL",
+  "panoramax": "Panoramax (immergis, Licence Ouverte Etalab 2.0) : hauteur de corniche mesurée sur la façade redressée de la rue de Strasbourg (18,2 m) et nombre de niveaux"
+ },
+ "methode": "Emprise = bâtiment OSM de l'atlas (aucun débord sur la rue ni sur la courette). Forme lue sur l'orthophoto (comble brisé ardoise, terrasson zinc clair, lucarnes) ; hauteurs : corniche mesurée sur la photo frontale redressée (rapport hauteur / longueur OSM de la façade, 18,0 à 18,2 m ; la face sud donne 20 m, retenu 18,4 m), brisis, terrasson et sommet ajustés sur le MNH LiDAR HD (1 329 points à 0,5 m dans l'emprise : écart quadratique 0,5 m, 96 % des points à moins de 1 m). Étages : 5 niveaux sous la corniche (photo, OSM building:levels = 5) et 2 niveaux de comble (roof:levels = 2) ; la BD TOPO compte 7 étages.",
+ "confiance": {
+  "bonne": "forme et hauteurs lisibles sur la photo et le MNH",
+  "moyenne": "forme lisible, position du faîtage ou hauteur estimée",
+  "faible": "forme supposée"
+ },
+ "objets_bdtopo": [
+  {
+   "cleabs": "BATIMENT0000000302931519",
+   "identifiants_rnb": "C1NH2H4A8MH9",
+   "hauteur": 21.5,
+   "altitude_minimale_sol": 13.2,
+   "altitude_maximale_sol": 14.0,
+   "altitude_minimale_toit": 34.7,
+   "altitude_maximale_toit": 38.4,
+   "nombre_d_etages": 7,
+   "nombre_de_logements": 10,
+   "materiaux_des_murs": null,
+   "materiaux_de_la_toiture": null,
+   "usage_1": "Commercial et services",
+   "usage_2": "Résidentiel",
+   "date_d_apparition": "1860-01-01Z",
+   "corps": ["immeuble-27-strasbourg"]
+  }
+ ],
+ "cours": [
+  {
+   "nom": "courette intérieure (OSM, inner)",
+   "polygone": [[93.62, 35.27], [93.94, 33.62], [92.84, 33.42], [93.12, 31.01], [94.77, 30.48], [97.1, 34.54], [96.45, 36.29], [94.72, 36.82]],
+   "remarque": "Le MNH donne 25,3 m de hauteur médiane au-dessus de la courette : elle semble couverte (verrière ou lanterneau clair sur l'orthophoto). Laissée vide, comme dans OSM."
+  }
+ ],
+ "corps": [
+  {
+   "id": "immeuble-27-strasbourg",
+   "nom": "Immeuble du 27 rue de Strasbourg (îlot Saint-Vincent)",
+   "objet_bdtopo": "BATIMENT0000000302931519",
+   "emprise": [[86.15, 42.2], [89.23, 44.85], [103.98, 42.19], [106.44, 36.82], [94.89, 16.78], [86.85, 17.08]],
+   "trous": [[[93.62, 35.27], [93.94, 33.62], [92.84, 33.42], [93.12, 31.01], [94.77, 30.48], [97.1, 34.54], [96.45, 36.29], [94.72, 36.82]]],
+   "gabarit": [[86.15, 42.2], [89.23, 44.85], [103.98, 42.19], [106.44, 36.82], [94.89, 16.78], [86.85, 17.08]],
+   "toit": {
+    "type": "comble-brise",
+    "h_egout": 18.4,
+    "h_brisis": 22.5,
+    "retrait": 0.8,
+    "h_faitage": 25.3,
+    "retrait_faitage": 4.5,
+    "toit_terrasson": "zinc"
+   },
+   "materiaux": {
+    "murs": "tuffeau",
+    "toit": "ardoise",
+    "source": "photos Panoramax (façades de pierre blanche) et orthophoto (brisis ardoise, terrasson zinc clair) ; matériaux non renseignés dans la BD TOPO",
+    "confiance": "moyenne"
+   },
+   "etages": {
+    "n": 5,
+    "source": "photo et OpenStreetMap (R+4 sous la corniche, building:levels = 5) ; + 2 niveaux de comble"
+   },
+   "etages_estimes": 5,
+   "observation": "Immeuble de rapport de la fin du XIXe siècle (BD TOPO : 1860) à l'angle de la rue de Strasbourg et de la rue du Général-Leclerc-de-Hauteclocque : rez-de-chaussée et entresol commerciaux en granit, quatre étages de tuffeau à balcons filants, comble brisé à lucarnes (brisis d'ardoise presque vertical, terrasson de zinc). Courette intérieure laissée vide.",
+   "sources": {
+    "emprise": ["osm", "bdtopo"],
+    "forme": ["orthophoto", "lidar"],
+    "hauteurs": ["panoramax", "lidar"]
+   },
+   "confiance": "bonne"
+  }
+ ]
+}

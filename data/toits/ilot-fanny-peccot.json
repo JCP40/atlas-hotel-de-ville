@@ -1,0 +1,346 @@
+{
+ "_note": "Toitures de l'îlot entre la place de l'Hôtel de Ville, la rue du Général-Leclerc-de-Hauteclocque, la rue Saint-Vincent et la rue Fanny Peccot (parcelles EO 51 à 55, 199 et 200), lues par js/toits.js (même format que data/toits/hotel-de-ville.json). Coordonnées en mètres, repère de l'atlas (x est, z sud), relatives à « origine ». Chaque corps = bâtiment OSM (ou partie découpée par une boîte) : emprise réelle stricte, gabarit = rectangle minimal, toit à deux pans (faîtage parallèle à un côté du gabarit, position ajustée), comble brisé (gabarit = enveloppe convexe de l'emprise prolongée de 4 m sur les murs mitoyens) ou terrasse, hauteurs ajustées sur le MNH LiDAR HD. La parcelle EO 51 n'est pas bâtie dans OSM.",
+ "titre": "Îlot rue Fanny Peccot – rue Saint-Vincent",
+ "id": "ilot-fanny-peccot",
+ "origine": {
+  "lat": 47.218385,
+  "lon": -1.55452
+ },
+ "date": "2026-10-14",
+ "remarquable": {
+  "id": "ilot-fanny-peccot",
+  "fiche": "ilot-fanny-peccot",
+  "etiquette": null
+ },
+ "perimetre": {
+  "description": "îlot délimité par les axes de la place de l'Hôtel de Ville, de la rue du Général-Leclerc-de-Hauteclocque, de la rue Saint-Vincent et de la rue Fanny Peccot (2 730 m² ; parcelles EO 51 à 55, 199 et 200)",
+  "source": "OpenStreetMap (axes des voies, ODbL) ; cadastre API Carto IGN (Licence Ouverte Etalab 2.0)",
+  "polygone": [[44.4, 100.7], [53.4, 104.3], [72.4, 111.8], [87.3, 119.7], [85.6, 110.5], [84.7, 98.3], [83.3, 60.7], [83.2, 58.3], [83.1, 53.7], [77.2, 54.6], [29.8, 63.3], [23.4, 64.5], [23.4, 70.2], [23.8, 72.6], [24.5, 78.8], [24.9, 81.7], [25.1, 82.9], [25.8, 85.9], [26.9, 89.0], [28.3, 91.0], [30.5, 93.3], [34.0, 95.6], [36.9, 97.2]]
+ },
+ "sources": {
+  "bdtopo": "IGN BD TOPO V3, couche batiment (WFS Géoplateforme), Licence Ouverte Etalab 2.0, interrogée le 14/10/2026",
+  "orthophoto": "IGN BD ORTHO, WMS Géoplateforme, Licence Ouverte Etalab 2.0 : contrôle visuel des toits et des cours",
+  "lidar": "IGN LiDAR HD, modèle numérique de hauteur (MNH, 50 cm), WMS Géoplateforme, Licence Ouverte Etalab 2.0",
+  "cadastre": "API Carto IGN (parcelles EO 51 à 55, 199, 200), Licence Ouverte Etalab 2.0",
+  "osm": "OpenStreetMap, bâtiments way/85438432, 85439139, 85440055, 85441170, 85440007, © contributeurs OpenStreetMap, ODbL",
+  "psmv": "Descriptif du secteur sauvegardé (A.U.P., 2014-2016), fiches 28 à 32 : niveaux, matériaux, dates"
+ },
+ "methode": "Emprises = bâtiments OSM de l'atlas (aucun corps libre). Toit de chaque corps ajusté automatiquement sur le MNH LiDAR HD (points à 0,5 m à l'intérieur de l'emprise) : deux pans à pignons (faîtage parallèle à un côté du rectangle minimal, position libre) ou terrasse, au plus petit écart quadratique ; comble brisé imposé aux n° 9 et 11 a rue du Général-Leclerc (égout, brisis, terrasson ajustés). Étages : niveaux du PSMV.",
+ "confiance": {
+  "bonne": "forme et hauteurs lisibles sur la photo et le MNH",
+  "moyenne": "forme lisible, écart au LiDAR inférieur à 1,2 m",
+  "faible": "forme supposée ou écart au LiDAR supérieur à 1,2 m"
+ },
+ "objets_bdtopo": [
+  {
+   "cleabs": "BATIMENT0000000302931052",
+   "identifiants_rnb": "Q46CQAACJE52",
+   "hauteur": 16.3,
+   "altitude_minimale_sol": 11.6,
+   "altitude_maximale_sol": 12.5,
+   "altitude_minimale_toit": 28.0,
+   "altitude_maximale_toit": 30.2,
+   "nombre_d_etages": null,
+   "materiaux_des_murs": null,
+   "materiaux_de_la_toiture": null,
+   "usage_1": "Indifférencié",
+   "date_d_apparition": null,
+   "corps": ["leclerc-9"]
+  },
+  {
+   "cleabs": "BATIMENT0000000302931053",
+   "identifiants_rnb": "GSSPWQ7J2TG7",
+   "hauteur": 18.4,
+   "altitude_minimale_sol": 11.0,
+   "altitude_maximale_sol": 11.8,
+   "altitude_minimale_toit": 29.4,
+   "altitude_maximale_toit": 31.7,
+   "nombre_d_etages": 5,
+   "materiaux_des_murs": null,
+   "materiaux_de_la_toiture": null,
+   "usage_1": "Résidentiel",
+   "date_d_apparition": "1870-01-01Z",
+   "corps": ["leclerc-11a"]
+  },
+  {
+   "cleabs": "BATIMENT0000000302931054",
+   "identifiants_rnb": "N7PHQHDNV4R4",
+   "hauteur": 12.5,
+   "altitude_minimale_sol": 10.8,
+   "altitude_maximale_sol": 11.7,
+   "altitude_minimale_toit": 23.3,
+   "altitude_maximale_toit": 26.5,
+   "nombre_d_etages": 4,
+   "materiaux_des_murs": null,
+   "materiaux_de_la_toiture": null,
+   "usage_1": "Résidentiel",
+   "date_d_apparition": "1900-01-01Z",
+   "corps": ["leclerc-11b"]
+  },
+  {
+   "cleabs": "BATIMENT0000000302931051",
+   "identifiants_rnb": "GE2BFDM3V29W",
+   "hauteur": 11.7,
+   "altitude_minimale_sol": 11.3,
+   "altitude_maximale_sol": 12.4,
+   "altitude_minimale_toit": 23.1,
+   "altitude_maximale_toit": 28.5,
+   "nombre_d_etages": 5,
+   "materiaux_des_murs": null,
+   "materiaux_de_la_toiture": null,
+   "usage_1": "Résidentiel",
+   "date_d_apparition": "2000-01-01Z",
+   "corps": ["saint-vincent-3", "saint-vincent-3-terrasses", "saint-vincent-3-cour"]
+  },
+  {
+   "cleabs": "BATIMENT0000000302931050",
+   "identifiants_rnb": "M3ZD9VK3R6FD",
+   "hauteur": 13.8,
+   "altitude_minimale_sol": 11.1,
+   "altitude_maximale_sol": 12.1,
+   "altitude_minimale_toit": 25.0,
+   "altitude_maximale_toit": 28.3,
+   "nombre_d_etages": 5,
+   "materiaux_des_murs": null,
+   "materiaux_de_la_toiture": null,
+   "usage_1": "Résidentiel",
+   "date_d_apparition": "1890-01-01Z",
+   "corps": ["fanny-peccot-3"]
+  }
+ ],
+ "cours": [],
+ "corps": [
+  {
+   "id": "leclerc-9",
+   "nom": "9 rue du Général-Leclerc-de-Hauteclocque (EO 55, PSMV fiche 30, type A)",
+   "objet_bdtopo": "BATIMENT0000000302931052",
+   "emprise": [[56.3, 65.96], [64.06, 76.98], [68.45, 73.38], [67.8, 70.84], [70.04, 70.38], [70.44, 71.72], [77.72, 65.65], [77.69, 65.13], [74.69, 62.57]],
+   "gabarit": [[74.69, 62.57], [52.37, 66.69], [52.39, 66.8], [61.02, 79.58], [62.95, 80.82], [64.86, 80.9], [66.59, 80.07], [77.6, 70.96], [77.69, 65.13]],
+   "toit": {
+    "type": "comble-brise",
+    "h_egout": 16.0,
+    "h_brisis": 16.0,
+    "retrait": 1.2,
+    "h_faitage": 18.7,
+    "retrait_faitage": 6.7,
+    "toit_terrasson": "zinc"
+   },
+   "materiaux": {
+    "murs": "tuffeau",
+    "toit": "ardoise",
+    "source": "PSMV (façade) et photos ; toiture d'après l'orthophoto ; BD TOPO muette",
+    "confiance": "moyenne"
+   },
+   "etages_estimes": 4,
+   "etages": {
+    "n": 4,
+    "source": "PSMV : R+3+c"
+   },
+   "observation": "Immeuble de rapport, belle façade éclectique du milieu du XIXe siècle en pierre, devantures en applique XIXe ; escalier tournant à colonnettes de fonte. Comble brisé (brisis d'ardoise, terrasson de zinc) d'après le LiDAR.",
+   "sources": {
+    "emprise": ["osm"],
+    "forme": ["lidar", "orthophoto"],
+    "hauteurs": ["lidar"]
+   },
+   "confiance": "moyenne",
+   "ajustement": {
+    "points_lidar": 506,
+    "ecart_quadratique_m": 0.6,
+    "remarque": "égout fixé à 16 m d'après la photo de façade (corniche) ; brisis et terrasson ajustés sur le LiDAR"
+   }
+  },
+  {
+   "id": "leclerc-11a",
+   "nom": "11 rue du Général-Leclerc-de-Hauteclocque, partie a (EO 54, PSMV fiche 28, type A)",
+   "objet_bdtopo": "BATIMENT0000000302931053",
+   "emprise": [[39.23, 76.37], [55.56, 73.36], [59.9, 80.47], [64.06, 76.98], [56.3, 65.96], [34.18, 70.08]],
+   "gabarit": [[60.63, 65.16], [56.3, 65.96], [34.18, 70.08], [42.07, 79.91], [58.89, 84.34], [60.78, 84.38], [62.18, 83.76], [66.92, 79.77], [67.78, 78.45], [68.06, 76.9], [67.33, 74.68]],
+   "toit": {
+    "type": "comble-brise",
+    "h_egout": 16.2,
+    "h_brisis": 18.3,
+    "retrait": 1.0,
+    "h_faitage": 19.2,
+    "retrait_faitage": 2.5,
+    "toit_terrasson": "zinc"
+   },
+   "materiaux": {
+    "murs": "tuffeau",
+    "toit": "ardoise",
+    "source": "PSMV (façade) et photos ; toiture d'après l'orthophoto ; BD TOPO muette",
+    "confiance": "moyenne"
+   },
+   "etages_estimes": 4,
+   "etages": {
+    "n": 4,
+    "source": "PSMV : R+3+c"
+   },
+   "observation": "Immeuble de rapport, belle façade éclectique du milieu du XIXe siècle en pierre, comble brisé à lucarnes (photo PSMV) d'après le LiDAR ; OSM : roof:shape double_saltbox.",
+   "sources": {
+    "emprise": ["osm"],
+    "forme": ["lidar", "orthophoto"],
+    "hauteurs": ["lidar"]
+   },
+   "confiance": "faible",
+   "ajustement": {"points_lidar": 659, "ecart_quadratique_m": 1.67}
+  },
+  {
+   "id": "leclerc-11b",
+   "nom": "11 rue du Général-Leclerc-de-Hauteclocque, partie b (EO 52-53, PSMV fiche 29, type B)",
+   "objet_bdtopo": "BATIMENT0000000302931054",
+   "emprise": [[55.11, 84.44], [55.59, 84.06], [51.99, 73.99], [41.8, 75.88], [42.25, 77.82], [40.68, 78.17], [44.74, 83.24], [46.22, 82.72], [47.85, 83.4], [49.44, 87.76]],
+   "gabarit": [[56.07, 85.39], [51.43, 72.43], [40.08, 76.49], [44.71, 89.45]],
+   "toit": {
+    "type": "deux-pans",
+    "h_egout": 12.0,
+    "h_faitage": 14.0,
+    "faitage": [[48.12, 88.24], [43.48, 75.27]]
+   },
+   "materiaux": {
+    "murs": "enduit",
+    "toit": "ardoise",
+    "source": "PSMV (façade) et photos ; toiture d'après l'orthophoto ; BD TOPO muette",
+    "confiance": "moyenne"
+   },
+   "etages_estimes": 3,
+   "etages": {
+    "n": 3,
+    "source": "PSMV : R+2+c"
+   },
+   "observation": "Immeuble ordinaire du milieu du XIXe siècle, façade cimentée ; façade arrière XVIIe modifiée avec tour. Comble à deux pans supposé (LiDAR presque plat, écart élevé).",
+   "sources": {
+    "emprise": ["osm"],
+    "forme": ["lidar", "orthophoto"],
+    "hauteurs": ["lidar"]
+   },
+   "confiance": "faible",
+   "ajustement": {"points_lidar": 387, "ecart_quadratique_m": 1.8}
+  },
+  {
+   "id": "saint-vincent-3",
+   "nom": "3 rue Saint-Vincent, aile sur rue (EO 200, PSMV fiche 31, sans intérêt)",
+   "objet_bdtopo": "BATIMENT0000000302931051",
+   "emprise": [[77.21, 88.71], [77.28, 85.54], [77.72, 65.65], [68.5, 73.34], [68.5, 88.68], [71.59, 88.61]],
+   "gabarit": [[77.21, 88.87], [77.72, 65.65], [68.67, 65.45], [68.16, 88.67]],
+   "toit": {
+    "type": "deux-pans",
+    "h_egout": 14.1,
+    "h_faitage": 16.6,
+    "faitage": [[74.49, 88.81], [75.0, 65.59]]
+   },
+   "materiaux": {
+    "murs": "pierre",
+    "toit": "zinc",
+    "source": "PSMV (béton et placage de pierre, années 1990) et photos ; couverture d'après l'orthophoto",
+    "confiance": "moyenne"
+   },
+   "etages_estimes": 5,
+   "etages": {
+    "n": 5,
+    "source": "PSMV : R+4 et R+5"
+   },
+   "observation": "Collectif des années 1990 (béton et placage de pierre), cour terrasse et puits de jour construits.",
+   "sources": {
+    "emprise": ["osm"],
+    "forme": ["lidar", "orthophoto"],
+    "hauteurs": ["lidar"]
+   },
+   "confiance": "faible",
+   "ajustement": {"points_lidar": 605, "ecart_quadratique_m": 1.32}
+  },
+  {
+   "id": "saint-vincent-3-terrasses",
+   "nom": "3 rue Saint-Vincent, corps bas en terrasse (EO 200)",
+   "objet_bdtopo": "BATIMENT0000000302931051",
+   "emprise": [[68.5, 73.34], [62.5, 78.29], [62.5, 88.81], [68.5, 88.68]],
+   "toit": {
+    "type": "terrasse",
+    "h_egout": 11.5
+   },
+   "materiaux": {
+    "murs": "pierre",
+    "toit": "zinc",
+    "source": "PSMV (béton et placage de pierre, années 1990) et photos ; couverture d'après l'orthophoto",
+    "confiance": "moyenne"
+   },
+   "etages_estimes": 3,
+   "etages": {
+    "n": 3,
+    "source": "estimé d'après le LiDAR (≈ 11,5 m)"
+   },
+   "observation": "Partie basse de la résidence des années 1990, toits-terrasses autour de la cour.",
+   "sources": {
+    "emprise": ["osm"],
+    "forme": ["lidar", "orthophoto"],
+    "hauteurs": ["lidar"]
+   },
+   "confiance": "faible",
+   "ajustement": {"points_lidar": 265, "ecart_quadratique_m": 2.28}
+  },
+  {
+   "id": "saint-vincent-3-cour",
+   "nom": "3 rue Saint-Vincent, cour terrasse sur rez-de-chaussée (EO 200)",
+   "objet_bdtopo": "BATIMENT0000000302931051",
+   "emprise": [[62.5, 78.29], [55.11, 84.44], [55.12, 88.97], [62.5, 88.81]],
+   "toit": {
+    "type": "terrasse",
+    "h_egout": 4.0
+   },
+   "materiaux": {
+    "murs": "pierre",
+    "toit": "zinc",
+    "source": "PSMV (béton et placage de pierre, années 1990) et photos ; couverture d'après l'orthophoto",
+    "confiance": "moyenne"
+   },
+   "etages_estimes": 1,
+   "etages": {
+    "n": 1,
+    "source": "PSMV (cour terrasse construite) et LiDAR (≈ 3,5 m)"
+   },
+   "observation": "Cour terrasse construite sur le rez-de-chaussée, avec puits de jour (PSMV).",
+   "sources": {
+    "emprise": ["osm"],
+    "forme": ["lidar", "orthophoto"],
+    "hauteurs": ["lidar"]
+   },
+   "confiance": "faible",
+   "ajustement": {
+    "points_lidar": 168,
+    "ecart_quadratique_m": 2.73,
+    "remarque": "hauteur fixée à 4 m (fond de cour lu à 3-4 m sur le LiDAR ; bords plus hauts mêlés)"
+   }
+  },
+  {
+   "id": "fanny-peccot-3",
+   "nom": "3 rue Fanny Peccot / 1 rue Saint-Vincent (EO 199, PSMV fiche 32, type A)",
+   "objet_bdtopo": "BATIMENT0000000302931050",
+   "emprise": [[71.59, 88.61], [55.12, 88.97], [55.1, 101.48], [73.69, 108.87], [76.76, 106.89], [77.21, 88.71]],
+   "gabarit": [[77.21, 88.71], [55.13, 88.32], [54.77, 108.53], [76.85, 108.93]],
+   "toit": {
+    "type": "deux-pans",
+    "h_egout": 12.2,
+    "h_faitage": 16.3,
+    "faitage": [[77.1, 94.78], [55.02, 94.38]]
+   },
+   "materiaux": {
+    "murs": "tuffeau",
+    "toit": "ardoise",
+    "source": "PSMV (façade) et photos ; toiture d'après l'orthophoto ; BD TOPO muette",
+    "confiance": "moyenne"
+   },
+   "etages_estimes": 3,
+   "etages": {
+    "n": 3,
+    "source": "PSMV : R+2+c"
+   },
+   "observation": "Immeuble de rapport, belle façade éclectique de la fin du XIXe siècle à angle coupé, pierre et enduit coloré ; ancienne porte cochère à grille en ferronnerie XIXe.",
+   "sources": {
+    "emprise": ["osm"],
+    "forme": ["lidar", "orthophoto"],
+    "hauteurs": ["lidar"]
+   },
+   "confiance": "moyenne",
+   "ajustement": {"points_lidar": 1364, "ecart_quadratique_m": 1.08}
+  }
+ ]
+}

@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 520" width="800" height="520">
+  <rect width="800" height="520" fill="#f6f8f7"/>
+  <g stroke="#2f3b45" stroke-opacity=".25" fill="none"><path d="M60 440 L260 250 L400 360 L520 280 L740 440Z"/><circle cx="620" cy="140" r="40"/></g>
+  <rect x="1" y="1" width="798" height="518" fill="none" stroke="#2f3b45" stroke-opacity=".4"/>
+  <text x="400" y="250" text-anchor="middle" font-family="Georgia, serif" font-size="34" fill="#2f3b45">Photographie</text>
+  <text x="400" y="292" text-anchor="middle" font-family="Arial Narrow, sans-serif" font-size="18" fill="#5b6770">Image à remplacer dans data/medias/</text>
+</svg>

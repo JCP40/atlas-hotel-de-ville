@@ -1,0 +1,17 @@
+# Documents du PSMV : droits non vérifiés, non publiés en ligne
+data/documents/
+data/psmv/photos/
+data/psmv/planches/
+data/psmv/*.jpg
+data/calques/psmv-*
+data/medias/psmv-*
+# Sauvegardes et fichiers temporaires
+data/.sauvegardes/
+__pycache__/
+*.pyc
+.port
+.DS_Store
+Thumbs.db
+desktop.ini
+*.tmp
+*~

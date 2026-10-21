@@ -1,0 +1,35 @@
+/* Outil Chaleur (js/chaleur.js, onglet Ambiance) : matériaux, albédo, température de surface, points chauds. Feuille ajoutée par le module. */
+.chaleur-bandeau { margin: 0 0 8px; padding: 6px 9px; border-left: 3px solid #c0392b; background: #fbeee9; font-size: 13px; line-height: 1.35; }
+.chaleur-bandeau strong { color: #a5281b; text-transform: uppercase; letter-spacing: 0.03em; font-size: 12px; }
+.choix-chaleur { display: flex; flex-wrap: wrap; gap: 4px; margin: 4px 0 6px; }
+.choix-chaleur .bouton.actif { background: var(--ardoise); color: #fff; border-color: var(--ardoise); }
+.legende-titre { margin: 8px 0 2px; font-size: 12px; font-weight: 600; color: var(--ardoise-doux); text-transform: uppercase; letter-spacing: 0.04em; }
+.legende-chaleur { font-size: 12.5px; }
+.liste-corrections { list-style: none; margin: 6px 0; padding: 0; display: grid; gap: 3px; font-size: 13px; }
+.liste-corrections li { display: grid; grid-template-columns: 14px minmax(0, 1fr) auto; gap: 6px; align-items: center; }
+.liste-corrections li.vide { display: block; color: var(--ardoise-doux); }
+.liste-corrections i { width: 14px; height: 10px; border: 1px solid rgba(47, 59, 69, 0.3); }
+.liste-corrections span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.liste-corrections .mini, .liste-chauds .mini {
+  all: unset; cursor: pointer; min-width: 24px; height: 24px; text-align: center; line-height: 24px; font-size: 13px;
+  border: 1px solid var(--trait); border-radius: 2px; background: #fff;
+}
+.liste-corrections .mini:focus-visible, .liste-chauds .mini:focus-visible { outline: 2px solid #c0392b; }
+.bouton.actif { box-shadow: inset 0 0 0 2px #c0392b; }
+.ref-chaleur { font-size: 12px; }
+.liste-chauds { list-style: none; margin: 6px 0; padding: 0; display: grid; gap: 4px; font-size: 13px; }
+.liste-chauds li { display: grid; grid-template-columns: 26px minmax(0, 1fr) auto; gap: 6px; align-items: start; padding: 3px 5px; border: 1px solid var(--trait); background: #fff; border-radius: 2px; }
+.liste-chauds b { display: inline-block; min-width: 22px; text-align: center; color: #fff; border-radius: 2px; font-size: 12px; line-height: 20px; }
+.liste-chauds .chaud b { background: #b2182b; }
+.liste-chauds .frais b { background: #2166ac; }
+.liste-chauds em { display: block; font-style: normal; font-size: 11.5px; color: var(--ardoise-doux); }
+.etiquette.etiquette-chaleur { font-weight: 600; font-size: 12px; padding: 1px 5px; color: #fff; border: none; }
+.etiquette.etiquette-chaleur.chaud { background: #b2182b; }
+.etiquette.etiquette-chaleur.frais { background: #2166ac; }
+@media (max-width: 600px) { .liste-corrections .mini, .liste-chauds .mini { min-width: 34px; height: 34px; line-height: 34px; } }
+.table-chaleur { width: 100%; border-collapse: collapse; font-size: 12.5px; margin: 6px 0; font-variant-numeric: tabular-nums; }
+.table-chaleur th, .table-chaleur td { padding: 2px 4px; border-bottom: 1px solid var(--trait); text-align: right; }
+.table-chaleur th:first-child, .table-chaleur td:first-child { text-align: left; }
+.table-chaleur td i { display: inline-block; width: 12px; height: 9px; margin-right: 5px; border: 1px solid rgba(47, 59, 69, 0.3); vertical-align: -1px; }
+.section-temperature { margin-top: 10px; padding-top: 4px; border-top: 1px solid var(--trait); }
+.liste-chauds li.vide { display: block; padding: 4px 0 0; border: none; background: none; color: var(--ardoise-doux); font-size: 12px; }

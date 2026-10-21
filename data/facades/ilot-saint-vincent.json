@@ -1,0 +1,80 @@
+{
+ "_note": "Photos réelles plaquées sur les façades sur rue de l'îlot Saint-Vincent, lues par js/toits.js en mode « détaillé » (même format que data/facades/hotel-de-ville.json). « gauche » et « droite » : extrémités de la façade vue depuis la rue (mètres, repère de l'atlas, relatifs à « origine »), « normale_az » : direction de la rue (degrés depuis le nord), « hauteur_m » : hauteur couverte (corniche = égout du toit). Images dans data/facades/ilot-saint-vincent/.",
+ "titre": "Photos de façade de l'îlot Saint-Vincent",
+ "id": "ilot-saint-vincent",
+ "date": "2026-10-13",
+ "origine": {
+  "lat": 47.218385,
+  "lon": -1.55452
+ },
+ "rues_bordantes": "D'après OpenStreetMap : rue de Strasbourg (nord-est), rue du Général-Leclerc-de-Hauteclocque (sud), rue Saint-Vincent (ouest), place Saint-Jean (pointe nord).",
+ "methode": "Panoramas 360° Panoramax reprojetés en vue perspective horizontale dont l'axe est perpendiculaire à la façade (le plan de la façade est alors parallèle à l'image : redressement exact, homographie réduite à une mise à l'échelle), recadrés du pied de mur à la corniche puis mis aux dimensions réelles (longueur OSM × hauteur d'égout) ; niveaux et dominante corrigés, JPEG ≤ 300 Ko, ≤ 2048 px.",
+ "confiance": {
+  "bonne": "vue frontale, coins nets, façade entière",
+  "moyenne": "vue frontale lointaine ou masques, proportions corrigées de plus de 5 %",
+  "faible": "vue oblique, coins incertains"
+ },
+ "facades": [
+  {
+   "id": "rue-strasbourg-27",
+   "nom": "27 rue de Strasbourg, façade nord-est",
+   "rue": "rue de Strasbourg",
+   "corps": ["immeuble-27-strasbourg"],
+   "gauche": [106.44, 36.82],
+   "droite": [94.89, 16.78],
+   "normale_az": 60,
+   "hauteur_m": 18.4,
+   "image": "rue-strasbourg-27.jpg",
+   "pixels": [1600, 1274],
+   "source": "Panoramax",
+   "photo": "2079d835-2e63-451a-872f-eba40adb6f80",
+   "lien": "https://api.panoramax.xyz/api/collections/b1cc49ad-6d1c-4308-ae6e-d3d87c8b5ab6/items/2079d835-2e63-451a-872f-eba40adb6f80",
+   "auteur": "immergis",
+   "licence": "Licence Ouverte 2.0 (Etalab)",
+   "date_prise": "2025-07-08",
+   "confiance": "bonne",
+   "remarque": "Vue frontale à 10 m ; reflet du soleil (halo rose) en haut à gauche, deux voitures devant le rez-de-chaussée."
+  },
+  {
+   "id": "rue-leclerc-sud",
+   "nom": "Façade sud, rue du Général-Leclerc-de-Hauteclocque",
+   "rue": "rue du Général-Leclerc-de-Hauteclocque",
+   "corps": ["immeuble-27-strasbourg"],
+   "gauche": [89.23, 44.85],
+   "droite": [103.98, 42.19],
+   "normale_az": 170,
+   "hauteur_m": 18.4,
+   "image": "rue-leclerc-sud.jpg",
+   "pixels": [1536, 1884],
+   "source": "Panoramax",
+   "photo": "b7717286-865c-444e-a9ab-a89b6ccc1b96",
+   "lien": "https://api.panoramax.xyz/api/collections/ff181560-91bc-4000-bfff-3a1fe991e592/items/b7717286-865c-444e-a9ab-a89b6ccc1b96",
+   "auteur": "immergis",
+   "licence": "Licence Ouverte 2.0 (Etalab)",
+   "date_prise": "2026-04-16",
+   "confiance": "moyenne",
+   "remarque": "Vue frontale lointaine (environ 25 m, depuis le carrefour) ; la photo donne une corniche à 20 m pour 15 m de long : image tassée de 10 % en hauteur pour suivre l'égout retenu (18,4 m)."
+  },
+  {
+   "id": "place-saint-jean-pointe",
+   "nom": "Pointe nord, place Saint-Jean",
+   "rue": "place Saint-Jean",
+   "corps": ["immeuble-27-strasbourg"],
+   "gauche": [94.89, 16.78],
+   "droite": [86.85, 17.08],
+   "normale_az": 358,
+   "hauteur_m": 18.4,
+   "image": "place-saint-jean-pointe.jpg",
+   "pixels": [880, 2014],
+   "source": "Panoramax",
+   "photo": "78ebeb08-9acb-4317-90d8-30c811b68727",
+   "lien": "https://api.panoramax.xyz/api/collections/ff181560-91bc-4000-bfff-3a1fe991e592/items/78ebeb08-9acb-4317-90d8-30c811b68727",
+   "auteur": "immergis",
+   "licence": "Licence Ouverte 2.0 (Etalab)",
+   "date_prise": "2026-04-16",
+   "confiance": "moyenne",
+   "remarque": "Vue frontale à 15 m ; branches d'arbre devant le bord droit, voitures devant le rez-de-chaussée."
+  }
+ ],
+ "sans_photo": "Façade ouest sur la rue Saint-Vincent (25 m) : rue de 7 m, panoramas pris à 4-6 m du mur, la façade entière n'est jamais visible (vues rasantes au-delà de 10 m) : laissée en teinte. Pans coupés sud-ouest et sud-est (4 et 6 m) et murs de la courette : en teinte."
+}

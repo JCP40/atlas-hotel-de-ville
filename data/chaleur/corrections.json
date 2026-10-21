@@ -1,0 +1,4 @@
+{
+ "description": "Corrections des matériaux de l'outil Chaleur (onglet Ambiance) : type element (élément OSM, clé osm ou osm#trottoir), disque (centre lat/lon, rayon m), polygone (points lat/lon) ou toit (clé du bâtiment) ; classe = clé de materiaux.json.",
+ "corrections": []
+}

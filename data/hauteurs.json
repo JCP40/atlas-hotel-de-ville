@@ -1,0 +1,29 @@
+{
+  "description": "Hauteurs corrigées par bâtiment (onglet Bâtiments, outil Hauteurs). cle = identifiant OSM / IGN, sinon centre g<lat>,<lon> ; hauteur en mètres au-dessus du sol ; origine = hauteur calculée avant correction.",
+  "hauteurs": [
+    {
+      "cle": "way/903754991",
+      "nom": "Abri de l'arrêt Hôtel de Ville",
+      "hauteur": 2.6,
+      "origine": 14,
+      "lat": 47.21785,
+      "lon": -1.554358
+    },
+    {
+      "cle": "way/903754992",
+      "nom": "Abri de l'arrêt Hôtel de Ville",
+      "hauteur": 2.6,
+      "origine": 14,
+      "lat": 47.217718,
+      "lon": -1.554405
+    },
+    {
+      "cle": "way/903754993",
+      "nom": "Abri de l'arrêt Hôtel de Ville",
+      "hauteur": 2.6,
+      "origine": 14,
+      "lat": 47.217724,
+      "lon": -1.554304
+    }
+  ]
+}

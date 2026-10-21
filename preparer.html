@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Préparer les données de l'atlas</title>
+  <link rel="stylesheet" href="css/atlas.css">
+  <style>
+    html, body { overflow: auto; background: var(--papier); }
+    main { max-width: 760px; margin: 0 auto; padding: 40px 24px 80px; }
+    h1 { font-family: var(--serif); font-weight: 300; font-size: 40px; margin: 0 0 6px; }
+    h2 { font-family: var(--serif); font-weight: 400; font-size: 22px; margin: 32px 0 6px; }
+    p, li { font-family: var(--serif); font-size: 17px; line-height: 1.55; max-width: 64ch; }
+    .etapes { counter-reset: e; list-style: none; padding: 0; }
+    .etapes > li { counter-increment: e; border-top: 1px solid var(--trait); padding: 14px 0 10px 44px; position: relative; }
+    .etapes > li::before { content: counter(e); position: absolute; left: 0; top: 12px; font-family: var(--serif); font-size: 26px; color: var(--ardoise-doux); }
+    .etapes h2 { margin-top: 0; }
+    .sortie { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+    #journal { font-family: var(--sans); font-size: 13px; background: #fff; border: 1px solid var(--trait); padding: 10px 12px; max-height: 220px; overflow: auto; white-space: pre-wrap; }
+    .ok { color: var(--projet); font-weight: 600; font-family: var(--sans); font-size: 14px; }
+    code { font-size: 14px; background: #fff; padding: 1px 4px; border: 1px solid var(--trait); }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Préparer les données</h1>
+    <p>En ligne, l'atlas lit lui-même ses données et les garde en mémoire : cette page ne sert qu'à préparer la version <strong>hors ligne</strong> (borne des portes ouvertes). Elle doit être ouverte avec une connexion internet, via le même serveur que l'atlas.</p>
+    <p id="emprise" class="note"></p>
+
+    <ol class="etapes">
+      <li>
+        <h2>Où enregistrer</h2>
+        <p>Ouverte par le serveur local de l'atlas (<code>lancer-windows.bat</code>, <code>lancer-mac.command</code>), cette page range les fichiers directement dans <code>data</code>, sans rien à choisir ; un fichier remplacé est gardé dans <code>data/.sauvegardes</code>. Autrement, avec Chrome ou Edge, choisissez le dossier <code>data</code> de l'atlas ; à défaut, les fichiers sont téléchargés et il faut les déplacer à la main dans les sous-dossiers indiqués.</p>
+        <div class="sortie"><button type="button" class="bouton" id="choisir-dossier">Choisir le dossier data</button><span id="dossier" class="ok"></span></div>
+      </li>
+      <li>
+        <h2>Bâti, rues, arbres et lignes (OpenStreetMap)</h2>
+        <p>Produit six fichiers pour <code>data/osm/</code>.</p>
+        <div class="sortie"><button type="button" class="bouton principal" id="osm">Télécharger depuis OpenStreetMap</button></div>
+        <div class="sortie" id="sortie-osm"></div>
+      </li>
+      <li>
+        <h2>Hauteurs mesurées du bâti (IGN BD TOPO)</h2>
+        <p>Recommandé : des hauteurs mesurées plutôt que déduites. Produit <code>data/ign/batiments_bdtopo.geojson</code>.</p>
+        <div class="sortie"><button type="button" class="bouton" id="bdtopo">Télécharger la BD TOPO</button></div>
+        <div class="sortie" id="sortie-bdtopo"></div>
+      </li>
+      <li>
+        <h2>Cadastre (IGN)</h2>
+        <p>Parcelles et numéros, reliés aux fiches du PSMV. Produit <code>data/cadastre/parcelles.geojson</code>.</p>
+        <div class="sortie"><button type="button" class="bouton" id="cadastre">Télécharger le cadastre</button></div>
+      </li>
+      <li>
+        <h2>Fonds au sol (IGN)</h2>
+        <p>Photographies aériennes et cartes anciennes. Chaque fond produit une image et son emprise dans <code>data/ign/</code>.</p>
+        <div class="sortie" id="fonds"></div>
+      </li>
+      <li>
+        <h2>Relief (IGN RGE ALTI)</h2>
+        <p>Altitudes sur une grille régulière, pour les courbes de niveau, les profils et l'export. Produit <code>data/ign/altimetrie.json</code>.</p>
+        <div class="sortie"><button type="button" class="bouton" id="relief">Télécharger le relief</button></div>
+      </li>
+      <li>
+        <h2>Météo</h2>
+        <p>Rien à télécharger : la météo de l'atlas (rose des vents, normales, dépassements, météo horaire moyenne du confort) est déjà dans <code>data/meteo/meteo.json</code> et <code>meteo_horaire.json</code>, calculés à partir des mesures horaires de Météo-France à Nantes-Bouguenais. Pour le mettre à jour, voir <code>outils/meteo/</code> et le LISEZMOI.</p>
+      </li>
+      <li>
+        <h2>Instantané des parkings</h2>
+        <p>Disponibilités à l'instant présent, rejouées par la borne hors ligne. Produit <code>data/rejeu/parkings.json</code>. À faire idéalement un jour de semaine en fin de matinée.</p>
+        <div class="sortie"><button type="button" class="bouton" id="parkings">Enregistrer l'instantané</button></div>
+      </li>
+    </ol>
+
+    <h2>Journal</h2>
+    <div id="journal" aria-live="polite"></div>
+    <p><a href="index.html">Revenir à l'atlas</a></p>
+  </main>
+  <script type="module" src="js/preparer.js"></script>
+</body>
+</html>

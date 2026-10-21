@@ -1,0 +1,33 @@
+/* Compléments d'octobre 2026, ajoutés par les modules (index.html n'est pas modifié) :
+   contrôle du soleil toujours visible (js/soleil.js), noms des rues (js/rues.js), liste des jours extrêmes (js/climat.js). */
+.soleil-barre {
+  background: var(--calque); border: 1px solid var(--trait); border-radius: 2px; font-size: 13px; min-width: 210px; max-width: 260px;
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+}
+.soleil-barre > summary {
+  display: flex; align-items: center; gap: 6px; padding: 5px 10px; cursor: pointer; list-style: none; white-space: nowrap;
+}
+.soleil-barre > summary::-webkit-details-marker { display: none; }
+.soleil-barre > summary::after { content: '▾'; margin-left: auto; color: var(--ardoise-doux); font-size: 11px; }
+.soleil-barre:not([open]) > summary::after { content: '▸'; }
+.soleil-barre-icone { color: #c98a14; font-size: 15px; line-height: 1; }
+.soleil-barre-resume { font-variant-numeric: tabular-nums; }
+.soleil-barre-corps { display: grid; gap: 4px; padding: 0 10px 8px; }
+.soleil-barre-corps label { display: grid; grid-template-columns: 42px 1fr auto; align-items: center; gap: 6px; color: var(--ardoise-doux); }
+.soleil-barre-corps input[type='date'] { grid-column: 2 / 4; padding: 2px 4px; border: 1px solid var(--trait); border-radius: 2px; background: #fff; color: var(--ardoise); font-size: 13px; }
+.soleil-barre-corps input[type='range'] { margin: 0; min-width: 0; }
+.soleil-barre-heure { font-variant-numeric: tabular-nums; color: var(--ardoise); min-width: 52px; text-align: right; }
+@media (max-width: 820px) { .soleil-barre { min-width: 0; max-width: 200px; font-size: 12px; } }
+@media (pointer: coarse) { .soleil-barre > summary { padding: 8px 10px; } }
+
+/* Jours extrêmes (outil Climat) */
+.extremes { display: grid; grid-template-columns: max-content 1fr; gap: 3px 10px; margin: 6px 0; font-size: 13px; }
+.extremes dt { color: var(--ardoise-doux); }
+.extremes dd { margin: 0; }
+.liste-extremes { margin: 4px 0; padding-left: 22px; font-size: 13px; font-variant-numeric: tabular-nums; }
+.liste-extremes .note { display: inline; }
+@media (max-width: 820px) { .extremes { grid-template-columns: 1fr; } .extremes dd { margin-bottom: 4px; } }
+
+/* Sélecteur « Moyenne 2016-2025 / année » (Climat et Vent) */
+.selecteur-annee { margin: 4px 0 8px; }
+.selecteur-annee select { font-weight: 600; }

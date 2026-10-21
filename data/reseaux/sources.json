@@ -1,0 +1,43 @@
+{
+ "zone": "cercle 420 m autour de 47.218385,-1.55452",
+ "extraction": "2026-10-15",
+ "gaz.geojson": {
+  "n": 555,
+  "licence": "Licence Ouverte / Open Licence v2.0 (Etalab)",
+  "maj_jeu": "2026-06-05 (donnees); metadonnees 2025-03-24",
+  "url": "https://opendata.grdf.fr/api/explore/v2.1/catalog/datasets/cartographie-du-reseau-grdf-en-service/exports/geojson (filtre within_distance 420 m)",
+  "note": "pas de date de MAJ par troncon: date du jeu"
+ },
+ "elec-bt.geojson": {
+  "n": 804,
+  "licence": "Licence Ouverte / Open Licence v2.0 (Etalab)",
+  "maj_jeu": {
+   "reseau-souterrain-bt": "2026-07-07",
+   "reseau-bt (aerien)": "2026-07-06"
+  },
+  "url": [
+   "https://opendata.enedis.fr/data-fair/api/v1/datasets/reseau-souterrain-bt/lines",
+   "https://opendata.enedis.fr/data-fair/api/v1/datasets/reseau-bt/lines"
+  ],
+  "detail": "souterrain 789 + aerien 15"
+ },
+ "elec-hta.geojson": {
+  "n": 182,
+  "licence": "Licence Ouverte / Open Licence v2.0 (Etalab)",
+  "maj_jeu": {
+   "reseau-souterrain-hta": "2026-07-03",
+   "reseau-hta (aerien)": "2026-07-03, 0 objet"
+  },
+  "url": [
+   "https://opendata.enedis.fr/data-fair/api/v1/datasets/reseau-souterrain-hta/lines",
+   "https://opendata.enedis.fr/data-fair/api/v1/datasets/reseau-hta/lines"
+  ]
+ },
+ "postes.geojson": {
+  "n": 42,
+  "licence": "Licence Ouverte / Open Licence v2.0 (Etalab)",
+  "maj_jeu": "2026-07-03",
+  "url": "https://opendata.enedis.fr/data-fair/api/v1/datasets/poste-electrique/lines"
+ },
+ "methode_enedis": "portail data-fair (ancien data.enedis.fr -> opendata.enedis.fr), bbox puis filtre distance <=420 m local"
+}

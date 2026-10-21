@@ -1,0 +1,4 @@
+{
+ "description": "Points de vue de l'atlas (outil Vues). Positions en WGS84, h = hauteur au-dessus du sol (m) ; focale en mm équivalent 24 × 36 ; projection 3d | axo | plan | face | pieton.",
+ "vues": []
+}

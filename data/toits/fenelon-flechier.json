@@ -1,0 +1,303 @@
+{
+ "_note": "Toitures du 3 rue Fléchier / 2 rue Fanny Peccot (parcelle EO 49) et des 4-6 rue Fénelon (parcelle EO 162), contiguës. Lues par js/toits.js (même format que data/toits/hotel-de-ville.json). Coordonnées en mètres, repère de l'atlas (x est, z sud), relatives à « origine ». Ni photo de façade ni Panoramax : étages, toit et revêtement seulement.",
+ "titre": "Îlot rue Fénelon – rue Fléchier (EO 49 et 162)",
+ "id": "fenelon-flechier",
+ "origine": {
+  "lat": 47.218385,
+  "lon": -1.55452
+ },
+ "date": "2026-10-14",
+ "remarquable": {
+  "id": "fenelon-flechier",
+  "fiche": "fenelon-flechier",
+  "etiquette": null
+ },
+ "perimetre": {
+  "description": "parcelles EO 49 (413 m², 3 rue Fléchier / 2 rue Fanny Peccot) et EO 162 (494 m², 4 et 6 rue Fénelon)",
+  "source": "cadastre API Carto IGN (Licence Ouverte Etalab 2.0), contour élargi de 0,5 m",
+  "polygone": [[24.4, 95.7], [23.7, 98.3], [24.9, 99.3], [22.9, 105.5], [15.0, 107.9], [19.0, 120.7], [11.1, 123.9], [11.2, 125.6], [5.4, 127.5], [9.3, 142.8], [35.9, 138.7], [33.0, 118.4], [44.9, 115.5], [38.9, 101.4], [25.0, 95.6]]
+ },
+ "sources": {
+  "bdtopo": "IGN BD TOPO V3, couche batiment (WFS Géoplateforme), Licence Ouverte Etalab 2.0, interrogée le 14/10/2026 (matériaux : codes des fichiers fonciers)",
+  "orthophoto": "IGN BD ORTHO, WMS Géoplateforme, Licence Ouverte Etalab 2.0 : contrôle des couvertures (ardoise grise) et des cours",
+  "lidar": "IGN LiDAR HD, modèle numérique de hauteur (MNH, 50 cm), WMS Géoplateforme, Licence Ouverte Etalab 2.0",
+  "cadastre": "API Carto IGN (parcelles EO 49 et EO 162), Licence Ouverte Etalab 2.0",
+  "osm": "OpenStreetMap, bâtiments relation/1273644, relation/1273660, © contributeurs OpenStreetMap, ODbL",
+  "psmv": "Descriptif du secteur sauvegardé (A.U.P., 2014-2016), fiches 23, 25 et 26 : niveaux, façade, dates"
+ },
+ "methode": "Emprises = bâtiments OSM de l'atlas, découpés par des boîtes en ailes de hauteur homogène (emprise réelle stricte). Toit de chaque aile ajusté automatiquement sur le MNH LiDAR HD (points à 0,5 m à l'intérieur de l'emprise) : deux pans à pignons (faîtage parallèle à un côté du rectangle minimal, position libre), comble brisé ou terrasse, au plus petit écart quadratique ; égout fixé à la main quand le LiDAR mêle le bâtiment aux cours (voir « ajustement »). Étages : PSMV ou BD TOPO (sinon estimés d'après l'égout). Revêtement : BD TOPO (matériaux des murs), précisé par le PSMV ; couverture d'après l'orthophoto. Pas de photo de façade.",
+ "confiance": {
+  "bonne": "forme et hauteurs lisibles sur l'orthophoto et le MNH ; revêtement donné par la BD TOPO et le PSMV concordants",
+  "moyenne": "forme lisible, écart au LiDAR inférieur à 1,2 m ; revêtement d'une seule source ou déduit",
+  "faible": "forme supposée ou écart au LiDAR supérieur à 1,2 m ; revêtement supposé"
+ },
+ "objets_bdtopo": [
+  {
+   "cleabs": "BATIMENT0000000302930837",
+   "identifiants_rnb": "F7BYH72MVBVA",
+   "hauteur": 17.2,
+   "altitude_minimale_sol": 9.7,
+   "altitude_maximale_sol": 11,
+   "altitude_minimale_toit": 27,
+   "altitude_maximale_toit": 30.6,
+   "nombre_d_etages": 5,
+   "materiaux_des_murs": "10 (pierre)",
+   "materiaux_de_la_toiture": "10 (tuiles)",
+   "usage_1": "Résidentiel",
+   "date_d_apparition": "1880-01-01Z",
+   "corps": ["flechier-3-nord", "flechier-3", "flechier-3-annexe"]
+  },
+  {
+   "cleabs": "BATIMENT0000000302930839",
+   "identifiants_rnb": "1NJ5XXAZ58Y5",
+   "hauteur": 15.1,
+   "altitude_minimale_sol": 9.1,
+   "altitude_maximale_sol": 10.7,
+   "altitude_minimale_toit": 24.2,
+   "altitude_maximale_toit": 27.4,
+   "nombre_d_etages": 5,
+   "materiaux_des_murs": "12 (pierre et meulière)",
+   "materiaux_de_la_toiture": "20 (ardoises)",
+   "usage_1": "Résidentiel",
+   "date_d_apparition": "1740-01-01Z",
+   "corps": ["fenelon-sud", "fenelon-nord", "fenelon-ouest", "fenelon-est"]
+  }
+ ],
+ "cours": [],
+ "corps": [
+  {
+   "id": "flechier-3-annexe",
+   "nom": "3 rue Fléchier, extension sur cour (EO 49)",
+   "objet_bdtopo": "BATIMENT0000000302930837",
+   "emprise": [[19.63, 120.93], [26.5, 119.33], [26.5, 108.5], [24.0, 108.5], [24.0, 103.88], [23.36, 105.9], [15.54, 108.07]],
+   "toit": {
+    "type": "terrasse",
+    "h_egout": 7.4
+   },
+   "materiaux": {
+    "murs": "tuffeau",
+    "toit": "ardoise",
+    "source": "BD TOPO : murs en pierre (code 10) ; PSMV : pierre et enduit ; couverture ardoise d'après l'orthophoto (la BD TOPO indique des tuiles, démenties par la photo)",
+    "confiance": "bonne"
+   },
+   "etages_estimes": 2,
+   "observation": "Immeuble de rapport éclectique du milieu du XIXe siècle, surélevé d'un niveau (PSMV fiche 23, type A ; R+2+c d'après le PSMV) ; BD TOPO : 1880, 11 logements. Extension et dépendances sur la cour.",
+   "sources": {
+    "emprise": ["osm"],
+    "forme": ["lidar", "orthophoto"],
+    "hauteurs": ["lidar"]
+   },
+   "confiance": "moyenne",
+   "ajustement": {"points_lidar": 297, "ecart_quadratique_m": 0.98},
+   "etages": {
+    "n": 2,
+    "source": "estimé d'après l'égout (≈ 3,4 m par niveau)"
+   }
+  },
+  {
+   "id": "flechier-3-nord",
+   "nom": "3 rue Fléchier / 2 rue Fanny Peccot, aile sur la rue Fanny Peccot (EO 49)",
+   "objet_bdtopo": "BATIMENT0000000302930837",
+   "emprise": [[41.44, 108.5], [38.62, 101.84], [24.8, 96.05], [24.16, 97.97], [25.49, 99.17], [24.0, 103.88], [24.0, 108.5]],
+   "gabarit": [[24.0, 108.5], [41.44, 108.5], [41.44, 96.05], [24.0, 96.05]],
+   "toit": {
+    "type": "deux-pans",
+    "h_egout": 17.6,
+    "h_faitage": 19.9,
+    "faitage": [[24.0, 102.9], [41.44, 102.9]]
+   },
+   "materiaux": {
+    "murs": "tuffeau",
+    "toit": "ardoise",
+    "source": "BD TOPO : murs en pierre (code 10) ; PSMV : pierre et enduit ; couverture ardoise d'après l'orthophoto (la BD TOPO indique des tuiles, démenties par la photo)",
+    "confiance": "bonne"
+   },
+   "etages_estimes": 5,
+   "etages": {
+    "n": 5,
+    "source": "BD TOPO et OSM : 5 (PSMV : R+2+c surélevé)"
+   },
+   "observation": "Immeuble de rapport éclectique du milieu du XIXe siècle, surélevé d'un niveau (PSMV fiche 23, type A ; R+2+c d'après le PSMV) ; BD TOPO : 1880, 11 logements.",
+   "sources": {
+    "emprise": ["osm"],
+    "forme": ["lidar", "orthophoto"],
+    "hauteurs": ["lidar"]
+   },
+   "confiance": "moyenne",
+   "ajustement": {"points_lidar": 375, "ecart_quadratique_m": 0.74}
+  },
+  {
+   "id": "flechier-3",
+   "nom": "3 rue Fléchier, aile sur la rue Fléchier (EO 49)",
+   "objet_bdtopo": "BATIMENT0000000302930837",
+   "emprise": [[35.09, 117.45], [44.34, 115.37], [41.44, 108.5], [26.5, 108.5], [26.5, 119.33], [32.44, 117.95]],
+   "trous": [[[32.61, 115.2], [27.91, 116.42], [26.5, 110.93], [30.3, 110.03]]],
+   "gabarit": [[26.5, 108.5], [26.5, 119.33], [44.34, 119.33], [44.34, 108.5]],
+   "toit": {
+    "type": "deux-pans",
+    "h_egout": 17.0,
+    "h_faitage": 18.3,
+    "faitage": [[38.99, 108.5], [38.99, 119.33]]
+   },
+   "materiaux": {
+    "murs": "tuffeau",
+    "toit": "ardoise",
+    "source": "BD TOPO : murs en pierre (code 10) ; PSMV : pierre et enduit ; couverture ardoise d'après l'orthophoto (la BD TOPO indique des tuiles, démenties par la photo)",
+    "confiance": "bonne"
+   },
+   "etages_estimes": 5,
+   "etages": {
+    "n": 5,
+    "source": "BD TOPO et OSM : 5 (PSMV : R+2+c surélevé)"
+   },
+   "observation": "Immeuble de rapport éclectique du milieu du XIXe siècle, surélevé d'un niveau (PSMV fiche 23, type A ; R+2+c d'après le PSMV) ; BD TOPO : 1880, 11 logements.",
+   "sources": {
+    "emprise": ["osm"],
+    "forme": ["lidar", "orthophoto"],
+    "hauteurs": ["lidar"]
+   },
+   "confiance": "faible",
+   "ajustement": {
+    "points_lidar": 239,
+    "ecart_quadratique_m": 3.83,
+    "remarque": "égout fixé à 17 m (comme l'aile sur la rue Fanny Peccot) ; écart dû à la cour décalée de 1 à 2 m entre OSM et le LiDAR"
+   }
+  },
+  {
+   "id": "fenelon-sud",
+   "nom": "4-6 rue Fénelon, corps sur rue (EO 162)",
+   "objet_bdtopo": "BATIMENT0000000302930839",
+   "emprise": [[9.48, 142.24], [35.63, 138.24], [35.12, 135.0], [7.71, 135.0]],
+   "gabarit": [[35.63, 138.24], [34.5, 130.89], [7.71, 135.0], [8.84, 142.34]],
+   "toit": {
+    "type": "deux-pans",
+    "h_egout": 16.0,
+    "h_faitage": 17.0,
+    "faitage": [[27.59, 139.47], [26.46, 132.13]]
+   },
+   "materiaux": {
+    "murs": "enduit",
+    "toit": "ardoise",
+    "source": "BD TOPO : murs en pierre et meulière (code 12) ; PSMV : moellon enduit ; couverture ardoise (BD TOPO, orthophoto)",
+    "confiance": "bonne"
+   },
+   "etages_estimes": 4,
+   "etages": {
+    "n": 4,
+    "source": "PSMV : R+3+c (n° 4) ; BD TOPO : 5"
+   },
+   "observation": "Hôtels sur cour des XVIIe-XVIIIe siècles (PSMV fiches 25 et 26, type A : n° 4 classique nantais R+3+c, n° 6 R+1+a) ; BD TOPO : 1740, 20 logements.",
+   "sources": {
+    "emprise": ["osm"],
+    "forme": ["lidar", "orthophoto"],
+    "hauteurs": ["lidar"]
+   },
+   "confiance": "faible",
+   "ajustement": {
+    "points_lidar": 304,
+    "ecart_quadratique_m": 2.99,
+    "remarque": "égout fixé à 16 m ; écart dû au bord sud d'OSM décalé de 1 à 2 m par rapport au LiDAR"
+   }
+  },
+  {
+   "id": "fenelon-nord",
+   "nom": "4-6 rue Fénelon, aile nord sur cour (EO 162)",
+   "objet_bdtopo": "BATIMENT0000000302930839",
+   "emprise": [[32.44, 117.95], [19.63, 120.93], [11.37, 124.32], [11.53, 124.9], [33.55, 124.9]],
+   "gabarit": [[32.3, 113.96], [18.42, 117.11], [11.37, 124.32], [11.53, 124.9], [33.55, 124.9], [36.35, 117.17], [34.83, 114.75]],
+   "toit": {
+    "type": "comble-brise",
+    "h_egout": 14.0,
+    "h_brisis": 14.8,
+    "retrait": 1.0,
+    "h_faitage": 16.3,
+    "retrait_faitage": 2.5,
+    "toit_terrasson": "zinc"
+   },
+   "materiaux": {
+    "murs": "enduit",
+    "toit": "ardoise",
+    "source": "BD TOPO : murs en pierre et meulière (code 12) ; PSMV : moellon enduit ; couverture ardoise (BD TOPO, orthophoto)",
+    "confiance": "bonne"
+   },
+   "etages_estimes": 4,
+   "observation": "Hôtels sur cour des XVIIe-XVIIIe siècles (PSMV fiches 25 et 26, type A : n° 4 classique nantais R+3+c, n° 6 R+1+a) ; BD TOPO : 1740, 20 logements.",
+   "sources": {
+    "emprise": ["osm"],
+    "forme": ["lidar", "orthophoto"],
+    "hauteurs": ["lidar"]
+   },
+   "confiance": "faible",
+   "ajustement": {
+    "points_lidar": 171,
+    "ecart_quadratique_m": 1.62,
+    "remarque": "égout fixé à 14 m ; brisis et terrasson ajustés"
+   },
+   "etages": {
+    "n": 4,
+    "source": "estimé d'après l'égout (≈ 3,4 m par niveau)"
+   }
+  },
+  {
+   "id": "fenelon-ouest",
+   "nom": "4-6 rue Fénelon, aile ouest sur cour (EO 162)",
+   "objet_bdtopo": "BATIMENT0000000302930839",
+   "emprise": [[5.95, 127.63], [7.61, 134.6], [13.6, 134.6], [13.6, 130.33], [12.91, 127.83], [13.6, 127.57], [13.6, 124.9], [11.53, 124.9], [11.8, 125.92]],
+   "gabarit": [[13.6, 134.6], [13.6, 124.9], [5.95, 124.9], [5.95, 134.6]],
+   "toit": {
+    "type": "deux-pans",
+    "h_egout": 10.1,
+    "h_faitage": 12.5,
+    "faitage": [[11.31, 134.6], [11.31, 124.9]]
+   },
+   "materiaux": {
+    "murs": "enduit",
+    "toit": "ardoise",
+    "source": "BD TOPO : murs en pierre et meulière (code 12) ; PSMV : moellon enduit ; couverture ardoise (BD TOPO, orthophoto)",
+    "confiance": "bonne"
+   },
+   "etages_estimes": 3,
+   "observation": "Hôtels sur cour des XVIIe-XVIIIe siècles (PSMV fiches 25 et 26, type A : n° 4 classique nantais R+3+c, n° 6 R+1+a) ; BD TOPO : 1740, 20 logements.",
+   "sources": {
+    "emprise": ["osm"],
+    "forme": ["lidar", "orthophoto"],
+    "hauteurs": ["lidar"]
+   },
+   "confiance": "moyenne",
+   "ajustement": {"points_lidar": 116, "ecart_quadratique_m": 0.53},
+   "etages": {
+    "n": 3,
+    "source": "estimé d'après l'égout (≈ 3,4 m par niveau)"
+   }
+  },
+  {
+   "id": "fenelon-est",
+   "nom": "4-6 rue Fénelon, aile est sur cour (EO 162)",
+   "objet_bdtopo": "BATIMENT0000000302930839",
+   "emprise": [[7.71, 135.0], [35.12, 135.0], [33.55, 124.9], [25.23, 124.9], [25.53, 125.98], [29.51, 125.23], [30.1, 128.11], [28.44, 128.46], [27.84, 129.61], [26.43, 129.78], [26.58, 132.43], [19.02, 133.38], [18.26, 134.8], [17.1, 134.94], [16.42, 133.44], [14.3, 132.88], [13.6, 130.33], [13.6, 134.6], [7.61, 134.6]],
+   "toit": {
+    "type": "terrasse",
+    "h_egout": 17.4
+   },
+   "materiaux": {
+    "murs": "enduit",
+    "toit": "ardoise",
+    "source": "BD TOPO : murs en pierre et meulière (code 12) ; PSMV : moellon enduit ; couverture ardoise (BD TOPO, orthophoto)",
+    "confiance": "bonne"
+   },
+   "etages_estimes": 5,
+   "observation": "Hôtels sur cour des XVIIe-XVIIIe siècles (PSMV fiches 25 et 26, type A : n° 4 classique nantais R+3+c, n° 6 R+1+a) ; BD TOPO : 1740, 20 logements.",
+   "sources": {
+    "emprise": ["osm"],
+    "forme": ["lidar", "orthophoto"],
+    "hauteurs": ["lidar"]
+   },
+   "confiance": "moyenne",
+   "ajustement": {"points_lidar": 152, "ecart_quadratique_m": 0.5},
+   "etages": {
+    "n": 5,
+    "source": "estimé d'après l'égout (≈ 3,4 m par niveau)"
+   }
+  }
+ ]
+}

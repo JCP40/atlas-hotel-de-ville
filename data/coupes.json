@@ -1,0 +1,56 @@
+{
+  "description": "Coupes de l'atlas (outil Coupes). Prédéfinies (config.json > axes) : réglages seulement. Libres : extrémités ou centre en WGS84 [lat, lon], dimensions en mètres, rotation en degrés (sens trigonométrique, nord en haut), hmax = hauteur de la boîte au-dessus du sol.",
+  "coupes": [
+    {
+      "id": "A",
+      "nom": "Tour Bretagne, cathédrale",
+      "type": "ligne",
+      "visible": false,
+      "predefinie": true,
+      "inverse": false,
+      "decalage": -80,
+      "profondeur": 0
+    },
+    {
+      "id": "B",
+      "nom": "Mairie, square Amiral-Halgan",
+      "type": "ligne",
+      "visible": false,
+      "predefinie": true,
+      "inverse": false,
+      "decalage": 0,
+      "profondeur": 0
+    },
+    {
+      "id": "C1",
+      "nom": "Zone C1",
+      "type": "zone",
+      "visible": false,
+      "centre": [
+        47.2176351,
+        -1.5546408
+      ],
+      "longueur": 116,
+      "largeur": 119,
+      "rot": 4,
+      "hmax": 57
+    },
+    {
+      "id": "C2",
+      "nom": "Coupe C2",
+      "type": "ligne",
+      "visible": true,
+      "de": [
+        47.2179278,
+        -1.553311
+      ],
+      "a": [
+        47.2177266,
+        -1.5555404
+      ],
+      "inverse": false,
+      "decalage": 0,
+      "profondeur": 0
+    }
+  ]
+}

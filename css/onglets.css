@@ -1,0 +1,51 @@
+/* Atlas du site de l'Hôtel de Ville : onglets de la barre d'outils et adresse du site (v8)
+   Feuille ajoutée par js/interface.js (index.html n'est pas modifié). */
+
+/* ---------------------------------------------------------------
+   Onglets : Site, Topographie, PSMV, Fond de plan, Bâtiments, Ambiance, Coupes, Export
+   --------------------------------------------------------------- */
+#outils .onglets-outils {
+  display: flex; flex-direction: column; gap: 1px; flex: none;
+  padding-bottom: 4px; margin-bottom: 4px; border-bottom: 1px solid var(--trait);
+}
+.onglet-outil {
+  appearance: none; border: 0; background: none; cursor: pointer;
+  width: var(--barre); padding: 5px 2px; font-size: 11px; line-height: 1.1; text-align: center; white-space: nowrap;
+  color: var(--ardoise-doux); border-left: 2px solid transparent; border-radius: 0;
+}
+/* libellés longs (Topographie, coupée par un trait d’union conditionnel ; Fond de plan) : passage à la ligne dans la barre verticale */
+@media (min-width: 821px) { .onglet-outil { white-space: normal; hyphens: manual; } }
+.onglet-outil:hover { color: var(--ardoise); background: rgba(47, 59, 69, 0.07); }
+.onglet-outil[aria-selected='true'] { color: var(--ardoise); font-weight: 600; border-left-color: var(--accent); background: rgba(255, 255, 255, 0.6); }
+#outils .outils-groupe { display: flex; flex-direction: column; gap: 1px; flex: none; }
+body[data-mode='borne'] .onglet-outil { font-size: 13px; padding: 9px 2px; }
+.a-venir { font-family: var(--serif); font-size: 16px; }
+
+/* ---------------------------------------------------------------
+   Adresse du site et liens externes (panneau Couches)
+   --------------------------------------------------------------- */
+.adresse-site { margin: 6px 0 4px; padding: 6px 10px; border-left: 3px solid var(--accent); background: rgba(255, 255, 255, 0.55); }
+.adresse-site .adresse { margin: 0; font-family: var(--serif); font-size: 15px; }
+.adresse-site .actions { margin: 6px 0 2px; }
+a.bouton { display: inline-flex; align-items: center; text-decoration: none; color: var(--ardoise); }
+body[data-mode='borne'] .liens-externes { display: none; }
+
+/* ---------------------------------------------------------------
+   Écrans étroits : les onglets forment une rangée au-dessus des outils
+   --------------------------------------------------------------- */
+@media (max-width: 820px) {
+  #outils { flex-wrap: wrap; align-items: center; }
+  #outils .onglets-outils { flex: 1 0 100%; flex-direction: row; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; margin-bottom: 2px; }
+  .onglet-outil { width: auto; flex: 1 0 auto; padding: 5px 8px; border-left: 0; border-bottom: 2px solid transparent; }
+  .onglet-outil[aria-selected='true'] { border-bottom-color: var(--accent); }
+  #outils .outils-groupe { flex: 1 1 0; min-width: 0; flex-direction: row; overflow-x: auto; scrollbar-width: thin; }
+  body.avec-onglets #panneau-outil, body.avec-onglets #carte-chapitre, body.avec-onglets #table-calage { bottom: 188px; }
+  body.avec-onglets #fiche { bottom: 188px; }
+  body.avec-onglets #orientation { bottom: 190px; }
+}
+
+/* Flux : arrêts et légende par mode (couleurs de COULEURS_FLUX, js/flux.js) */
+.etiquette-arret-tram::before { background: #2a7f9e; border-radius: 50%; }
+.etiquette-arret-bus::before { background: #d9822b; }
+.etiquette-arret-tram { color: #1f5f77; }
+.legende-flux .trait-largeur { height: 0; border: 0; border-top: 6px solid rgba(47, 59, 69, 0.35); }

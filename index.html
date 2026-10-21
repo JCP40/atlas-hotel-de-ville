@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Atlas du site de l'Hôtel de Ville de Nantes</title>
+  <link rel="preload" href="fonts/spectral-latin-300-normal.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="fonts/ibm-plex-sans-condensed-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="css/atlas.css">
+  <script type="importmap">
+    { "imports": { "three": "./lib/three/three.module.js", "three/addons/": "./lib/three/addons/" } }
+  </script>
+</head>
+<body data-mode="presentateur" data-etat="actuel">
+  <canvas id="scene" aria-label="Maquette 3D du quartier. Glisser pour tourner, molette ou pincement pour zoomer, clic droit ou deux doigts pour se déplacer."></canvas>
+  <div id="etiquettes" aria-hidden="false"></div>
+
+  <header class="cartouche">
+    <h1>Hôtel de Ville</h1>
+    <p class="sous-titre"></p>
+    <p class="auteur"></p>
+  </header>
+
+  <div id="haut-droite">
+    <div id="frise-etats" role="radiogroup" aria-label="Époque affichée"></div>
+    <div id="bascule-vue" role="radiogroup" aria-label="Type de vue"></div>
+  </div>
+
+  <nav id="outils" aria-label="Outils">
+    <button type="button" id="bouton-aide" class="outil outil-aide" title="Aide (H)">
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .8-1 1.5V14"/><circle cx="12" cy="17.5" r=".6" fill="currentColor"/></svg>
+      <span>Aide</span>
+    </button>
+  </nav>
+
+  <section id="panneau-outil" class="calque" hidden aria-labelledby="panneau-titre">
+    <header>
+      <h2 id="panneau-titre"></h2>
+      <button type="button" class="fermer" aria-label="Fermer le panneau">×</button>
+    </header>
+    <div class="panneau-contenu"></div>
+  </section>
+
+  <section id="carte-chapitre" class="calque" hidden aria-live="polite"></section>
+
+  <aside id="fiche" class="calque" hidden>
+    <button type="button" class="fermer" aria-label="Fermer la fiche">×</button>
+    <div class="fiche-corps"></div>
+  </aside>
+
+  <nav id="regle-chapitres" aria-label="Chapitres de l'atlas"></nav>
+
+  <div id="orientation">
+    <button type="button" class="nord" title="Remettre le nord en haut" aria-label="Remettre le nord en haut">
+      <svg viewBox="0 0 40 40" width="40" height="40" aria-hidden="true"><circle cx="20" cy="20" r="17" fill="none" stroke="currentColor" stroke-width="1"/><path d="M20 5 25 22 20 19 15 22Z" fill="currentColor"/><text x="20" y="34" text-anchor="middle" font-size="8" fill="currentColor">N</text></svg>
+    </button>
+    <div class="echelle" aria-hidden="true"><i></i><span></span></div>
+    <p class="altitude" hidden></p>
+  </div>
+
+  <div id="bandeau-parcours" hidden aria-live="polite"></div>
+  <div id="bandeau" role="status" hidden></div>
+  <div id="annonces" aria-live="polite"></div>
+  <div id="infobulle" hidden></div>
+  <div id="table-calage" class="calque" hidden></div>
+  <p id="invitation">Touchez l'écran pour explorer la maquette</p>
+
+  <dialog id="visionneuse"><img alt=""><p></p></dialog>
+
+  <dialog id="aide" aria-labelledby="aide-titre">
+    <button type="button" class="fermer" aria-label="Fermer l'aide">×</button>
+    <h2 id="aide-titre">Lire la maquette</h2>
+    <p>En maquette 3D, glissez pour tourner, faites défiler ou pincez pour vous approcher, clic droit ou deux doigts pour vous déplacer. En plan, glissez pour vous déplacer. Un élément cliquable ouvre sa fiche ; avec la couche cadastre, un clic sur une parcelle ouvre sa fiche.</p>
+    <table>
+      <tr><th scope="row">← →</th><td>Chapitre précédent, suivant</td></tr>
+      <tr><th scope="row">1 2</th><td>Avant 1943, aujourd'hui</td></tr>
+      <tr><th scope="row">V</th><td>Maquette 3D ou plan</td></tr>
+      <tr><th scope="row">B</th><td>Bâti opaque, transparent ou masqué</td></tr>
+      <tr><th scope="row">K</th><td>Climat</td></tr>
+      <tr><th scope="row">S</th><td>Soleil et ombres</td></tr>
+      <tr><th scope="row">C</th><td>Coupes</td></tr>
+      <tr><th scope="row">L</th><td>Couches</td></tr>
+      <tr><th scope="row">M</th><td>Vue maquette (plateau seul)</td></tr>
+      <tr><th scope="row">E</th><td>Afficher ou masquer les noms</td></tr>
+      <tr><th scope="row">F</th><td>Plein écran</td></tr>
+      <tr><th scope="row">Échap</th><td>Fermer, arrêter</td></tr>
+    </table>
+    <p class="note">Sources : OpenStreetMap et ses contributeurs (ODbL) ; IGN, BD TOPO, cadastre, photographies aériennes et cartes anciennes (Licence Ouverte) ; Open-Meteo (CC BY 4.0) ; Météo-France ; Nantes Métropole Open Data ; descriptif du secteur sauvegardé, A.U.P. pour le ministère de la Culture et Nantes Métropole. Contenus provisoires signalés « à caler ».</p>
+  </dialog>
+
+  <div id="chargement" role="status">
+    <div class="chargement-contenu">
+      <p class="chargement-titre">Atlas du site</p>
+      <div class="chargement-regle" aria-hidden="true"><i></i></div>
+      <p class="etape">Préparation…</p>
+      <p class="erreur"></p>
+    </div>
+  </div>
+
+  <noscript><p class="sans-js">L'atlas a besoin de JavaScript et d'un navigateur récent (Chrome, Edge, Firefox ou Safari).</p></noscript>
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>

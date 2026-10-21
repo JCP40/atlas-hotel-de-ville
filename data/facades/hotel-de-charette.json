@@ -1,0 +1,37 @@
+{
+  "_note": "Photos réelles plaquées sur les façades de l'hôtel de Charette (29 rue du Moulin, EO 26), lues par js/toits.js en mode « détaillé » (même format que data/facades/hotel-de-ville.json). Images dans data/facades/hotel-de-charette/.",
+  "titre": "Photos de façade de l'hôtel de Charette",
+  "id": "hotel-de-charette",
+  "date": "2026-10-14",
+  "origine": { "lat": 47.218385, "lon": -1.55452 },
+  "rues_bordantes": "D'après OpenStreetMap et le cadastre : rue du Moulin à l'est (cour d'honneur fermée par un mur de clôture en moellon et un portail), rue Bossuet au sud-est (aile en retour à l'alignement), jardin ouvert sur la rue de l'Hôtel de Ville au nord.",
+  "methode": "Panorama 360° Panoramax reprojeté en vue perspective face à la façade, redressé par homographie sur quatre coins (angles de corniche, pied de mur estimé derrière la clôture) et mis aux dimensions réelles (longueur de l'emprise × égout du LiDAR HD) ; niveaux corrigés, JPEG ≤ 300 Ko.",
+  "confiance": {
+    "bonne": "vue frontale ou peu oblique, coins nets, façade entière",
+    "moyenne": "vue oblique ou image basse définition, coins à ±0,5 m, quelques masques (véhicules, végétation)",
+    "faible": "vue très oblique, coins incertains (±1 m), redressement approché"
+  },
+  "sans_photo": "Façades sur rue sans photo : rue Bossuet (rue de 4 m, vues seulement en enfilade), pignon de l'aile en retour sur la rue du Moulin et façade nord sur le jardin de la rue de l'Hôtel de Ville (cachés par le mur, les arbres et le bâtiment voisin).",
+  "facades": [
+    {
+      "id": "charette-rue-moulin-cour",
+      "nom": "Façade principale sur cour, vue de la rue du Moulin",
+      "rue": "rue du Moulin",
+      "corps": ["charette-principal"],
+      "gauche": [-45.8, 108.5],
+      "droite": [-41.3, 89.3],
+      "normale_az": 103,
+      "hauteur_m": 16.0,
+      "image": "rue-moulin-facade-sur-cour.jpg",
+      "pixels": [1182, 960],
+      "source": "Panoramax",
+      "photo": "90d95588-61bf-4f45-b7c8-192902f706db",
+      "lien": "https://api.panoramax.xyz/api/collections/ff181560-91bc-4000-bfff-3a1fe991e592/items/90d95588-61bf-4f45-b7c8-192902f706db",
+      "auteur": "immergis",
+      "licence": "Licence Ouverte 2.0 (Etalab)",
+      "date_prise": "2026-04-16",
+      "confiance": "moyenne",
+      "remarque": "Vue frontale depuis le trottoir opposé de la rue du Moulin, à 20-25 m, par-dessus le mur de clôture : le bas du rez-de-chaussée et le perron sont masqués par le mur (visible en bas de l'image) ; façade couverte de vigne vierge, lucarnes du comble non couvertes. Même vue que la photo de la fiche 3 du PSMV (2013)."
+    }
+  ]
+}

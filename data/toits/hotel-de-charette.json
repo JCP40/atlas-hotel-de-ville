@@ -1,0 +1,161 @@
+{
+ "_note": "Toitures de l'hôtel de Charette, 29 rue du Moulin (parcelle EO 26). Lues par js/toits.js (même format que data/toits/hotel-de-ville.json). Coordonnées en mètres, repère de l'atlas (x est, z sud), relatives à « origine ». Étages, toit et revêtement ; photo de la façade sur cour dans data/facades/hotel-de-charette.json.",
+ "titre": "Hôtel de Charette, 29 rue du Moulin (EO 26)",
+ "id": "hotel-de-charette",
+ "origine": {
+  "lat": 47.218385,
+  "lon": -1.55452
+ },
+ "date": "2026-10-14",
+ "remarquable": {
+  "id": "hotel-de-charette",
+  "fiche": "hotel-de-charette",
+  "etiquette": null
+ },
+ "perimetre": {
+  "description": "parcelle EO 26 (811 m²), 29 rue du Moulin",
+  "source": "cadastre API Carto IGN (Licence Ouverte Etalab 2.0), contour élargi de 0,5 m",
+  "polygone": [[-56.2, 99.3], [-63.5, 99.1], [-63.7, 105.0], [-63.1, 105.5], [-62.8, 111.6], [-54.2, 112.6], [-53.6, 112.3], [-47.2, 113.5], [-43.5, 114.7], [-43.8, 116.2], [-37.6, 123.0], [-37.1, 123.0], [-25.6, 112.3], [-33.7, 87.5], [-48.5, 84.0], [-50.3, 90.7], [-53.9, 90.1]]
+ },
+ "sources": {
+  "bdtopo": "IGN BD TOPO V3, couche batiment (WFS Géoplateforme), Licence Ouverte Etalab 2.0, interrogée le 14/10/2026 (matériaux : codes des fichiers fonciers)",
+  "orthophoto": "IGN BD ORTHO, WMS Géoplateforme, Licence Ouverte Etalab 2.0 : contrôle des couvertures (ardoise grise) et des cours",
+  "lidar": "IGN LiDAR HD, modèle numérique de hauteur (MNH, 50 cm), WMS Géoplateforme, Licence Ouverte Etalab 2.0",
+  "cadastre": "API Carto IGN (parcelle EO 26), Licence Ouverte Etalab 2.0",
+  "osm": "OpenStreetMap, bâtiments way/85440337, © contributeurs OpenStreetMap, ODbL",
+  "psmv": "Descriptif du secteur sauvegardé (A.U.P., 2014-2016), fiche 3 : niveaux, façade, dates"
+ },
+ "methode": "Emprises = bâtiments OSM de l'atlas, découpés par des boîtes en ailes de hauteur homogène (emprise réelle stricte). Toit de chaque aile ajusté automatiquement sur le MNH LiDAR HD (points à 0,5 m à l'intérieur de l'emprise) : deux pans à pignons (faîtage parallèle à un côté du rectangle minimal, position libre), comble brisé ou terrasse, au plus petit écart quadratique ; égout fixé à la main quand le LiDAR mêle le bâtiment aux cours (voir « ajustement »). Étages : PSMV ou BD TOPO (sinon estimés d'après l'égout). Revêtement : BD TOPO (matériaux des murs), précisé par le PSMV ; couverture d'après l'orthophoto. Photo de façade : data/facades/hotel-de-charette.json.",
+ "confiance": {
+  "bonne": "forme et hauteurs lisibles sur l'orthophoto et le MNH ; revêtement donné par la BD TOPO et le PSMV concordants",
+  "moyenne": "forme lisible, écart au LiDAR inférieur à 1,2 m ; revêtement d'une seule source ou déduit",
+  "faible": "forme supposée ou écart au LiDAR supérieur à 1,2 m ; revêtement supposé"
+ },
+ "objets_bdtopo": [
+  {
+   "cleabs": "BATIMENT0000000302930871",
+   "identifiants_rnb": "2HS7B3J31SQP",
+   "hauteur": 15.7,
+   "altitude_minimale_sol": 7.8,
+   "altitude_maximale_sol": 9.2,
+   "altitude_minimale_toit": 23.5,
+   "altitude_maximale_toit": 28.1,
+   "nombre_d_etages": 6,
+   "materiaux_des_murs": "01 (pierre)",
+   "materiaux_de_la_toiture": "01 (tuiles)",
+   "usage_1": "Résidentiel",
+   "date_d_apparition": null,
+   "corps": ["charette-principal", "charette-ouest-bas", "charette-aile-sud-est"]
+  }
+ ],
+ "cours": [],
+ "corps": [
+  {
+   "id": "charette-aile-sud-est",
+   "nom": "Hôtel de Charette, aile en retour au sud-est (EO 26)",
+   "objet_bdtopo": "BATIMENT0000000302930871",
+   "emprise": [[-42.88, 114.39], [-43.38, 115.87], [-37.38, 122.54], [-29.12, 114.89], [-32.78, 110.97], [-36.74, 114.8], [-42.0, 110.65], [-46.0, 109.52], [-46.0, 113.38]],
+   "gabarit": [[-37.32, 122.61], [-29.11, 114.88], [-39.71, 103.6], [-47.93, 111.33]],
+   "toit": {
+    "type": "deux-pans",
+    "h_egout": 11.0,
+    "h_faitage": 15.9,
+    "faitage": [[-44.75, 114.71], [-36.53, 106.98]]
+   },
+   "materiaux": {
+    "murs": "enduit",
+    "toit": "ardoise",
+    "source": "BD TOPO : murs en pierre (code 01) ; PSMV : moellon enduit (façade sur cour arrière cimentée) ; couverture ardoise d'après l'orthophoto (la BD TOPO indique des tuiles, démenties par la photo)",
+    "confiance": "bonne"
+   },
+   "etages_estimes": 3,
+   "observation": "Hôtel sur cour construit vers 1623, modifié (PSMV fiche 3, type A) ; extensions dans la cour ; 11 logements et cabinet médical. Aile basse en retour sur la cour.",
+   "sources": {
+    "emprise": ["osm"],
+    "forme": ["lidar", "orthophoto"],
+    "hauteurs": ["lidar"]
+   },
+   "confiance": "faible",
+   "ajustement": {
+    "points_lidar": 212,
+    "ecart_quadratique_m": 3.36,
+    "remarque": "égout fixé à 11 m (aile étroite, LiDAR mêlé à la cour) ; faîtage ajusté"
+   },
+   "etages": {
+    "n": 3,
+    "source": "estimé d'après l'égout (≈ 3,4 m par niveau)"
+   }
+  },
+  {
+   "id": "charette-ouest-bas",
+   "nom": "Hôtel de Charette, corps ouest sur cour (EO 26)",
+   "objet_bdtopo": "BATIMENT0000000302930871",
+   "emprise": [[-55.78, 99.9], [-57.3, 105.21], [-59.83, 105.02], [-59.89, 99.62], [-63.08, 99.46], [-63.19, 104.95], [-62.58, 105.26], [-62.41, 111.16], [-54.15, 112.04], [-53.66, 111.76], [-52.5, 111.99], [-52.5, 99.95]],
+   "gabarit": [[-63.08, 99.46], [-63.32, 111.87], [-52.5, 112.07], [-52.26, 99.67]],
+   "toit": {
+    "type": "deux-pans",
+    "h_egout": 15.2,
+    "h_faitage": 17.5,
+    "faitage": [[-58.21, 99.56], [-58.45, 111.96]]
+   },
+   "materiaux": {
+    "murs": "enduit",
+    "toit": "ardoise",
+    "source": "BD TOPO : murs en pierre (code 01) ; PSMV : moellon enduit (façade sur cour arrière cimentée) ; couverture ardoise d'après l'orthophoto (la BD TOPO indique des tuiles, démenties par la photo)",
+    "confiance": "bonne"
+   },
+   "etages_estimes": 4,
+   "observation": "Hôtel sur cour construit vers 1623, modifié (PSMV fiche 3, type A) ; extensions dans la cour ; 11 logements et cabinet médical.",
+   "sources": {
+    "emprise": ["osm"],
+    "forme": ["lidar", "orthophoto"],
+    "hauteurs": ["lidar"]
+   },
+   "confiance": "moyenne",
+   "ajustement": {"points_lidar": 214, "ecart_quadratique_m": 0.88},
+   "etages": {
+    "n": 4,
+    "source": "estimé d'après l'égout (≈ 3,4 m par niveau)"
+   }
+  },
+  {
+   "id": "charette-principal",
+   "nom": "Hôtel de Charette, corps principal en L (EO 26)",
+   "objet_bdtopo": "BATIMENT0000000302930871",
+   "emprise": [[-33.86, 88.0], [-47.38, 84.51], [-48.22, 84.47], [-49.91, 91.34], [-52.25, 99.95], [-52.5, 99.95], [-52.5, 111.99], [-47.14, 113.01], [-46.0, 113.38], [-46.0, 108.5], [-45.77, 108.5], [-41.32, 89.29], [-32.73, 91.53]],
+   "gabarit": [[-48.22, 84.47], [-52.5, 99.95], [-52.5, 111.99], [-46.0, 113.38], [-32.73, 91.53], [-33.86, 88.0]],
+   "toit": {
+    "type": "comble-brise",
+    "h_egout": 16.0,
+    "h_brisis": 17.3,
+    "retrait": 1.0,
+    "h_faitage": 18.9,
+    "retrait_faitage": 3.0,
+    "toit_terrasson": "zinc"
+   },
+   "materiaux": {
+    "murs": "enduit",
+    "toit": "ardoise",
+    "source": "BD TOPO : murs en pierre (code 01) ; PSMV : moellon enduit (façade sur cour arrière cimentée) ; couverture ardoise d'après l'orthophoto (la BD TOPO indique des tuiles, démenties par la photo)",
+    "confiance": "bonne"
+   },
+   "etages_estimes": 4,
+   "etages": {
+    "n": 4,
+    "source": "PSMV : R+3+c ; BD TOPO : 6"
+   },
+   "observation": "Hôtel sur cour construit vers 1623, modifié (PSMV fiche 3, type A) ; extensions dans la cour ; 11 logements et cabinet médical.",
+   "sources": {
+    "emprise": ["osm"],
+    "forme": ["lidar", "orthophoto"],
+    "hauteurs": ["lidar"]
+   },
+   "confiance": "faible",
+   "ajustement": {
+    "points_lidar": 609,
+    "ecart_quadratique_m": 1.3,
+    "remarque": "égout fixé à 16 m (bord du LiDAR mêlé aux cours) ; brisis et terrasson ajustés"
+   }
+  }
+ ]
+}
