@@ -471,7 +471,7 @@ export function creerExport(app) {
   function ecrireDXF(entites) {
     const out = [];
     const g = (code, val) => out.push(String(code), String(val));
-    for (const l of texteOrigine('dxf').split('\n')) g(999, l.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^\x20-\x7e]/g, '?'));
+    for (const l of texteOrigine('dxf').split('\n')) g(999, l.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^\x20-\x7e]/g, '?'));
     const t = (s) => String(s).replace(/[^\x20-\x7e]/g, (c) => `\\U+${c.codePointAt(0).toString(16).toUpperCase().padStart(4, '0')}`);
     let xmin = Infinity, ymin = Infinity, xmax = -Infinity, ymax = -Infinity;
     for (const e of entites) for (const [x, y] of e.pts || [[e.x, e.y]]) { xmin = Math.min(xmin, x); ymin = Math.min(ymin, y); xmax = Math.max(xmax, x); ymax = Math.max(ymax, y); }
@@ -617,7 +617,7 @@ export function creerExport(app) {
     }
     for (const j of app.reseaux?.jeux || []) {
       if (!j.visible) continue;
-      const calque = `RESEAU_${j.titre.normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().replace(/[^A-Z0-9]+/g, '_')}`.slice(0, 31);
+      const calque = `RESEAU_${j.titre.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/[^A-Z0-9]+/g, '_')}`.slice(0, 31);
       for (const f of j.fc.features) {
         const gm = f.geometry;
         if (!gm) continue;

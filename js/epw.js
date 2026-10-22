@@ -20,7 +20,7 @@ const pad = (n) => String(n).padStart(2, '0');
 export class ErreurEPW extends Error {}
 
 export function lireEPW(texte) {
-  const lignes = String(texte).replace(/^﻿/, '').split(/\r?\n/);
+  const lignes = String(texte).replace(/^\uFEFF/, '').split(/\r?\n/);
   const loc = lignes[0]?.split(',') ?? [];
   if (loc[0]?.trim().toUpperCase() !== 'LOCATION' || loc.length < 10) throw new ErreurEPW('Ce fichier ne ressemble pas à un EPW : première ligne LOCATION absente.');
   const num = (v) => { const x = parseFloat(v); return Number.isFinite(x) ? x : null; };
@@ -206,7 +206,6 @@ export function adapterEPW(epw, { nom = '' } = {}) {
   for (const l of moyennes) for (let k = 0; k < 24; k++) if (!l[k].n) l[k] = { ...(l[(k + 23) % 24].n ? l[(k + 23) % 24] : l[(k + 1) % 24]) };
   const juillet15 = parMoisHeure[6][15].filter((i) => ok('T', i)).sort((a, b) => col.T[b] - col.T[a]);
   const top = juillet15.slice(0, Math.max(1, Math.round(juillet15.length / 10)));
-  const dateIso = (d) => d.toISOString().slice(0, 10);
   const debut = `${p0}-01-01`, fin = `${p1}-12-31`;
   const horaire = {
     source: `EPW ${libelle} (${entete.source})`,
