@@ -4,7 +4,7 @@ import { OBJExporter } from 'three/addons/exporters/OBJExporter.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { h } from './util.js';
 import { telecharger, fichierExiste } from './donnees.js';
-import { chargerMeteo, meteo, mention, casesPeuRepresentatives, csvRose, csvNormales, csvDepassements, libelleSaison, libelleTemperature } from './meteo.js';
+import { chargerMeteo, meteo, mention, casesPeuRepresentatives, csvRose, csvNormales, csvDepassements, libelleSaison, libelleTemperature, EPW_NANTES } from './meteo.js';
 import { polygonesLocaux, lignesLocales, centroide } from './geo.js';
 import { INTERETS } from './cadastre.js';
 import { geometriesExtrudees } from './maquette.js';
@@ -670,8 +670,7 @@ export function creerExport(app) {
   // Liens vers les fichiers déposés dans data/meteo/ (testés par une requête HEAD)
   async function liensMeteo(zone) {
     const d = await chargerMeteo();
-    const nomEPW = d?.source?.epw?.split(', ').pop();
-    const epw = [nomEPW && `data/meteo/${nomEPW}.epw`, 'data/meteo/nantes.epw'].filter(Boolean);
+    const epw = [EPW_NANTES, 'data/meteo/nantes.epw'];
     let trouve = null;
     for (const u of epw) if (await fichierExiste(u)) { trouve = u; break; }
     const csv = 'data/meteo/meteofrance_44020001_horaire.csv';
