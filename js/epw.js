@@ -20,7 +20,7 @@ const pad = (n) => String(n).padStart(2, '0');
 export class ErreurEPW extends Error {}
 
 export function lireEPW(texte) {
-  const lignes = String(texte).replace(/^\uFEFF/, '').split(/\r?\n/);
+  const lignes = String(texte).replace(/^[^L]+(?=LOCATION)/, '').split(/\r?\n/);
   const loc = lignes[0]?.split(',') ?? [];
   if (loc[0]?.trim().toUpperCase() !== 'LOCATION' || loc.length < 10) throw new ErreurEPW('Ce fichier ne ressemble pas à un EPW : première ligne LOCATION absente.');
   const num = (v) => { const x = parseFloat(v); return Number.isFinite(x) ? x : null; };

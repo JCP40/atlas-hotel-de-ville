@@ -245,6 +245,7 @@ export function casesPeuRepresentatives() {
 // ------------------------------------------------------------------
 const cellule = (v) => (v == null ? '' : typeof v === 'number' ? String(v).replace('.', ',') : /[;"\n]/.test(v) ? `"${String(v).replace(/"/g, '""')}"` : v);
 const lignesCSV = (entete, lignes) => [entete, ...lignes].map((l) => l.map(cellule).join(';')).join('\r\n');
+const BOM = String.fromCharCode(0xfeff); // marque d'ordre des octets : Excel reconnaît l'UTF-8
 const enTete = () => `# ${mention({ court: true })}`.replace(/\.$/, epw ? ' (source météo : fichier EPW).' : '.');
 
 export function csvRose(n = 16) {
@@ -255,13 +256,13 @@ export function csvRose(n = 16) {
     r.f.forEach((f, k) => lignes.push([s, t, r.N, r.calmes, nomSecteur(n, k), directionSecteur(n, k), f, r.e[k], r.vm[k], r.p90[k], r.fxi[k], r.p5[k],
       r.N < HEURES_MIN ? 'peu représentatif' : '']));
   }
-  return `\uFEFF${enTete()}\r\n${lignesCSV(['saison', 'temperature', 'heures', 'calmes_pct', 'secteur', 'direction_deg', 'frequence_pct', 'energie_pct', 'vent_moyen_ms', 'vent_p90_ms', 'rafale_max_ms', 'part_sup_5ms_pct', 'remarque'], lignes)}\r\n`;
+  return `${BOM}${enTete()}\r\n${lignesCSV(['saison', 'temperature', 'heures', 'calmes_pct', 'secteur', 'direction_deg', 'frequence_pct', 'energie_pct', 'vent_moyen_ms', 'vent_p90_ms', 'rafale_max_ms', 'part_sup_5ms_pct', 'remarque'], lignes)}\r\n`;
 }
 
 export function csvNormales() {
   const n = donnees.normales;
   const lignes = n.mois.map((m, i) => [m, MOIS[i], n.T[i], n.Tmin[i], n.Tmax[i], n.FF[i], n.FXImax[i], n.U[i], n.GLO_MJm2j[i], n.calmes[i], ...n.f16[i]]);
-  return `\uFEFF${enTete()}\r\n${lignesCSV(['mois', 'nom', 'T_moy_C', 'Tmin_moy_C', 'Tmax_moy_C', 'vent_moyen_ms', 'rafale_max_ms', 'humidite_pct', 'rayonnement_MJm2j', 'calmes_pct', ...NOMS16.map((x) => `freq_${x}_pct`)], lignes)}\r\n`;
+  return `${BOM}${enTete()}\r\n${lignesCSV(['mois', 'nom', 'T_moy_C', 'Tmin_moy_C', 'Tmax_moy_C', 'vent_moyen_ms', 'rafale_max_ms', 'humidite_pct', 'rayonnement_MJm2j', 'calmes_pct', ...NOMS16.map((x) => `freq_${x}_pct`)], lignes)}\r\n`;
 }
 
 export function csvDepassements(n = 16) {
@@ -271,5 +272,5 @@ export function csvDepassements(n = 16) {
     const e = donnees.EXC[String(n)][s];
     e.J.forEach((l, k) => lignes.push([s, e.N, nomSecteur(n, k), directionSecteur(n, k), ...l]));
   }
-  return `\uFEFF${enTete()}\r\n# % de toutes les heures de la saison (calmes inclus) où le vent vient du secteur et atteint le seuil (m/s)\r\n${lignesCSV(['saison', 'heures', 'secteur', 'direction_deg', ...seuils.map((x) => `sup_${String(x).replace('.', '_')}ms`)], lignes)}\r\n`;
+  return `${BOM}${enTete()}\r\n# % de toutes les heures de la saison (calmes inclus) où le vent vient du secteur et atteint le seuil (m/s)\r\n${lignesCSV(['saison', 'heures', 'secteur', 'direction_deg', ...seuils.map((x) => `sup_${String(x).replace('.', '_')}ms`)], lignes)}\r\n`;
 }
