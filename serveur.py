@@ -27,7 +27,7 @@ class Gestionnaire(http.server.SimpleHTTPRequestHandler):
         '.js': 'text/javascript', '.mjs': 'text/javascript', '.json': 'application/json',
         '.geojson': 'application/geo+json', '.woff2': 'font/woff2', '.svg': 'image/svg+xml',
         '.glb': 'model/gltf-binary', '.gltf': 'model/gltf+json', '.bin': 'application/octet-stream',
-        '.obj': 'text/plain', '.mtl': 'text/plain',
+        '.obj': 'text/plain', '.mtl': 'text/plain', '.epw': 'text/plain',
     }
 
     def end_headers(self):
@@ -84,8 +84,8 @@ class Gestionnaire(http.server.SimpleHTTPRequestHandler):
         self.wfile.write(donnees)
 
 
-# .glb, .gltf, .bin, .obj, .mtl : modèles 3D importés dans le projet (data/imports/)
-EXTENSIONS = {'.json', '.geojson', '.jpg', '.jpeg', '.png', '.csv', '.txt', '.svg', '.pdf', '.glb', '.gltf', '.bin', '.obj', '.mtl'}
+# .glb, .gltf, .bin, .obj, .mtl : modèles 3D importés dans le projet (data/imports/) ; .epw : fichier météo (data/meteo/)
+EXTENSIONS = {'.json', '.geojson', '.jpg', '.jpeg', '.png', '.csv', '.txt', '.svg', '.pdf', '.glb', '.gltf', '.bin', '.obj', '.mtl', '.epw'}
 
 
 class Serveur(socketserver.ThreadingMixIn, http.server.HTTPServer):

@@ -3,7 +3,7 @@ import { getPosition } from '../lib/suncalc.js';
 import { h } from './util.js';
 import { modifierReglageCentre } from './centre.js';
 import { dateParis } from './geo.js';
-import { chargerMeteo, horaire, partAuDessus, mention, libelleSaison } from './meteo.js';
+import { chargerMeteo, horaire, partAuDessus, mention, libelleSaison, sourceEPW } from './meteo.js';
 
 // Rayonnement et confort de l'espace public.
 // Modèle volontairement simple et explicite (calcul dans le navigateur, sans réflexions multiples) :
@@ -375,7 +375,9 @@ export function creerConfort(app) {
     ui.etat = h('p', { class: 'note', 'aria-live': 'polite' });
     ui.resultat = h('div');
     ui.source = h('p', { class: 'note' });
-    chargerMeteo().then(() => { ui.source.textContent = `Météo : ${mention()} Rayonnement direct et diffus estimés à partir du global mesuré (modèle d'Erbs).`; });
+    const majSource = () => { ui.source.textContent = `Météo : ${mention()} ${sourceEPW() ? 'Rayonnement global, direct et diffus lus dans le fichier EPW.' : 'Rayonnement direct et diffus estimés à partir du global mesuré (modèle d\'Erbs).'}`; };
+    ui.majSource = majSource;
+    chargerMeteo().then(majSource);
     ui.pointeur = h('p', { class: 'coordonnees' });
     const selPeriode = h('select', { 'aria-label': 'Période' }, ...Object.entries(PERIODES).map(([k, p]) => h('option', { value: k }, p.libelle)));
     const selScenario = h('select', { 'aria-label': 'Scénario' }, ...Object.entries(SCENARIOS).map(([k, s]) => h('option', { value: k }, s.libelle)));
@@ -420,7 +422,8 @@ export function creerConfort(app) {
     });
     ui.boutons = [bSVF, bRay, bFac, bConf];
     conteneur.append(...[
-      h('p', { class: 'note' }, `Analyses dans le cercle bleu, centré sur le centre du projet, à partir de la météo horaire moyenne mesurée par Météo-France à Nantes-Bouguenais (2016-2025 ; rayonnement direct et diffus estimés à partir du global mesuré), du bâti et des arbres.`),
+      app.meteoSource?.bloc(),
+      h('p', { class: 'note' }, `Analyses dans le cercle bleu, centré sur le centre du projet, à partir de la météo horaire moyenne de la source choisie ci-dessus (par défaut Météo-France à Nantes-Bouguenais, 2016-2025, rayonnement direct et diffus estimés à partir du global mesuré ; ou fichier EPW), du bâti et des arbres.`),
       h('label', { class: 'champ' }, h('span', {}, 'Rayon d\'analyse (m)'), (() => {
         const input = h('input', { type: 'number', min: 30, max: 600, step: 5, value: Math.round(rayon()) });
         input.addEventListener('change', () => {
@@ -455,6 +458,12 @@ export function creerConfort(app) {
   app.on('etat', () => { effacerCarte(); etat.grille = null; etat.svf = null; if (ui.resultat) ui.resultat.replaceChildren(); });
   // bâti modifié par le projet (onglet Bâtiments) : grille des hauteurs et résultats à recalculer
   app.on('bati', () => { effacerCarte(); etat.grille = null; etat.svf = null; if (ui.resultat) ui.resultat.replaceChildren(); });
+  // source météo changée (base / EPW) : climatologie relue, résultats affichés à refaire
+  app.on('meteoSource', () => {
+    etat.climato = null;
+    effacerCarte();
+    if (ui.resultat?.isConnected) { ui.resultat.replaceChildren(); note('Source météo changée : relancer le calcul.'); ui.majSource?.(); }
+  });
 
   return { construirePanneau, calculerSVF, calculerRayonnement, calculerConfort, climatologie, effacerCarte, etat };
 }

@@ -1,4 +1,6 @@
 import { chargerJSON } from './donnees.js';
+import { lireCache, ecrireCache } from './cache.js';
+import { lireEPW, adapterEPW, distanceKm } from './epw.js';
 
 // Source météo unique de l'atlas : data/meteo/meteo.json (outils/meteo/analyse.py), complété par
 // data/meteo/meteo_horaire.json (outils/meteo/horaire.py), tous deux tirés des mesures horaires de Météo-France
@@ -16,10 +18,19 @@ import { chargerJSON } from './donnees.js';
 //   (toutes températures), normales, extremes } : année choisie par definirAnnee(a) (null = moyenne 2016-2025) ;
 //   rose(12, …), normales() et extremesAnnee() suivent l'année ; rose 16 secteurs, dépassements (confort au vent)
 //   et exports restent sur la moyenne de la période.
+// Source active (sélecteur « Source météo » de l'onglet Ambiance, js/meteo-source.js) : « base » (Météo-France
+// ci-dessus, défaut), « epw-nantes » (EPW fourni dans data/meteo/) ou « epw-perso » (fichier EPW choisi par
+// l'utilisateur, lu localement, gardé en IndexedDB). Un EPW est lu par js/epw.js et adapté aux mêmes structures :
+// toutes les fonctions ci-dessous (rose, normales, dépassements, horaire, extrêmes, mention, CSV) servent la source
+// active ; une seule « année type », pas de sélecteur d'année. Les outils écoutent l'événement « meteoSource ».
 
 export const FICHIER = 'data/meteo/meteo.json';
 export const FICHIER_HORAIRE = 'data/meteo/meteo_horaire.json';
 export const FICHIER_ANNEES = 'data/meteo/meteo_annees.json';
+export const FICHIER_EXTREMES = 'data/meteo/extremes.json';
+export const EPW_NANTES = 'data/meteo/FRA_PL_Nantes.Atlantique.AP.072220_TMYx.2011-2025.epw';
+const CLE_SOURCE = 'atlas-hdv-meteo-source'; // localStorage : base | epw-nantes | epw-perso
+const CLE_EPW_PERSO = 'meteo-epw-perso'; // IndexedDB (js/cache.js) : { nom, texte }
 export const HEURES_MIN = 100; // en dessous, une case (saison × température) est peu représentative
 export const SAISONS = [['annee', 'Année'], ['hiver', 'Hiver (déc. à fév.)'], ['printemps', 'Printemps (mars à mai)'], ['ete', 'Été (juin à août)'], ['automne', 'Automne (sept. à nov.)']];
 export const TEMPERATURES = [['all', 'Toutes températures'], ['froid', 'Moins de 5 °C'], ['frais', '5 à 12 °C'], ['doux', '12 à 20 °C'], ['chaud', '20 °C et plus']];
@@ -34,17 +45,86 @@ let donnees = null;
 let donneesHoraires = null;
 let donneesAnnees = null;
 let anneeActive = null;
+let donneesExtremes = null;
+let base = null; // météo de base (Météo-France) : { donnees, horaire, annees, extremes }
+let epw = null; // EPW actif : { type, nom, lecture (js/epw.js), donnees, horaire, extremes, journees, couverture, libelle, periode }
+let site = null; // { lat, lon } du site (avertissement de distance)
 
-// Lecture (une fois) ; renvoie null si meteo.json manque.
+const lireLS = (k) => { try { return localStorage.getItem(k); } catch { return null; } };
+const ecrireLS = (k, v) => { try { localStorage.setItem(k, v); } catch { /* stockage indisponible */ } };
+
+// Lecture (une fois) ; renvoie les données de la source active (null si meteo.json manque et aucun EPW).
 export function chargerMeteo() {
-  promesse ??= Promise.all([chargerJSON(FICHIER, null), chargerJSON(FICHIER_HORAIRE, null), chargerJSON(FICHIER_ANNEES, null)]).then(([d, hor, ans]) => {
-    donneesHoraires = hor?.moyennes ? hor : null;
-    donneesAnnees = ans?.annees ? ans : null;
-    return (donnees = d?.rose && d?.normales ? d : null);
+  promesse ??= Promise.all([chargerJSON(FICHIER, null), chargerJSON(FICHIER_HORAIRE, null), chargerJSON(FICHIER_ANNEES, null), chargerJSON(FICHIER_EXTREMES, null)]).then(async ([d, hor, ans, ext]) => {
+    base = { donnees: d?.rose && d?.normales ? d : null, horaire: hor?.moyennes ? hor : null, annees: ans?.annees ? ans : null, extremes: ext?.plus_froid ? ext : null };
+    activer(null);
+    // source mémorisée : un EPW illisible ou absent laisse la météo de base
+    const memo = lireLS(CLE_SOURCE);
+    if (memo === 'epw-nantes' || memo === 'epw-perso') {
+      try { await definirSource(memo); } catch (e) { console.warn('Source météo mémorisée indisponible :', e.message); activer(null); }
+    }
+    return donnees;
   });
-  return promesse;
+  return promesse.then(() => donnees);
 }
 export const meteo = () => donnees;
+
+function activer(e) {
+  epw = e;
+  donnees = e ? e.donnees : base?.donnees ?? null;
+  donneesHoraires = e ? e.horaire : base?.horaire ?? null;
+  donneesAnnees = e ? null : base?.annees ?? null;
+  donneesExtremes = e ? e.extremes : base?.extremes ?? null;
+  if (e) anneeActive = null;
+}
+
+// Changement de source : 'base' | 'epw-nantes' | 'epw-perso' ({ nom, texte } pour un nouveau fichier ; sans
+// texte, relu dans IndexedDB). Lève une erreur (message en français) si le fichier manque ou est illisible.
+export async function definirSource(type, { nom = null, texte = null } = {}) {
+  if (!base) await chargerMeteo();
+  if (type === 'base') { activer(null); ecrireLS(CLE_SOURCE, 'base'); return source(); }
+  let fichier = nom;
+  if (type === 'epw-nantes') {
+    fichier = EPW_NANTES.split('/').pop();
+    const r = await fetch(EPW_NANTES).catch(() => null);
+    if (!r?.ok) throw new Error(`fichier ${EPW_NANTES} absent : le déposer dans data/meteo/ (1,6 Mo, Climate.OneBuilding.org).`);
+    texte = await r.text();
+  } else if (type === 'epw-perso') {
+    if (texte == null) {
+      const m = await lireCache(CLE_EPW_PERSO, 36500);
+      if (!m?.texte) throw new Error('aucun fichier EPW personnel gardé dans ce navigateur.');
+      ({ nom: fichier, texte } = m);
+    }
+  } else throw new Error(`source inconnue : ${type}`);
+  const lecture = lireEPW(texte);
+  const a = adapterEPW(lecture, { nom: fichier });
+  if (type === 'epw-perso' && nom) await ecrireCache(CLE_EPW_PERSO, { nom: fichier, texte });
+  activer({ type, nom: fichier, lecture, ...a });
+  ecrireLS(CLE_SOURCE, type);
+  return source();
+}
+export async function epwPersoGarde() { const m = await lireCache(CLE_EPW_PERSO, 36500); return m?.nom ?? null; }
+export function definirSite(lat, lon) { site = { lat, lon }; }
+
+// Description de la source active (sélecteur, mentions, avertissements)
+export function source() {
+  if (!epw) {
+    const d = base?.donnees;
+    return { type: 'base', titre: 'Météo de base', libelle: d ? `Météo-France ${d.station.id} ${d.station.nom.replace('NANTES-BOUGUENAIS', 'Nantes-Bouguenais')}` : 'Météo-France (absente)', periode: libellePeriode(), avertissements: [] };
+  }
+  const e = epw.lecture.entete;
+  const dist = site ? distanceKm(site.lat, site.lon, e.lat, e.lon) : null;
+  const av = [...epw.lecture.controles.avertissements];
+  if (dist != null && dist > 30) av.unshift(`Station du fichier EPW à ${Math.round(dist)} km du site (plus de 30 km) : climat peut-être différent.`);
+  if (e.fuseau !== 1) av.unshift(`Fuseau du fichier EPW : UTC${e.fuseau >= 0 ? '+' : ''}${String(e.fuseau).replace('.', ',')} (le site est à UTC+1) : heures converties en heure de Paris, climat d'une autre région.`);
+  return {
+    type: epw.type, titre: epw.type === 'epw-nantes' ? 'Fichier EPW de Nantes' : 'Fichier EPW', nom: epw.nom, libelle: `EPW ${epw.libelle}`,
+    periode: libellePeriode(), lat: e.lat, lon: e.lon, fuseau: e.fuseau, distanceKm: dist, heures: epw.lecture.n, avertissements: av,
+  };
+}
+export const sourceEPW = () => !!epw;
+export const extremesJours = () => donneesExtremes;
+export const journeesTypes = () => epw?.journees ?? null; // profils de l'outil Chaleur tirés de l'EPW (null : météo de base)
 
 // Année choisie (sélecteur « Moyenne 2016-2025 / année » de Climat et Vent) : null = moyenne de la période
 export const annees = () => Object.keys(donneesAnnees?.annees ?? {}).sort();
@@ -56,6 +136,7 @@ export function definirAnnee(a) {
 const donneesAnnee = () => (anneeActive ? donneesAnnees.annees[anneeActive] : null);
 export const extremesAnnee = () => donneesAnnee()?.extremes ?? null;
 export function libellePeriode() {
+  if (epw) return epw.lecture.typique ? `année type ${epw.periode[0]}-${epw.periode[1]}` : `année ${epw.periode[0]}`;
   if (anneeActive) return `année ${anneeActive}`;
   const p = donnees?.periode?.stats?.split('/').map((x) => x.slice(0, 4)) ?? [];
   return p.length ? `moyenne ${p[0]}-${p[1]}` : 'moyenne';
@@ -110,6 +191,7 @@ export function partAuDessus(seuil, saison = 'annee') {
 
 // Couverture des mesures sur la période des statistiques (minimum par variable et par an)
 export function couverture() {
+  if (epw) { const c = epw.couverture; return { vent: Math.min(c.FF, c.DD), temperature: c.T, rayonnement: c.GLO }; }
   const c = donnees?.couverture;
   if (!c) return null;
   const [a0, a1] = (donnees.periode?.stats ?? '').split('/').map((x) => +x.slice(0, 4));
@@ -123,6 +205,13 @@ export function couverture() {
 export function mention({ court = false, annee: avecAnnee = false } = {}) {
   const d = donnees;
   if (!d) return 'Météo indisponible : data/meteo/meteo.json manque.';
+  if (epw) {
+    const e = epw.lecture.entete, c = couverture();
+    const t = `EPW ${epw.libelle} (${e.source}, ${libellePeriode()})`;
+    if (court) return `${t}, fichier ${epw.nom}.`;
+    const s = source();
+    return `${t}, fichier ${epw.nom} : ${epw.lecture.n.toLocaleString('fr-FR')} heures, couverture ${nombre(c.vent)} % (vent), ${nombre(c.temperature)} % (température) ; station ${e.wmo || '–'} (${nombre(e.lat, 3)}, ${nombre(e.lon, 3)}, ${nombre(e.altitude, 0)} m)${s.distanceKm != null ? ` à ${nombre(s.distanceKm, 0)} km du site` : ''}. Vent horaire à 10 m ; pas de rafales dans un EPW (« rafale maximale » = vent horaire le plus fort) ; ${epw.lecture.typique ? 'année type : chaque mois peut venir d\'une année différente, une seule année de données (pas de moyenne pluriannuelle)' : 'une seule année de données'}. ${d.licence.epw}.`;
+  }
   const [p0, p1] = d.periode.stats.split('/');
   const c = couverture();
   const station = `Météo-France, station ${d.station.id} ${d.station.nom.replace('NANTES-BOUGUENAIS', 'Nantes-Bouguenais')}`;
@@ -156,7 +245,7 @@ export function casesPeuRepresentatives() {
 // ------------------------------------------------------------------
 const cellule = (v) => (v == null ? '' : typeof v === 'number' ? String(v).replace('.', ',') : /[;"\n]/.test(v) ? `"${String(v).replace(/"/g, '""')}"` : v);
 const lignesCSV = (entete, lignes) => [entete, ...lignes].map((l) => l.map(cellule).join(';')).join('\r\n');
-const enTete = () => `# ${mention({ court: true })}`;
+const enTete = () => `# ${mention({ court: true })}`.replace(/\.$/, epw ? ' (source météo : fichier EPW).' : '.');
 
 export function csvRose(n = 16) {
   const lignes = [];

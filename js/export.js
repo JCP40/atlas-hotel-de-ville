@@ -701,11 +701,14 @@ export function creerExport(app) {
     const W = window.innerWidth, H = window.innerHeight;
     ui.meteo = h('p', { class: 'note' });
     const liens = h('div');
-    chargerMeteo().then(() => {
+    const majMeteo = () => chargerMeteo().then(() => {
       const cases = casesPeuRepresentatives().filter((c) => c.saison !== 'annee' || c.temperature !== 'all');
       ui.meteo.textContent = `${mention()}${cases.length ? ` Cases peu représentatives (moins de 100 h), signalées dans le CSV de la rose : ${cases.map((c) => `${libelleSaison(c.saison).replace(/ \(.*/, '')} × ${libelleTemperature(c.temperature).replace(/^./, (x) => x.toLowerCase())} (${c.N} h)`).join(', ')}.` : ''}`;
-      if (meteo()) liensMeteo(liens);
+      if (meteo() && !liens.childNodes.length) liensMeteo(liens);
     });
+    majMeteo();
+    if (!ui.ecouteSource) { ui.ecouteSource = true; app.on('meteoSource', () => { if (ui.meteo?.isConnected) ui.majMeteo?.(); }); }
+    ui.majMeteo = majMeteo;
     conteneur.append(
       h('h3', {}, 'Image de la vue'),
       h('p', { class: 'note' }, 'Ce qui est affiché, en PNG : maquette 3D ou plan, avec les couches actives.'),
@@ -734,7 +737,7 @@ export function creerExport(app) {
       h('p', { class: 'note' }, (() => { const o = app.config.origine; const [X, Y] = versLambert93(o.lat, o.lon); return `Origine des exports locaux et de la maquette 3D : ${o.lat}, ${o.lon}, soit X ${X.toFixed(1)} m, Y ${Y.toFixed(1)} m en Lambert-93. En 3D, le nord est vers -z (glTF) : après import, vérifiez qu'il tombe sur l'axe vert de SketchUp.`; })()),
       app.coupes?.blocExport ? app.coupes.blocExport() : h('span'),
       h('h3', {}, 'Météo'),
-      h('p', { class: 'note' }, 'Tableaux CSV (point-virgule, virgule décimale) tirés de data/meteo/meteo.json : rose des vents (secteurs × saisons × températures : fréquence, énergie, vitesses), normales mensuelles, dépassements de vitesse par secteur et par saison.'),
+      h('p', { class: 'note' }, 'Tableaux CSV (point-virgule, virgule décimale) tirés de la source météo active (data/meteo/meteo.json, ou fichier EPW choisi dans l\'onglet Ambiance) : rose des vents (secteurs × saisons × températures : fréquence, énergie, vitesses), normales mensuelles, dépassements de vitesse par secteur et par saison.'),
       choix('secteurs-meteo', [[16, '16 secteurs'], [12, '12 secteurs']], 'secteursMeteo'),
       h('div', { class: 'actions' },
         h('button', { type: 'button', class: 'bouton', onclick: () => exporterMeteo('rose') }, 'Rose des vents'),

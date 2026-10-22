@@ -1,8 +1,7 @@
 import * as THREE from 'three';
 import { h, info } from './util.js';
-import { chargerJSON } from './donnees.js';
 import {
-  chargerMeteo, meteo, rose, normales, mention, NOMS16, MOIS, annees, annee, definirAnnee, extremesAnnee, libellePeriode,
+  chargerMeteo, meteo, rose, normales, mention, NOMS16, MOIS, annees, annee, definirAnnee, extremesAnnee, libellePeriode, extremesJours, sourceEPW,
 } from './meteo.js';
 
 const COULEURS_VENT = ['#b7cbd9', '#6f93b1', '#2f4f6f'];
@@ -24,10 +23,9 @@ export function creerClimat(app) {
   groupe.visible = false;
   app.scene.add(groupe);
 
-  let extremes = null; // data/meteo/extremes.json (outils/meteo/extremes.py)
+  // jours extrêmes : data/meteo/extremes.json (outils/meteo/extremes.py) ou calculés depuis l'EPW actif (js/meteo.js)
   async function construire() {
     await chargerMeteo();
-    extremes = await chargerJSON('data/meteo/extremes.json', null);
     dessinerRose3D();
   }
 
@@ -182,8 +180,8 @@ export function creerClimat(app) {
   function blocExtremes() {
     const xa = extremesAnnee();
     if (xa) return blocExtremesAnnee(annee(), xa);
-    const x = extremes;
-    if (!x?.plus_froid) return [h('p', { class: 'note' }, 'Jours extrêmes : fichier data/meteo/extremes.json absent (outils/meteo/extremes.py).')];
+    const x = extremesJours();
+    if (!x?.plus_froid) return [h('p', { class: 'note' }, sourceEPW() ? 'Jours extrêmes : pas assez de journées complètes dans le fichier EPW.' : 'Jours extrêmes : fichier data/meteo/extremes.json absent (outils/meteo/extremes.py).')];
     const d = x.deciles || {};
     const moisTop = (o) => Object.entries(o || {}).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([m, p]) => `${MOIS[m - 1]} ${nombre(p, 0)} %`).join(', ');
     const episode = (e) => (e ? `du ${dateLongue(e.debut)} au ${dateLongue(e.fin)} (${e.jours} jours, ${deg(e.tmoy)} en moyenne)` : '–');
@@ -219,17 +217,20 @@ export function creerClimat(app) {
   }
 
   let conteneurPanneau = null;
-  app.on('meteoAnnee', () => {
+  const redessiner = () => {
     if (groupe.visible || groupe.children.length) dessinerRose3D();
     // le conteneur du panneau est commun à tous les outils : seulement si Climat est l'outil ouvert
     if (conteneurPanneau?.isConnected && app.interface?.ouvert === 'climat') { conteneurPanneau.replaceChildren(); construirePanneau(conteneurPanneau); }
-  });
+  };
+  app.on('meteoAnnee', redessiner);
+  app.on('meteoSource', redessiner); // source météo changée (base Météo-France / EPW, js/meteo-source.js)
 
   function construirePanneau(conteneur) {
     conteneurPanneau = conteneur;
     const n = normales();
     const moisActif = app.soleil ? app.soleil.date().getMonth() : new Date().getMonth();
     conteneur.append(...[
+      app.meteoSource?.bloc(),
       selecteurAnnee(),
       h('div', { class: 'titre-info' }, h('h3', {}, `Températures et vent par mois, ${libellePeriode()}`),
         info(`${mention({ annee: true })} Le centre-ville, plus minéral, est en général un peu plus chaud que l'aéroport (îlot de chaleur).`, 'La rose des vents est dans l\'outil Vent (touche W), avec le même choix de période.')),

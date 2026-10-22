@@ -45,6 +45,16 @@ Le mode d'emploi complet est dans `LISEZMOI.md`.
   rose 16, `depassements`, CSV et Confort restent sur la moyenne ; `mention({ annee: true })` pour le texte de l'année.
   Sélecteur `app.climat.selecteurAnnee()` (Climat et Vent) → événement `meteoAnnee` (Climat se redessine s'il est l'outil ouvert, Vent redessine
   rose, saisons, mois et rose posée).
+  **Source météo** (22/10/2026) : `definirSource('base'|'epw-nantes'|'epw-perso', { nom, texte })`, `source()` (type, libellé, période, avertissements : station > 30 km
+  du site via `definirSite`, fuseau ≠ UTC+1, contrôles), `sourceEPW()`, `extremesJours()` (extremes.json ou EPW ; Climat ne lit plus le fichier lui-même), `journeesTypes()`
+  (profils Chaleur tirés de l'EPW, sinon null → data/chaleur/journees.json). Un EPW est lu par `js/epw.js` (`lireEPW` : LOCATION, COMMENTS, DATA PERIODS, colonnes
+  T, Td, HR, P, GHI, DNI, DHI, DD, FF, nébulosité ; manquants 99.9/999/9999 → NaN ; erreur `ErreurEPW` si pas de LOCATION, < 672 heures ou vent/T manquant > 50 %)
+  puis `adapterEPW` (mêmes structures que meteo.json / meteo_horaire.json / extremes.json / journees.json ; heures EPW = heure normale du fichier, converties en heure
+  de Paris avec l'heure d'été ; pas de rafales : FXImax et fxi = vent horaire max ; `donneesAnnees` null en EPW → sélecteur d'année masqué). Choix mémorisé dans
+  localStorage `atlas-hdv-meteo-source`, fichier perso `{ nom, texte }` en IndexedDB (`js/cache.js`, clé `meteo-epw-perso`). UI : `js/meteo-source.js`
+  (`creerSourceMeteo(app)` → `app.meteoSource`, créé avant `app.climat` ; `bloc()` `data-garder` en tête de Climat, Vent, Confort, Chaleur ; FileReader, aucun envoi ;
+  « Enregistrer dans data/meteo/ » par `enregistrerDonnees`, serveur.py accepte `.epw`) → événement `meteoSource` (Climat redessine ; Vent relit, vide `bilans`,
+  recalcule le confort au vent ; Confort vide `climato` et la carte ; Chaleur refait la section Température et recalcule ; Export met à jour sa mention). Styles fin de `css/complements.css`.
 - Interface : `h(tag, attrs, ...enfants)` dans `js/util.js` ; outils ajoutés par `I.ajouterOutil({...})`
   dans `js/app.js` ; icônes dans `ICONES` de `js/interface.js`.
 - Onglets de la barre d'outils (Site, Topographie, PSMV, Fond de plan, Bâtiments, Ambiance — id `climat` —, Coupes, Vues, Export) : liste `GROUPES` de `js/interface.js`,
@@ -278,7 +288,7 @@ Le mode d'emploi complet est dans `LISEZMOI.md`.
 app (démarrage, panneaux Couches, Relief, PSMV, Fond) · hauteurs (hauteurs corrigées par bâtiment) · interface (outils, clavier, clics) · maquette (bâti fusionné, couleurs par
 sommet, voirie, arbres) · couches (bâti disparu, parcelles, POI) · toits (toitures détaillées : Hôtel de Ville, îlot Saint-Vincent) · temps (époques, désactivables) · decoupe (vue maquette coupée) · elements (éléments affichés) · vue (3D/plan) ·
 calques (fonds au sol IGN/OSM/Google, plans à caler) · cadastre (parcelles, PSMV, couleurs du bâti) ·
-topo (relief : MNT Nantes Métropole, RGE ALTI, courbes, profils) · relief (maquette drapée sur le terrain) · meteo (lecture de data/meteo/meteo.json) · climat · soleil (ombres, grille de hauteurs) ·
+topo (relief : MNT Nantes Métropole, RGE ALTI, courbes, profils) · relief (maquette drapée sur le terrain) · meteo (lecture de data/meteo/meteo.json, ou d'un EPW) · epw (lecteur et adaptateur EPW) · meteo-source (sélecteur Source météo) · climat · soleil (ombres, grille de hauteurs) ·
 confort (ouverture au ciel, rayonnement sol/façades, température ressentie) · chaleur, chaleur-modele, chaleur-points (matériaux, albédo, température de surface estimée, points chauds) · vent (outil W, onglet Climat : rose cliquable 12 secteurs
 par saison/température et vent moyen/fort, tableau des saisons, graphique mensuel, direction + boussole + flèche sur la maquette, vues rapides
 via `app.vue.basculer` / `allerVers`, particules, confort au vent avec/sans projet par `app.projet.definirVisible(v)` (calque Projet, émet `bati`),
@@ -295,7 +305,7 @@ preparer (page de préparation hors ligne).
 `config.json`, `chapitres.json`, `fiches.json`, `projet.json` (projet de l'onglet Bâtiments), `hauteurs.json` (hauteurs corrigées, outil Hauteurs), `coupes.json` (outil Coupes), `vues.json` et `parcours.json` (onglet Vues), `psmv/` (73 fiches extraites du PDF, photos, planches),
 `documents/` (PDF du PSMV), `calques/` (plans à caler), `topographie/` (CSV du MNT de Nantes Métropole),
 `ign/altimetrie.json` (grille RGE ALTI de 8 m sur ±704 m), `meteo/meteo.json` et `meteo/meteo_horaire.json` (source météo unique ; `meteo/extremes.json` jours extrêmes ; `meteo/*.epw` et
-`meteo/meteofrance_44020001_horaire.csv` facultatifs, proposés dans Export), `toits/hotel-de-ville.json` (toitures de la mairie : BD TOPO,
+`meteo/meteofrance_44020001_horaire.csv` facultatifs, proposés dans Export ; l'EPW de Nantes sert aussi de source météo au choix), `toits/hotel-de-ville.json` (toitures de la mairie : BD TOPO,
 BD ORTHO et LiDAR HD de l'IGN, Licence Ouverte 2.0), `facades/hotel-de-ville.json` et `facades/hotel-de-ville/*.jpg` (photos de façade
 de la mairie, rue de la Commune, rue de Strasbourg et pavillons de la cour d'honneur : Panoramax immergis Licence Ouverte 2.0, Koreller CC BY-SA 4.0, PSMV), `toits/ilot-saint-vincent.json`,
 `facades/ilot-saint-vincent.json` et `facades/ilot-saint-vincent/*.jpg` (îlot Saint-Vincent, 27 rue de Strasbourg), idem `ilot-commune-saint-vincent` (1-5 rue de la Commune, 9-11 rue Saint-Vincent) et `ilot-fanny-peccot` (9-11 rue du Général-Leclerc, 1-3 rue Saint-Vincent, 3 rue Fanny Peccot), `toits/hotel-de-charette.json`, `toits/moulin-23-27.json`, `toits/fenelon-flechier.json` (parcelles EO 26, 195, 49 et 162 ; `facades/hotel-de-charette.json` et `facades/hotel-de-charette/*.jpg` : façade sur cour de l'hôtel de Charette, Panoramax immergis), `chaleur/` (outil Chaleur : materiaux, toitures, ortho, journees, corrections), `bruit.geojson` (DDTM 44, 2022), `fantomes.geojson` et `arbres.geojson` (vides : à dessiner avec Relevé).

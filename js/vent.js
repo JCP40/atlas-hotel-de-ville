@@ -696,7 +696,7 @@ export function creerVent(app) {
       // 1. Rose
       h('div', { class: 'titre-info' }, h('h3', {}, 'Rose des vents mesurée'),
         info('Cliquer un secteur de la rose, une saison ou un mois règle le vent ; les particules montrent l\'écoulement simplifié autour du bâti, à hauteur de piéton.', ui.source)),
-      ...[app.climat?.selecteurAnnee?.()].filter(Boolean),
+      ...[app.meteoSource?.bloc(), app.climat?.selecteurAnnee?.()].filter(Boolean),
       h('div', { class: 'deux-champs' }, lSaison, lTemp),
       ui.rose,
       h('div', { class: 'segment-vent', role: 'group', 'aria-label': 'Vitesse appliquée au clic sur un secteur' }, ...ui.modes),
@@ -809,6 +809,18 @@ export function creerVent(app) {
   // période des mesures changée (Moyenne 2016-2025 / année, js/climat.js) : rose, saisons, mois et rose posée suivent
   app.on('meteoAnnee', () => {
     if (!ui.rose?.isConnected) return;
+    ui.majTemp?.();
+    ui.source.textContent = `Source : ${mention({ court: true, annee: true })}`;
+    ui.mentionLongue.textContent = mention({ annee: true });
+    dessinerRose(); majTableauSaisons(); dessinerMois(); majRoseMaquette();
+  });
+  // source météo changée (base Météo-France / EPW) : mesures relues, rose, saisons, mois, confort au vent recalculé
+  app.on('meteoSource', async () => {
+    mf = null;
+    await chargerMF();
+    bilans.clear();
+    if (etat.actif && etat.confort) majConfort();
+    if (!ui.rose?.isConnected) { majRoseMaquette(); return; }
     ui.majTemp?.();
     ui.source.textContent = `Source : ${mention({ court: true, annee: true })}`;
     ui.mentionLongue.textContent = mention({ annee: true });

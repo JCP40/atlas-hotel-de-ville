@@ -4,6 +4,7 @@ import { chargerJSON, collection, interrogerOverpass, convertirOSM, interrogerCa
 import { lireCache, ecrireCache } from './cache.js';
 import { creerVue } from './vue.js';
 import { creerClimat } from './climat.js';
+import { creerSourceMeteo } from './meteo-source.js';
 import { creerCadastre } from './cadastre.js';
 import { creerExport } from './export.js';
 import { appliquerReglageCentre, creerCentre } from './centre.js';
@@ -371,6 +372,7 @@ async function demarrer() {
   app.cadastre.construire();
   app.coupes = creerCoupes(app);
   app.soleil = creerSoleil(app);
+  app.meteoSource = creerSourceMeteo(app); // sélecteur « Source météo » (base Météo-France / EPW) des outils d'Ambiance
   app.climat = creerClimat(app);
   await app.climat.construire();
   app.flux = creerFlux(app);
@@ -420,7 +422,7 @@ async function demarrer() {
   I.ajouterOutil({ id: 'hauteurs', groupe: 'batiments', libelle: 'Hauteurs', titre: 'Hauteur des bâtiments', horsBorne: true, construire: (c) => app.hauteurs.construirePanneau(c) });
   I.ajouterOutil({ id: 'projet', groupe: 'batiments', libelle: 'Projet', titre: 'Projet : démolir et ajouter des volumes', horsBorne: true, construire: (c) => app.projet.construirePanneau(c) });
   I.ajouterOutil({ id: 'soleil', groupe: 'climat', libelle: 'Soleil', titre: 'Soleil et ombres', raccourci: 'S', construire: (c) => app.soleil.construirePanneau(c) });
-  I.ajouterOutil({ id: 'climat', groupe: 'climat', libelle: 'Climat', titre: 'Températures et vent mesurés (Météo-France)', raccourci: 'K', construire: (c) => app.climat.construirePanneau(c) });
+  I.ajouterOutil({ id: 'climat', groupe: 'climat', libelle: 'Climat', titre: 'Températures et vent (source météo choisie)', raccourci: 'K', construire: (c) => app.climat.construirePanneau(c) });
   I.ajouterOutil({ id: 'vent', groupe: 'climat', libelle: 'Vent', titre: 'Vent autour du bâti', raccourci: 'W', construire: (c) => app.vent.construirePanneau(c) });
   ajouterLigneAide('K', 'W', 'Vent autour du bâti');
   I.ajouterOutil({ id: 'confort', groupe: 'climat', libelle: 'Confort', titre: 'Rayonnement et confort', construire: (c) => app.confort.construirePanneau(c) });

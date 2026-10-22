@@ -3,7 +3,7 @@ import { h, info, dateDepuisJour, jourDeLAnnee, MOIS } from './util.js';
 import { pointDansPolygone, polygonesLocaux, lignesLocales } from './geo.js';
 import { chargerJSON, enregistrerDonnees } from './donnees.js';
 import { visibiliteBatiment } from './maquette.js';
-import { chargerMeteo, horaire } from './meteo.js';
+import { chargerMeteo, horaire, journeesTypes, sourceEPW, libellePeriode } from './meteo.js';
 import { preparerPoints, calculerSVF, positionsSoleil, calculerMasques, simulerJournee, temperatureA, PAS_INSTANTANE, NB_INSTANTANES } from './chaleur-modele.js';
 import { creerPointsChauds } from './chaleur-points.js';
 
@@ -517,9 +517,11 @@ export function creerChaleur(app) {
   const DEGRADE_T = `linear-gradient(90deg, ${PALETTE_T.map(([t, c]) => `rgb(${c.join(',')}) ${Math.round(((t - 15) / 55) * 100)}%`).join(', ')})`;
   const fmtH = (t) => { const hh = Math.floor(t + 1e-6), mm = Math.round((t - hh) * 60); return `${hh} h${mm ? ` ${String(mm).padStart(2, '0')}` : ''}`; };
 
+  // journées types : tirées de l'EPW actif (js/meteo.js), sinon data/chaleur/journees.json (Météo-France)
+  const profils = () => journeesTypes()?.profils ?? etat.journees?.profils ?? {};
   function sourcesMeteo() {
-    const L = [['mois', 'Moyenne du mois (Météo-France 2016-2025)']];
-    for (const [k, p] of Object.entries(etat.journees?.profils || {})) L.push([k, p.libelle]);
+    const L = [['mois', sourceEPW() ? `Moyenne du mois (EPW, ${libellePeriode()})` : 'Moyenne du mois (Météo-France 2016-2025)']];
+    for (const [k, p] of Object.entries(profils())) L.push([k, p.libelle]);
     return L;
   }
   function jourSoleil() {
@@ -527,7 +529,7 @@ export function creerChaleur(app) {
     return { ...dateDepuisJour(S.annee, S.jour), cle: `${S.annee}-${S.jour}` };
   }
   function heuresMeteo(source, d) {
-    if (source !== 'mois' && etat.journees?.profils?.[source]) return etat.journees.profils[source].heures;
+    if (source !== 'mois' && profils()[source]) return profils()[source].heures;
     return horaire()?.moyennes?.[d.mois] || null;
   }
 
@@ -663,7 +665,7 @@ export function creerChaleur(app) {
   });
 
   function prereglage(cle) {
-    const p = etat.journees?.profils?.[cle];
+    const p = profils()[cle];
     const [mm, jj] = String(cle === 'chaude' ? '06-21' : p?.date || '07-18').split('-').map(Number);
     etat.meteo = cle;
     if (ui.selMeteo) ui.selMeteo.value = cle;
@@ -678,7 +680,7 @@ export function creerChaleur(app) {
   function infoTemperature() {
     return info(
       'Bilan d\'énergie de surface simplifié, maille par maille (2 m) : rayonnement solaire direct (ombres réelles du bâti effectif — existant non démoli et volumes du projet — et des arbres, à la date de la barre Soleil) et diffus (pondéré par l\'ouverture au ciel), absorbé selon l\'albédo ; infrarouge du ciel (formule de Brutsaert, corrigée de la nébulosité estimée) et des façades voisines ; émission selon l\'émissivité ; convection h = 5,7 + 3,8 v avec le vent local ; évapotranspiration des sols végétaux (part fixe du rayonnement net) ; inertie par la méthode force-restore (effusivité du matériau).',
-      'Météo : moyenne horaire du mois (Météo-France, Nantes-Bouguenais, 2016-2025), journée chaude type (moyenne heure par heure des jours d\'été à 30 °C ou plus) ou jour le plus chaud mesuré ; rayonnement direct et diffus estimés depuis le global mesuré (modèle d\'Erbs). La journée est simulée deux fois pour la mise en régime ; « Maximum de la journée » garde la valeur la plus haute de chaque maille.',
+      'Météo (source choisie en tête du panneau) : moyenne horaire du mois (par défaut Météo-France, Nantes-Bouguenais, 2016-2025 ; ou fichier EPW, rayonnement direct et diffus du fichier), journée chaude type (moyenne heure par heure des jours d\'été à 30 °C ou plus) ou jour le plus chaud mesuré ; rayonnement direct et diffus estimés depuis le global mesuré (modèle d\'Erbs). La journée est simulée deux fois pour la mise en régime ; « Maximum de la journée » garde la valeur la plus haute de chaque maille.',
       'Toitures : quelques points par toit, sans pente ni orientation des pans (toit traité comme horizontal), toujours bien ventilés (vent × 0,8).',
       h('strong', {}, 'Limites : '), 'estimation pédagogique, à ±5 °C au mieux ; pas de réflexions multiples ni d\'ombre des façades sur elles-mêmes, pas d\'humidité du sol ni d\'arrosage, arbres opaques (12 % de lumière filtrée), pas de chaleur anthropique (circulation, climatisation), air supposé uniforme (pas d\'îlot de chaleur de l\'air), vent simplifié. Pour une étude : Ladybug Tools / ENVI-met avec un fichier EPW.',
       h('ol', { class: 'refs' }, ...(etat.mat?.modele || []).map((r) => h('li', {}, r))),
@@ -691,7 +693,7 @@ export function creerChaleur(app) {
     ui.selMeteo.value = etat.meteo;
     const bCalc = h('button', { type: 'button', class: 'bouton', onclick: () => { etat.affichage = 'temperature'; majChoix(); etat.temp = null; lancerCalcul(); } }, 'Calculer au jour et à l\'heure du soleil');
     const bChaude = h('button', { type: 'button', class: 'bouton discret', onclick: () => prereglage('chaude') }, 'Journée chaude type (21 juin, 15 h)');
-    const rec = etat.journees?.profils?.record;
+    const rec = profils().record;
     const bRecord = rec ? h('button', { type: 'button', class: 'bouton discret', onclick: () => prereglage('record') }, `Jour le plus chaud (${rec.date.split('-').reverse().join('/')}, 15 h)`) : null;
     ui.boutonsTemp = [bCalc, bChaude, bRecord].filter(Boolean);
     const choixVue = h('div', { class: 'choix-chaleur', role: 'group', 'aria-label': 'Valeur affichée' },
@@ -801,6 +803,7 @@ export function creerChaleur(app) {
 
     conteneur.append(
       bandeau(),
+      app.meteoSource?.bloc(),
       h('div', { class: 'titre-info' }, h('h3', {}, 'Matériaux et albédo'), infoMateriaux()),
       choixAffichage,
       h('label', { class: 'case' }, ui.toits, ' Colorer les toitures'),
@@ -835,6 +838,14 @@ export function creerChaleur(app) {
 
   app.on('outil', (id) => { if (id !== 'chaleur') { arreterCapture(); } });
   app.on('bati', () => { if (etat.grille && !etat.suspendu) invalider(); });
+  // source météo changée (base / EPW) : section Température refaite (journées types), journée recalculée si affichée
+  app.on('meteoSource', () => {
+    if (!sourcesMeteo().some(([k]) => k === etat.meteo)) etat.meteo = 'mois';
+    const avait = !!etat.temp;
+    etat.temp = null;
+    if (ui.temp?.isConnected) ui.temp.replaceWith(construireSectionTemperature());
+    if (avait && etat.affichage === 'temperature') lancerCalcul();
+  });
   app.on('etat', () => { if (etat.grille) invalider(); });
 
   return {
