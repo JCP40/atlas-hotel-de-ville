@@ -211,7 +211,8 @@ export function creerPointsChauds(app, api) {
     if (!tex) { app.signaler('Aucune carte affichée.'); return; }
     const { data, width: n } = tex.image;
     const echelle = Math.max(2, Math.floor(900 / n));
-    const marge = 150;
+    const albedo = api.etat.affichage === 'albedo' && api.albedo;
+    const marge = albedo ? 210 : 150;
     const c = document.createElement('canvas');
     c.width = n * echelle; c.height = n * echelle + marge;
     const ctx = c.getContext('2d');
@@ -238,6 +239,20 @@ export function creerPointsChauds(app, api) {
     ctx.font = '13px sans-serif';
     const lignes = api.texteLegende().split('\n');
     lignes.slice(0, 4).forEach((l, i) => ctx.fillText(l.slice(0, 150), 12, y0 + 46 + i * 18));
+    // carte de l'albédo : barre du dégradé continu (rouge = plus chaud, bleu = plus frais), graduée
+    if (albedo) {
+      const { palette, min, max, graduations } = albedo;
+      const bx = 12, by = y0 + 124, bw = Math.min(520, c.width - 24), bh = 14;
+      const gr = ctx.createLinearGradient(bx, 0, bx + bw, 0);
+      for (const [u, col] of palette) gr.addColorStop(u, `rgb(${col.join(',')})`);
+      ctx.fillStyle = gr; ctx.fillRect(bx, by, bw, bh);
+      ctx.strokeStyle = '#8a949b'; ctx.strokeRect(bx, by, bw, bh);
+      ctx.fillStyle = '#2f3b45'; ctx.font = '12px sans-serif'; ctx.textAlign = 'center';
+      graduations.forEach((a, i) => { const x = bx + ((a - min) / (max - min)) * bw; ctx.fillRect(x, by + bh, 1, 4); ctx.textAlign = i === 0 ? 'left' : i === graduations.length - 1 ? 'right' : 'center'; ctx.fillText(fmt(a, 2), x, by + bh + 16); });
+      ctx.textAlign = 'left'; ctx.fillText('◀ plus chaud (albédo faible)', bx, by - 4);
+      ctx.textAlign = 'right'; ctx.fillText('plus frais (albédo élevé) ▶', bx + bw, by - 4);
+      ctx.textAlign = 'left';
+    }
     ctx.fillStyle = '#a5281b'; ctx.font = 'bold 13px sans-serif';
     ctx.fillText('ESTIMATION PÉDAGOGIQUE — ordres de grandeur, pas une simulation certifiée. Nord en haut.', 12, y0 + marge - 14);
     c.toBlob((b) => telecharger(`atlas-chaleur-${horodatage()}.png`, b, 'image/png'), 'image/png');

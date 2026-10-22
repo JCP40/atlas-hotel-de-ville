@@ -273,7 +273,25 @@ export function creerChaleur(app) {
     if (mode === 'albedo') return rampeAlbedo(etat.classes[c].albedo);
     return vals ? (Number.isFinite(vals[k]) ? vals.couleur(vals[k]) : null) : null;
   }
-  const rampeAlbedo = (a) => { const v = Math.round(30 + Math.min(a / 0.5, 1) * 215); return [v, v, Math.min(255, v + 8)]; };
+  // albédo : dégradé continu sur une échelle fixe (plage de materiaux.json), du rouge (albédo faible : absorbe, plus chaud)
+  // au bleu (albédo élevé : réfléchit, plus frais) en passant par une teinte claire neutre, comme la carte de température
+  const ALB_MIN = 0.05, ALB_MAX = 0.5;
+  const PALETTE_ALB = [[0, [165, 0, 38]], [0.25, [244, 109, 67]], [0.5, [255, 247, 214]], [0.75, [116, 173, 209]], [1, [49, 54, 149]]];
+  const rampeAlbedo = (a) => {
+    const t = Math.min(1, Math.max(0, (a - ALB_MIN) / (ALB_MAX - ALB_MIN)));
+    for (let q = 1; q < PALETTE_ALB.length; q++) {
+      if (t <= PALETTE_ALB[q][0]) { const [u0, c0] = PALETTE_ALB[q - 1], [u1, c1] = PALETTE_ALB[q], u = (t - u0) / (u1 - u0); return c0.map((v, i) => Math.round(v + (c1[i] - v) * u)); }
+    }
+    return PALETTE_ALB[PALETTE_ALB.length - 1][1];
+  };
+  const DEGRADE_ALB = `linear-gradient(90deg, ${PALETTE_ALB.map(([u, c]) => `rgb(${c.join(',')}) ${u * 100}%`).join(', ')})`;
+  const GRADUATIONS_ALB = [0.05, 0.1, 0.2, 0.3, 0.4, 0.5];
+  function legendeAlbedo() {
+    return h('div', { class: 'legende-albedo' },
+      h('div', { class: 'legende-albedo-barre', style: { background: DEGRADE_ALB } }),
+      h('div', { class: 'legende-albedo-graduations' }, ...GRADUATIONS_ALB.map((a) => h('span', { style: { left: `${((a - ALB_MIN) / (ALB_MAX - ALB_MIN)) * 100}%` } }, fmt(a, 2)))),
+      h('div', { class: 'legende-albedo-sens' }, h('span', {}, '◀ plus chaud (albédo faible, absorbe)'), h('span', {}, 'plus frais (albédo élevé, réfléchit) ▶')));
+  }
 
   function poserTexture(G, couleurDe) {
     effacerCalque();
@@ -380,7 +398,7 @@ export function creerChaleur(app) {
       h('ul', { class: 'legende legende-chaleur' }, ...sol.map((c) => ligne(c, s.nb.get(etat.idx[c.id])))),
       h('p', { class: 'legende-titre' }, ui.toits?.checked ? 'Toitures (colorées sur la maquette)' : 'Toitures (cocher « Colorer les toitures »)'),
       h('ul', { class: 'legende legende-chaleur' }, ...toits.map((c) => ligne(c, s.toits.get(c.id)))),
-      etat.affichage === 'albedo' ? h('div', { class: 'legende-soleil' }, h('span', {}, '0'), h('i', { style: { background: 'linear-gradient(90deg, rgb(30,30,38), rgb(245,245,253))' } }), h('span', {}, '0,5 et plus')) : null,
+      etat.affichage === 'albedo' ? legendeAlbedo() : null,
     );
   }
 
@@ -753,6 +771,7 @@ export function creerChaleur(app) {
   const points = creerPointsChauds(app, {
     etat, note, classes: () => etat.classes, classe, soleilA, partOmbreJour, calculerTemperature, construireGrille, valeursTemperature,
     zoneSous, dansVariante, afficherEcart, titreCarte, texteLegende,
+    albedo: { palette: PALETTE_ALB, min: ALB_MIN, max: ALB_MAX, graduations: GRADUATIONS_ALB },
   });
 
   // ------------------------------------------------------------

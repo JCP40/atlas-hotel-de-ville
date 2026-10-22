@@ -33,3 +33,12 @@
 .table-chaleur td i { display: inline-block; width: 12px; height: 9px; margin-right: 5px; border: 1px solid rgba(47, 59, 69, 0.3); vertical-align: -1px; }
 .section-temperature { margin-top: 10px; padding-top: 4px; border-top: 1px solid var(--trait); }
 .liste-chauds li.vide { display: block; padding: 4px 0 0; border: none; background: none; color: var(--ardoise-doux); font-size: 12px; }
+
+/* Légende continue de l'albédo (rouge = plus chaud, bleu = plus frais) */
+.legende-albedo { margin: 6px 0 10px; font-size: 12px; }
+.legende-albedo-barre { height: 12px; border: 1px solid var(--trait, #c9cfd3); }
+.legende-albedo-graduations { position: relative; height: 16px; margin: 2px 0; }
+.legende-albedo-graduations span { position: absolute; transform: translateX(-50%); font-variant-numeric: tabular-nums; }
+.legende-albedo-graduations span:first-child { transform: none; }
+.legende-albedo-graduations span:last-child { transform: translateX(-100%); }
+.legende-albedo-sens { display: flex; justify-content: space-between; gap: 8px; color: var(--ardoise-doux, #556); }
