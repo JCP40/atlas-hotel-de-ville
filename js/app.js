@@ -21,6 +21,10 @@ import { creerImports } from './imports.js';
 import { creerHauteurs } from './hauteurs.js';
 import { creerDecoupe } from './decoupe.js';
 import { creerElements } from './elements.js';
+import { creerVuesRapides } from './vues-rapides.js';
+import { creerLegende } from './legende.js';
+import { creerRosesSaisons } from './roses-saisons.js';
+import { creerPlanche } from './planche.js';
 import {
   creerScene, creerSol, construireBatiments, construireVoirie, construireSurfaces, construireArbres,
   majBrouillard, arbresVueMaquette,
@@ -409,6 +413,7 @@ async function demarrer() {
   app.chapitres = creerChapitres(app);
   app.vues = creerVues(app); // onglet Vues : points de vue enregistrés (data/vues.json), axonométrie, focale
   await app.vues.charger();
+  app.vuesRapides = creerVuesRapides(app); // vues rapides sous la barre Soleil (même liste que l'onglet Vues)
   app.releve = creerReleve(app);
 
   const I = creerInterface(app);
@@ -436,6 +441,9 @@ async function demarrer() {
   I.ajouterOutil({ id: 'fiches', groupe: 'site', libelle: 'Fiches', titre: 'Toutes les fiches', construire: (c) => app.fiches.construireSommaire(c) });
   app.export = creerExport(app);
   app.centre = creerCentre(app);
+  app.legende = creerLegende(app); // légende automatique de ce qui est affiché (cadre en bas à gauche)
+  app.rosesSaisons = creerRosesSaisons(app); // 4 roses des vents des saisons (outil Vent, planche)
+  app.planche = creerPlanche(app); // planche à l'échelle PDF / SVG (onglet Export)
   I.ajouterOutil({ id: 'centre', groupe: 'site', libelle: 'Centre', titre: 'Centre du projet et cercle de la maquette', masqueEnBorne: true, construire: (c) => app.centre.construirePanneau(c) });
   I.ajouterOutil({ id: 'exporter', groupe: 'export', libelle: 'Exporter', titre: 'Exporter', horsBorne: true, construire: (c) => app.export.construirePanneau(c) });
   I.ajouterOutil({ id: 'releve', groupe: 'site', libelle: 'Relevé', titre: 'Relever et caler', masqueEnBorne: true, construire: (c) => app.releve.construirePanneau(c) });

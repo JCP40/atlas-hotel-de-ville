@@ -5,6 +5,7 @@ import { h, MOIS, jourDeLAnnee, dateDepuisJour } from './util.js';
 import { saisonArbres, visibiliteBatiment, COULEURS } from './maquette.js';
 
 const RAD = Math.PI / 180;
+const HEURES_RAPIDES = [10, 13, 16]; // boutons de la barre Soleil (heure légale)
 
 // Direction (vecteur unitaire) vers le soleil dans le repère local : x = est, z = sud.
 // SunCalc 2 donne l'azimut en degrés depuis le nord, dans le sens horaire.
@@ -87,6 +88,8 @@ export function creerSoleil(app) {
       const n = app.climat?.normalesDuMois(d.getMonth());
       if (n) ui.infos.append(` Normales de ce mois : ${String(n.tmin).replace('.', ',')} à ${String(n.tmax).replace('.', ',')} °C.`);
     }
+    etat.altitude = pos.altitude;
+    etat.azimut = pos.azimuth;
     majBarre(pos);
     app.emettre('soleil', { date: d, altitude: pos.altitude, azimut: pos.azimuth });
   }
@@ -112,11 +115,15 @@ export function creerSoleil(app) {
       effacerCarte(); changer();
     });
     barre.heure.addEventListener('input', () => { etat.heure = +barre.heure.value; changer(); });
+    // heures rapides (heure légale) : 10 h, 13 h, 16 h ; l'heure active est surlignée par majBarre
+    barre.rapides = HEURES_RAPIDES.map((hh) => h('button', { type: 'button', class: 'soleil-heure-rapide', 'aria-pressed': 'false', title: `Soleil à ${hh} h (heure légale)`,
+      onclick: () => { etat.heure = hh; changer(); } }, `${hh} h`));
     barre.el = h('details', { class: 'soleil-barre', open: !window.matchMedia('(max-width: 820px)').matches },
       h('summary', { title: 'Soleil : date et heure (réglage commun à tous les outils)' }, h('span', { 'aria-hidden': 'true', class: 'soleil-barre-icone' }, '☀'), barre.resume),
       h('div', { class: 'soleil-barre-corps' },
         h('label', {}, h('span', {}, 'Date'), barre.date),
-        h('label', {}, h('span', {}, 'Heure'), barre.heure, barre.texteHeure)));
+        h('label', {}, h('span', {}, 'Heure'), barre.heure, barre.texteHeure),
+        h('div', { class: 'soleil-barre-rapides', role: 'group', 'aria-label': 'Heures rapides' }, ...barre.rapides)));
     hote.append(barre.el);
   }
   function majBarre(pos) {
@@ -126,6 +133,7 @@ export function creerSoleil(app) {
     if (document.activeElement !== barre.date) barre.date.value = iso;
     if (document.activeElement !== barre.heure) barre.heure.value = etat.heure;
     barre.texteHeure.textContent = formaterHeure(etat.heure);
+    for (const [k, b] of barre.rapides.entries()) { const on = Math.abs(etat.heure - HEURES_RAPIDES[k]) < 0.01; b.classList.toggle('actif', on); b.setAttribute('aria-pressed', String(on)); }
     barre.resume.textContent = `${libelleDate()}, ${formaterHeure(etat.heure)}${pos && pos.altitude <= 0 ? ' (nuit)' : ''}`;
   }
 
@@ -270,15 +278,18 @@ export function creerSoleil(app) {
       }
     }
     const max = Math.max(1, ...heures);
+    etat.carteMax = max;
+    etat.carteDate = libelleDate();
     afficherCarte(zone, nx, nz, heures, max);
     ui.carteEtat.textContent = `Heures de soleil direct le ${libelleDate()}, à 1,20 m du sol${app.arbres?.hiver ? ' (arbres caducs sans feuilles)' : ''}.`;
     ui.legende.hidden = false;
     ui.legendeMax.textContent = `${max.toFixed(1).replace('.', ',')} h`;
   }
 
+  // de l'ombre (bleu ardoise) au plein soleil (jaune de Naples) ; aussi pour la légende automatique (js/legende.js)
+  const STOPS_CARTE = [[0, [58, 76, 102]], [0.35, [120, 146, 170]], [0.65, [226, 214, 170]], [1, [242, 184, 64]]];
   function couleurCarte(t) {
-    // de l'ombre (bleu ardoise) au plein soleil (jaune de Naples)
-    const stops = [[0, [58, 76, 102]], [0.35, [120, 146, 170]], [0.65, [226, 214, 170]], [1, [242, 184, 64]]];
+    const stops = STOPS_CARTE;
     for (let k = 1; k < stops.length; k++) {
       if (t <= stops[k][0]) {
         const [t0, c0] = stops[k - 1], [t1, c1] = stops[k];
@@ -383,7 +394,7 @@ export function creerSoleil(app) {
           h('input', { type: 'checkbox', onchange: (e) => { etat.trajectoire = e.target.checked; groupeTrajectoire.visible = etat.trajectoire; if (etat.trajectoire) dessinerTrajectoire(); } }),
           'Course du soleil')),
       h('h3', {}, 'Ombre et ensoleillement'),
-      h('p', { class: 'note' }, 'Calcul sur le plateau de la maquette (210 m de diamètre).'),
+      h('p', { class: 'note' }, `Calcul sur le plateau de la maquette (${Math.round(app.config.rayonPlateau * 2)} m de diamètre).`),
       h('div', { class: 'actions' },
         h('button', { type: 'button', class: 'bouton', onclick: mesurerOmbre }, 'Mesurer l\'ombre à cette heure'),
         h('button', { type: 'button', class: 'bouton', onclick: calculerCarte }, 'Calculer les heures de soleil'),
@@ -424,8 +435,18 @@ export function creerSoleil(app) {
 
   construireBarre();
 
+  // légende automatique (js/legende.js) : carte des heures de soleil affichée
+  function legendeAuto() {
+    if (!etat.carte) return null;
+    const max = etat.carteMax || 1, f = (v) => `${v.toFixed(v % 1 ? 1 : 0).replace('.', ',')} h`;
+    const grad = [0, max / 2, max];
+    return { id: 'soleil', titre: `Heures de soleil direct le ${etat.carteDate || libelleDate()} (à 1,20 m du sol)`,
+      degrade: { stops: STOPS_CARTE, graduations: grad.map((v) => ({ u: v / max, texte: f(Math.round(v * 10) / 10) })), gauche: 'à l\'ombre', droite: 'au soleil' } };
+  }
+
   return {
-    etat, maj, construirePanneau, calculerCarte, effacerCarte, date,
+    etat, maj, construirePanneau, calculerCarte, effacerCarte, date, legendeAuto, libelleDate,
+    hauteur: () => etat.altitude,
     grilleHauteurs, hauteurEn, zoneAnalyse,
     regler({ jour, heure } = {}) {
       if (jour != null) etat.jour = jour;

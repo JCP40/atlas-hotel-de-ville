@@ -292,7 +292,7 @@ export function creerRues(app) {
       mesh.userData.base = geo.getAttribute('position').array.slice();
       mesh.rotation.y = -q.angle; // sens de la voie ; la lecture est rétablie en tournant la texture (orienter)
       groupe.add(mesh);
-      etiquettes.push({ mesh, x: q.x, z: q.z, angle: q.angle, h: q.h, mode, retourne: null });
+      etiquettes.push({ mesh, x: q.x, z: q.z, angle: q.angle, h: q.h, L: q.L, texte: q.texte, mode, retourne: null });
     };
     posesEtendue.forEach((q) => creerMesh(q, 'etendue'));
     posesMaquette.forEach((q) => creerMesh(q, 'maquette'));
@@ -372,5 +372,7 @@ export function creerRues(app) {
     construire();
   }
 
-  return { demarrer, construire, maj, groupe, get nombre() { return etiquettes.length; }, get noms() { return [...new Set(etiquettes.map((e) => e.mesh.userData.nomRue))]; } };
+  return { demarrer, construire, maj, groupe, get nombre() { return etiquettes.length; }, get noms() { return [...new Set(etiquettes.map((e) => e.mesh.userData.nomRue))]; },
+    // étiquettes posées (planche à l'échelle, js/planche.js) : centre, angle de la voie, hauteur et longueur du texte (m)
+    get poses() { return etiquettes.map(({ x, z, angle, h, L, texte, mode, mesh }) => ({ x, z, angle, h, L, texte, mode, visible: mesh.visible })); } };
 }

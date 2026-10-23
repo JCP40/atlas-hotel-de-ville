@@ -45,8 +45,9 @@ const CLASSES_RESSENTI = [
 ];
 
 // dégradé générique (bleu nuit -> jaune)
+const STOPS_DEGRADE = [[0, [40, 50, 110]], [0.25, [60, 110, 170]], [0.5, [120, 180, 170]], [0.75, [230, 210, 110]], [1, [245, 150, 40]]];
 function degrade(t) {
-  const stops = [[0, [40, 50, 110]], [0.25, [60, 110, 170]], [0.5, [120, 180, 170]], [0.75, [230, 210, 110]], [1, [245, 150, 40]]];
+  const stops = STOPS_DEGRADE;
   t = Math.min(Math.max(t, 0), 1);
   for (let k = 1; k < stops.length; k++) {
     if (t <= stops[k][0]) {
@@ -465,5 +466,21 @@ export function creerConfort(app) {
     if (ui.resultat?.isConnected) { ui.resultat.replaceChildren(); note('Source météo changée : relancer le calcul.'); ui.majSource?.(); }
   });
 
-  return { construirePanneau, calculerSVF, calculerRayonnement, calculerConfort, climatologie, effacerCarte, etat };
+  // légende automatique (js/legende.js) : carte affichée (classes de température ressentie ou dégradé gradué)
+  function legendeAuto() {
+    const I = etat.info;
+    if (!etat.calque || !I) return null;
+    if (I.classes) {
+      return { id: 'confort', titre: I.titre, items: I.classes.map((c, k) => {
+        const a = k ? I.classes[k - 1].max : null;
+        const plage = a == null ? `moins de ${c.max} °C` : c.max === Infinity ? `plus de ${a} °C` : `${a} à ${c.max} °C`;
+        return { libelle: `${c.libelle} (${plage})`, couleur: `rgb(${c.couleur.join(',')})`, forme: 'aplat' };
+      }) };
+    }
+    const min = I.min ?? 0, max = I.max ?? 1;
+    return { id: 'confort', titre: I.titre,
+      degrade: { stops: STOPS_DEGRADE, graduations: [0, 0.5, 1].map((u) => ({ u, texte: I.format(min + u * (max - min)) })) } };
+  }
+
+  return { construirePanneau, calculerSVF, legendeAuto, calculerRayonnement, calculerConfort, climatologie, effacerCarte, etat };
 }

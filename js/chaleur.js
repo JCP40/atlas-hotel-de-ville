@@ -4,7 +4,7 @@ import { pointDansPolygone, polygonesLocaux, lignesLocales } from './geo.js';
 import { chargerJSON, enregistrerDonnees } from './donnees.js';
 import { visibiliteBatiment } from './maquette.js';
 import { chargerMeteo, horaire, journeesTypes, sourceEPW, libellePeriode } from './meteo.js';
-import { preparerPoints, calculerSVF, positionsSoleil, calculerMasques, simulerJournee, temperatureA, PAS_INSTANTANE, NB_INSTANTANES } from './chaleur-modele.js';
+import { preparerPoints, calculerSVF, positionsSoleil, calculerMasques, simulerJournee, temperatureA, temperatureReference, REFERENCE, PAS_INSTANTANE, NB_INSTANTANES } from './chaleur-modele.js';
 import { creerPointsChauds } from './chaleur-points.js';
 
 // Outil Chaleur (onglet Ambiance) : matériaux de surface, albédo, échauffement et points chauds au sol.
@@ -65,7 +65,9 @@ export function creerChaleur(app) {
       if (!mat?.classes) throw new Error('data/chaleur/materiaux.json absent');
       etat.mat = mat;
       etat.classes = Object.entries(mat.classes).map(([id, c]) => ({ id, ...c, rgb: hexRGB(c.couleur) }));
-      etat.classes.forEach((c, i) => { etat.idx[c.id] = i; });
+      etat.classes.forEach((c, i) => { etat.idx[c.id] = i; c.tref = temperatureReference(c); });
+      const tr = etat.classes.map((c) => c.tref);
+      etat.ech = { min: Math.floor(Math.min(...tr)), max: Math.ceil(Math.max(...tr)) };
       etat.toitures = indexerToitures(toitures);
       etat.ortho = decoderOrtho(ortho);
       etat.corrections = (corr?.corrections || []).filter((c) => c && etat.idx[c.classe] != null);
@@ -271,6 +273,7 @@ export function creerChaleur(app) {
     if (c === HORS || c === BATI) return null;
     if (mode === 'materiaux') return etat.classes[c].rgb;
     if (mode === 'albedo') return rampeAlbedo(etat.classes[c].albedo);
+    if (mode === 'echauffement') return rampeEchauffement(etat.classes[c].tref);
     return vals ? (Number.isFinite(vals[k]) ? vals.couleur(vals[k]) : null) : null;
   }
   // albédo : dégradé continu sur une échelle fixe (plage de materiaux.json), du rouge (albédo faible : absorbe, plus chaud)
@@ -286,12 +289,39 @@ export function creerChaleur(app) {
   };
   const DEGRADE_ALB = `linear-gradient(90deg, ${PALETTE_ALB.map(([u, c]) => `rgb(${c.join(',')}) ${u * 100}%`).join(', ')})`;
   const GRADUATIONS_ALB = [0.05, 0.1, 0.2, 0.3, 0.4, 0.5];
-  function legendeAlbedo() {
-    return h('div', { class: 'legende-albedo' },
-      h('div', { class: 'legende-albedo-barre', style: { background: DEGRADE_ALB } }),
-      h('div', { class: 'legende-albedo-graduations' }, ...GRADUATIONS_ALB.map((a) => h('span', { style: { left: `${((a - ALB_MIN) / (ALB_MAX - ALB_MIN)) * 100}%` } }, fmt(a, 2)))),
-      h('div', { class: 'legende-albedo-sens' }, h('span', {}, '◀ plus chaud (albédo faible, absorbe)'), h('span', {}, 'plus frais (albédo élevé, réfléchit) ▶')));
+  // indice d'échauffement : température de surface de référence de chaque classe (temperatureReference, chaleur-modele.js),
+  // du bleu (plus frais) au rouge (plus chaud) en passant par un blanc cassé, échelle sur la plage des valeurs des classes
+  const PALETTE_ECH = [[0, [49, 54, 149]], [0.3, [69, 117, 180]], [0.5, [255, 247, 214]], [0.75, [244, 109, 67]], [1, [165, 0, 38]]];
+  const interpoler = (P, t) => {
+    t = Math.min(1, Math.max(0, t));
+    for (let q = 1; q < P.length; q++) {
+      if (t <= P[q][0]) { const [u0, c0] = P[q - 1], [u1, c1] = P[q], u = (t - u0) / (u1 - u0); return c0.map((v, i) => Math.round(v + (c1[i] - v) * u)); }
+    }
+    return P[P.length - 1][1];
+  };
+  const rampeEchauffement = (T) => interpoler(PALETTE_ECH, (T - etat.ech.min) / (etat.ech.max - etat.ech.min || 1));
+  const graduationsEch = () => { const { min, max } = etat.ech, pas = max - min > 24 ? 10 : 5, L = [min]; for (let v = Math.ceil((min + 1) / pas) * pas; v < max; v += pas) L.push(v); L.push(max); return L; };
+  // description du dégradé affiché (légende du panneau et export PNG de chaleur-points.js)
+  function degradeActif() {
+    if (etat.affichage === 'albedo') {
+      return { palette: PALETTE_ALB, min: ALB_MIN, max: ALB_MAX, graduations: GRADUATIONS_ALB, texte: (a) => fmt(a, 2),
+        gauche: '◀ plus chaud (albédo faible, absorbe)', droite: 'plus frais (albédo élevé, réfléchit) ▶' };
+    }
+    if (etat.affichage === 'echauffement' && etat.ech) {
+      return { palette: PALETTE_ECH, min: etat.ech.min, max: etat.ech.max, graduations: graduationsEch(), texte: (t) => `${fmt(t)} °C`,
+        gauche: '◀ plus frais', droite: 'plus chaud ▶' };
+    }
+    return null;
   }
+  function legendeDegrade() {
+    const D = degradeActif();
+    if (!D) return null;
+    return h('div', { class: 'legende-albedo' },
+      h('div', { class: 'legende-albedo-barre', style: { background: `linear-gradient(90deg, ${D.palette.map(([u, c]) => `rgb(${c.join(',')}) ${u * 100}%`).join(', ')})` } }),
+      h('div', { class: 'legende-albedo-graduations' }, ...D.graduations.map((a) => h('span', { style: { left: `${((a - D.min) / (D.max - D.min)) * 100}%` } }, D.texte(a)))),
+      h('div', { class: 'legende-albedo-sens' }, h('span', {}, D.gauche), h('span', {}, D.droite)));
+  }
+  const couleurClasse = (c, mode) => (mode === 'albedo' ? rampeAlbedo(c.albedo) : mode === 'echauffement' ? rampeEchauffement(c.tref) : c.rgb);
 
   function poserTexture(G, couleurDe) {
     effacerCalque();
@@ -359,7 +389,7 @@ export function creerChaleur(app) {
     const G = grille();
     const mode = etat.affichage;
     poserTexture(G, (k) => couleurCellule(G, k, mode));
-    if (ui.toits?.checked) colorierToits(G, (b) => { const c = classe(G.batiments[b].toit); return mode === 'albedo' ? rampeAlbedo(c.albedo) : c.rgb; });
+    if (ui.toits?.checked) colorierToits(G, (b) => couleurClasse(classe(G.batiments[b].toit), mode));
     else effacerToits();
     majLegende(G);
   }
@@ -388,8 +418,9 @@ export function creerChaleur(app) {
     let albMoy = 0;
     s.nb.forEach((v, c) => { albMoy += etat.classes[c].albedo * v; });
     albMoy /= Math.max(s.total, 1);
-    const ligne = (c, nCell) => h('li', {}, h('i', { style: { background: etat.affichage === 'albedo' ? `rgb(${rampeAlbedo(c.albedo).join(',')})` : c.couleur } }),
-      `${c.libelle} — albédo ${fmt(c.albedo, 2)}${nCell ? ` · ${Math.round((nCell * m2) / 10) * 10} m²` : ''}`);
+    const ech = etat.affichage === 'echauffement';
+    const ligne = (c, nCell) => h('li', {}, h('i', { style: { background: etat.affichage === 'materiaux' ? c.couleur : `rgb(${couleurClasse(c, etat.affichage).join(',')})` } }),
+      `${c.libelle} — ${ech ? `${fmt(c.tref)} °C de référence, ` : ''}albédo ${fmt(c.albedo, 2)}${nCell ? ` · ${Math.round((nCell * m2) / 10) * 10} m²` : ''}`);
     const sol = etat.classes.filter((c) => c.type === 'sol' && s.nb.get(etat.idx[c.id]));
     const toits = etat.classes.filter((c) => c.type === 'toit' && s.toits.get(c.id));
     ui.legende.replaceChildren(
@@ -398,7 +429,8 @@ export function creerChaleur(app) {
       h('ul', { class: 'legende legende-chaleur' }, ...sol.map((c) => ligne(c, s.nb.get(etat.idx[c.id])))),
       h('p', { class: 'legende-titre' }, ui.toits?.checked ? 'Toitures (colorées sur la maquette)' : 'Toitures (cocher « Colorer les toitures »)'),
       h('ul', { class: 'legende legende-chaleur' }, ...toits.map((c) => ligne(c, s.toits.get(c.id)))),
-      etat.affichage === 'albedo' ? legendeAlbedo() : null,
+      legendeDegrade(),
+      ech ? h('p', { class: 'note' }, `Couleur = température de surface d'équilibre de chaque matériau dans les mêmes conditions de référence (plein soleil ${REFERENCE.K} W/m², air ${REFERENCE.ta} °C, vent ${REFERENCE.v} m/s, ciel clair, sans ombre ; sol sous arbres : ${Math.round(REFERENCE.ombreArbres * 100)} % du rayonnement), d'après l'albédo, l'émissivité, l'évaporation et l'inertie de materiaux.json. L'herbe reste fraîche malgré un albédo moyen (${fmt(classe('pelouse')?.albedo ?? 0.23, 2)}) parce qu'elle évapore de l'eau (évapotranspiration) ; l'eau, par sa grande inertie ; le zinc chauffe faute d'émissivité et d'inertie.`) : null,
     );
   }
 
@@ -485,7 +517,7 @@ export function creerChaleur(app) {
     majCorrections();
   }
   function commencerCapture() {
-    if (!etat.calque) { etat.affichage = etat.affichage === 'albedo' ? 'albedo' : 'materiaux'; afficher(); }
+    if (!etat.calque) { etat.affichage = ['albedo', 'echauffement'].includes(etat.affichage) ? etat.affichage : 'materiaux'; afficher(); }
     const f = (p) => clic(p);
     app.captureSol = f;
     etat.capture = f;
@@ -748,9 +780,25 @@ export function creerChaleur(app) {
   function titreCarte() {
     const res = etat.temp;
     if (etat.affichage === 'ecart') return 'écart projet − existant';
-    if (etat.affichage !== 'temperature' || !res) return etat.affichage === 'albedo' ? 'albédo des surfaces' : 'matériaux des surfaces';
+    if (etat.affichage !== 'temperature' || !res) return { albedo: 'albédo des surfaces', echauffement: `échauffement des matériaux (température de surface de référence, plein soleil, air ${REFERENCE.ta} °C)` }[etat.affichage] || 'matériaux des surfaces';
     const lib = sourcesMeteo().find(([k]) => k === res.source)?.[1] || '';
     return `${etat.vueTemp === 'max' ? 'maximum de la journée du' : 'température de surface le'} ${res.d.jour} ${MOIS[res.d.mois]}${etat.vueTemp === 'max' ? '' : ` à ${fmtH(app.soleil.etat.heure)}`} (${lib.toLowerCase()})`;
+  }
+  // légende automatique (js/legende.js) : la carte affichée, avec ses couleurs (mêmes palettes que le panneau)
+  function legendeAuto() {
+    if (!etat.calque || !etat.mat) return null;
+    const titre = `Chaleur : ${titreCarte()}`;
+    const D = degradeActif();
+    if (D) return { id: 'chaleur', titre, note: 'Estimation pédagogique.',
+      degrade: { stops: D.palette, graduations: D.graduations.map((a) => ({ u: (a - D.min) / (D.max - D.min), texte: D.texte(a) })), gauche: D.gauche.replace('◀ ', ''), droite: D.droite.replace(' ▶', '') } };
+    if (etat.affichage === 'temperature') return { id: 'chaleur', titre, note: 'Estimation pédagogique, ±5 °C au mieux.',
+      degrade: { stops: PALETTE_T.map(([t, c]) => [(t - 15) / 55, c]), graduations: [15, 30, 45, 60, 70].map((t) => ({ u: (t - 15) / 55, texte: `${t} °C` })) } };
+    if (etat.affichage === 'ecart') return { id: 'chaleur', titre, note: 'Bleu : plus frais avec le projet.',
+      degrade: { stops: DIVERGENT.map(([d, c]) => [(d + 10) / 20, c]), graduations: [-10, -5, 0, 5, 10].map((d) => ({ u: (d + 10) / 20, texte: `${d > 0 ? '+' : d < 0 ? '−' : ''}${Math.abs(d)} °C` })) } };
+    const G = etat.grille;
+    const presents = new Set();
+    if (G) { for (let k = 0; k < G.cls.length; k++) if (G.cls[k] < BATI) presents.add(G.cls[k]); if (etat.toitsColores) for (const b of G.batiments) presents.add(etat.idx[b.toit]); }
+    return { id: 'chaleur', titre, items: etat.classes.filter((c, i) => !G || presents.has(i)).map((c) => ({ libelle: `${c.libelle} (albédo ${fmt(c.albedo, 2)})`, couleur: c.couleur, forme: 'aplat' })) };
   }
   function texteLegende() {
     const L = [...(ui.legende?.querySelectorAll('.resultat, tr, li') || [])].map((e) => e.textContent.replace(/\s+/g, ' ').trim()).filter(Boolean);
@@ -771,7 +819,7 @@ export function creerChaleur(app) {
   const points = creerPointsChauds(app, {
     etat, note, classes: () => etat.classes, classe, soleilA, partOmbreJour, calculerTemperature, construireGrille, valeursTemperature,
     zoneSous, dansVariante, afficherEcart, titreCarte, texteLegende,
-    albedo: { palette: PALETTE_ALB, min: ALB_MIN, max: ALB_MAX, graduations: GRADUATIONS_ALB },
+    degradeActif,
   });
 
   // ------------------------------------------------------------
@@ -798,7 +846,7 @@ export function creerChaleur(app) {
     ui.pointeur = h('p', { class: 'coordonnees' });
     ui.toits = h('input', { type: 'checkbox', checked: etat.toitsColores, onchange: () => afficher() });
     const choixAffichage = h('div', { class: 'choix-chaleur', role: 'group', 'aria-label': 'Carte affichée' },
-      ...[['materiaux', 'Matériaux'], ['albedo', 'Albédo'], ['temperature', 'Température']].map(([id, lib]) => h('button', {
+      ...[['materiaux', 'Matériaux'], ['echauffement', 'Échauffement des matériaux'], ['albedo', 'Albédo seul'], ['temperature', 'Température']].map(([id, lib]) => h('button', {
         type: 'button', class: `bouton discret${etat.affichage === id ? ' actif' : ''}`, 'data-carte': id,
         onclick: () => { etat.affichage = id; majChoix(); afficher(); },
       }, lib)));
@@ -869,7 +917,7 @@ export function creerChaleur(app) {
 
   return {
     etat, charger, construire, construireGrille, afficher, effacerTout, decrire, enregistrer,
-    calculerTemperature, lancerCalcul, prereglage, valeursTemperature, points,
+    calculerTemperature, lancerCalcul, prereglage, valeursTemperature, points, legendeAuto, degradeActif,
     classes: () => etat.classes,
   };
 }

@@ -1,5 +1,5 @@
 {
-  "_note": "Chapitres de l'analyse du site. Options : etat, couches, camera {position, cible} en mètres locaux ou {lat, lon, hauteur}, vue (\"3d\" ou \"2d\"), fonds {principal, comparaison} (identifiants de config.json > fonds), coupe, soleil {jour, heure}, roseVents, vueMaquette, fiche. Caméras en mètres locaux (x est, y haut, z sud), relatives à config.origine : le 13/10/2026, passage de l'origine au centroïde de la parcelle EY 64, caméras translatées de (+54,4 ; -35,1) m, sauf les cadrages centrés sur l'origine (chapitres 1, 4 et 6), qui restent centrés sur la mairie. « masque »: true retire un chapitre de la règle sans le supprimer (chapitres 3 « Mémoire de 1943 » et 4 « Évolution historique » masqués le 21/10/2026) ; les chapitres affichés sont renumérotés à la suite.",
+  "_note": "Chapitres de l'analyse du site. Options : etat, couches, camera {position, cible} en mètres locaux ou {lat, lon, hauteur}, vue (\"3d\" ou \"2d\"), fonds {principal, comparaison} (identifiants de config.json > fonds), coupe, soleil {jour, heure}, roseVents, vueMaquette, fiche. Caméras en mètres locaux (x est, y haut, z sud), relatives à config.origine : le 13/10/2026, passage de l'origine au centroïde de la parcelle EY 64, caméras translatées de (+54,4 ; -35,1) m, sauf les cadrages centrés sur l'origine (chapitres 1, 4 et 6), qui restent centrés sur la mairie ; le 23/10/2026 (plateau de 45 m), chapitres 2 et 5 recentrés sur le plateau, cible décalée vers l'ouest pour laisser la carte du chapitre à gauche. « masque »: true retire un chapitre de la règle sans le supprimer (chapitres 3 « Mémoire de 1943 » et 4 « Évolution historique » masqués le 21/10/2026) ; les chapitres affichés sont renumérotés à la suite.",
   "chapitres": [
     {
       "id": "situation",
@@ -8,7 +8,7 @@
       "sousTitre": "De la Tour Bretagne à la cathédrale",
       "texte": [
         "L'Hôtel de Ville se tient entre deux signaux du paysage nantais, la Tour Bretagne à l'ouest et la cathédrale à l'est, au contact du centre commerçant et du quartier administratif.",
-        "Le disque blanc au centre correspond au plateau de la maquette au 1/500."
+        "Le disque blanc au centre correspond au plateau de la maquette (cercle de 90 m, 45 cm au 1/200)."
       ],
       "etat": "actuel",
       "vue": "3d",
@@ -91,14 +91,14 @@
       },
       "camera": {
         "position": [
-          54.4,
+          -20,
           260,
-          -35.1
+          -20
         ],
         "cible": [
-          44.4,
+          -30,
           0,
-          -15.1
+          0
         ]
       },
       "fiche": "psmv",
@@ -203,14 +203,14 @@
       },
       "camera": {
         "position": [
-          134.4,
+          60,
           170,
-          224.9
+          240
         ],
         "cible": [
-          54.4,
+          -20,
           0,
-          -15.1
+          0
         ]
       },
       "fiche": "rue-hotel-de-ville",

@@ -2,35 +2,20 @@
   "description": "Projet de l'atlas : bâtiments démolis (clés OSM / IGN) et volumes ajoutés (centre en WGS84, dimensions en mètres, rotation en degrés, sens trigonométrique, nord en haut).",
   "visible": true,
   "demolis": [],
-  "imports": [
+  "imports": [],
+  "formes": [
     {
       "n": 1,
-      "nom": "Batiment v1 test",
-      "fichiers": [
-        "imports/Batiment v1 test.obj"
-      ],
-      "lat": 47.2176655,
-      "lon": -1.5548084,
+      "forme": "rond",
+      "a": 4.5,
+      "b": 20,
+      "t": 10,
       "rot": 0,
-      "unite": 1,
-      "echelle": 1,
-      "hauteur": 1,
-      "vis": true
-    },
-    {
-      "n": 2,
-      "nom": "Batiment v1 test",
-      "fichiers": [
-        "imports/Batiment v1 test.obj"
-      ],
-      "lat": 47.2175704,
-      "lon": -1.5546691,
-      "rot": 0,
-      "unite": 1,
-      "echelle": 1,
-      "hauteur": 0,
-      "vis": true
+      "h": 27,
+      "lat": 47.2176494,
+      "lon": -1.5547813,
+      "vis": true,
+      "couleur": "#000000"
     }
-  ],
-  "formes": []
+  ]
 }

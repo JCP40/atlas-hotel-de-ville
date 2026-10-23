@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { h, info, allerVers, easeInOutCubic, mouvementReduit } from './util.js';
+import { h, info, allerVers, easeInOutCubic, mouvementReduit, dateDepuisJour, MOIS } from './util.js';
 import { chargerJSON, enregistrerDonnees } from './donnees.js';
 import { creerPieton } from './pieton.js';
 import { creerParcours } from './parcours.js';
@@ -8,7 +8,10 @@ import { creerParcours } from './parcours.js';
 // Outil « Vues » (onglet Vues) : points de vue enregistrés.
 // - Une vue garde la caméra (position et cible en WGS84 + hauteur au-dessus du sol, donc indépendante de config.origine),
 //   la focale, la projection (3d | axo | plan | face | pieton), la coupe active, le soleil (jour, heure), l'époque,
-//   les couches (app.couches), la vue maquette, le mode du bâti et sa représentation, l'onglet et l'outil ouverts, une vignette JPEG.
+//   les couches (app.couches), la vue maquette, le mode du bâti et sa représentation, l'onglet et l'outil ouverts, une vignette JPEG,
+//   et les réglages des outils (reglages : carte de Chaleur, vent appliqué et saison du Vent, réseaux souterrains affichés).
+// - Nom proposé automatiquement (nomAuto : outil ouvert + date et heure du soleil, ex. « Chaleur échauffement – 21 juin 15 h »).
+// - Vues rapides (js/vues-rapides.js) : même liste, panneau sous la barre Soleil ; événement « vues » à chaque changement.
 // - Liste nommée dans data/vues.json (enregistrerDonnees, sinon téléchargement), relue au démarrage.
 // - Aller à une vue : transition douce (allerVers + focale animée). Clavier : N vue suivante, P vue précédente.
 // - Observateur et vue piéton : js/pieton.js (app.pieton), créé ici ; une vue « pieton » le rétablit.
@@ -153,6 +156,51 @@ export function creerVues(app) {
     } catch { return null; }
   }
 
+  // ------------------------------------------------------------
+  // Nom proposé et réglages des outils (22/10/2026)
+  // ------------------------------------------------------------
+  const CARTES_CHALEUR = { materiaux: 'matériaux', echauffement: 'échauffement', albedo: 'albédo', temperature: 'température', ecart: 'écart projet' };
+  const SAISONS_VENT = { hiver: 'hiver', printemps: 'printemps', ete: 'été', automne: 'automne' };
+  function nomAuto() {
+    const S = app.soleil?.etat;
+    let quand = '';
+    if (S?.jour) {
+      const d = dateDepuisJour(S.annee, S.jour), hh = Math.floor(S.heure + 1e-6), mm = Math.round((S.heure - hh) * 60);
+      quand = `${d.jour} ${MOIS[d.mois]} ${hh} h${mm ? ` ${String(mm).padStart(2, '0')}` : ''}`;
+    }
+    const bouton = document.querySelector('#outils .outil[aria-pressed="true"] span');
+    let quoi = bouton?.textContent.trim() || { '3d': 'Vue 3D', axo: 'Axonométrie', plan: 'Plan', face: 'Élévation', pieton: 'Vue piéton' }[projection()] || 'Vue';
+    if (etat.outil === 'chaleur' && app.chaleur?.etat.calque) quoi += ` ${CARTES_CHALEUR[app.chaleur.etat.affichage] || ''}`.trimEnd();
+    if (etat.outil === 'vent' && SAISONS_VENT[app.vent?.etat.saison]) quoi += ` ${SAISONS_VENT[app.vent.etat.saison]}`;
+    let nom = quand ? `${quoi} – ${quand}` : quoi;
+    if (etat.liste.some((v) => v.nom === nom)) { let k = 2; while (etat.liste.some((v) => v.nom === `${nom} (${k})`)) k++; nom = `${nom} (${k})`; }
+    return nom;
+  }
+  function reglagesOutils() {
+    const r = {};
+    const C = app.chaleur?.etat;
+    if (C) r.chaleur = { affichage: C.affichage === 'ecart' ? 'temperature' : C.affichage, vueTemp: C.vueTemp, meteo: C.meteo, toits: !!C.toitsColores };
+    const V = app.vent?.etat;
+    if (V) {
+      r.vent = {};
+      for (const k of ['direction', 'vitesse', 'saison', 'temperature', 'modeVitesse', 'confort', 'seuil', 'roseMaquette', 'quatreSaisons']) if (V[k] != null) r.vent[k] = V[k];
+    }
+    if (app.reseaux?.souterrains?.length) r.reseaux = Object.fromEntries(app.reseaux.souterrains.map((x) => [x.id, !!x.visible]));
+    return r;
+  }
+  // réglages posés avant l'ouverture de l'outil : son panneau se construit avec eux
+  function appliquerReglages(r) {
+    if (!r) return;
+    const C = app.chaleur?.etat;
+    if (r.chaleur && C) {
+      for (const k of ['affichage', 'vueTemp', 'meteo']) if (r.chaleur[k]) C[k] = r.chaleur[k];
+      C.toitsColores = !!r.chaleur.toits;
+    }
+    const V = app.vent?.etat;
+    if (r.vent && V) Object.assign(V, r.vent);
+    if (r.reseaux) for (const x of app.reseaux?.souterrains || []) if (x.id in r.reseaux) { x.visible = !!r.reseaux[x.id]; if (x.objet) x.objet.visible = x.visible; }
+  }
+
   function capturer(nom) {
     const proj = projection();
     let pos = app.camera.position.clone(), cible = app.controls.target.clone();
@@ -173,6 +221,7 @@ export function creerVues(app) {
       bati: { mode: app.bati?.etat.mode, representation: app.toits?.representation?.() },
       onglet: document.querySelector('.onglet-outil[aria-selected="true"]')?.dataset.groupe || null,
       outil: etat.outil,
+      reglages: reglagesOutils(),
     };
     const p = app.pieton?.etatVue?.();
     if (proj === 'pieton' && p) v.pieton = p;
@@ -194,11 +243,15 @@ export function creerVues(app) {
       if (v.soleil.annee) app.soleil.etat.annee = v.soleil.annee;
       app.soleil.regler({ jour: v.soleil.jour, heure: v.soleil.heure });
     }
-    // onglet et outil (option)
+    // réglages des outils, puis onglet et outil (option) : l'outil est rouvert pour reconstruire son panneau avec ses réglages
+    appliquerReglages(v.reglages);
     if (outil && app.interface) {
-      if (v.outil && v.outil !== etat.outil) app.interface.ouvrir(v.outil);
-      else if (!v.outil && v.onglet) app.interface.choisirGroupe(v.onglet);
+      if (v.outil && (v.outil !== etat.outil || v.reglages)) {
+        app.interface.ouvrir(v.outil);
+        if (v.outil === 'vent' && v.reglages?.vent?.direction != null) app.vent?.regler?.(v.reglages.vent.direction, v.reglages.vent.vitesse);
+      } else if (!v.outil && v.onglet) app.interface.choisirGroupe(v.onglet);
     }
+    app.emettre('couches');
     // coupe, projection, caméra
     const proj = v.projection || '3d';
     if (v.coupe && app.coupes?.liste.some((x) => x.id === v.coupe)) {
@@ -241,7 +294,7 @@ export function creerVues(app) {
   // ------------------------------------------------------------
   // Liste : ajout, mise à jour, renommage, ordre, suppression, navigation
   // ------------------------------------------------------------
-  function modifier() { etat.modifie = true; majListe(); }
+  function modifier() { etat.modifie = true; majListe(); app.emettre('vues'); }
   function enregistrerVue(nom) {
     const v = capturer((nom || '').trim() || `Vue ${etat.liste.length + 1}`);
     etat.liste.push(v);
@@ -276,6 +329,7 @@ export function creerVues(app) {
     etat.courant = ((i % n) + n) % n;
     majListe();
     const v = etat.liste[etat.courant];
+    app.emettre('vues');
     app.signaler(`Vue ${etat.courant + 1}/${n} : ${v.nom}`);
     return appliquer(v, options);
   }
@@ -295,12 +349,14 @@ export function creerVues(app) {
     const d = await chargerJSON('data/vues.json', null);
     etat.liste = Array.isArray(d?.vues) ? d.vues.filter((v) => v && v.camera) : [];
     etat.modifie = false;
+    app.emettre('vues');
     await app.parcours.charger?.();
   }
   async function enregistrer() {
     const r = await enregistrerDonnees('vues.json', JSON.stringify(serialiser(), null, 1), { apres: 'relu à la prochaine ouverture' });
     etat.modifie = false;
     majListe();
+    app.emettre('vues');
     return r;
   }
 
@@ -331,6 +387,8 @@ export function creerVues(app) {
     ui.focale.disabled = app.vue2D || axo.actif;
   }
   app.on('vue', majProjection);
+  // nom proposé tenu à jour (outil, soleil, carte de Chaleur…) tant qu'il n'a pas été modifié à la main
+  for (const ev of ['outil', 'soleil', 'vue', 'couches']) app.on(ev, () => ui.reproposer?.());
 
   function ligne(v, i) {
     const nom = h('button', { type: 'button', class: 'nom-vue', title: 'Aller à cette vue', onclick: () => aller(i) }, v.nom);
@@ -372,14 +430,22 @@ export function creerVues(app) {
     ui.focale = h('select', { 'aria-label': 'Focale', onchange: (e) => definirFocale(+e.target.value) },
       ...FOCALES.map((f) => h('option', { value: String(f) }, `${f} mm`)));
     ui.focaleTexte = h('span', { class: 'note' });
-    const champNom = h('input', { type: 'text', placeholder: `Vue ${etat.liste.length + 1}`, 'aria-label': 'Nom de la vue' });
-    champNom.addEventListener('keydown', (e) => { e.stopPropagation(); if (e.key === 'Enter') { enregistrerVue(champNom.value); champNom.value = ''; champNom.placeholder = `Vue ${etat.liste.length + 1}`; } });
+    // nom proposé (outil ouvert + date et heure du soleil), modifiable ; reproposé après chaque enregistrement
+    const champNom = h('input', { type: 'text', value: nomAuto(), 'aria-label': 'Nom de la vue (proposé, modifiable)', title: 'Nom proposé d\'après l\'outil ouvert et le soleil : modifiable' });
+    let nomTouche = false;
+    champNom.addEventListener('input', () => { nomTouche = true; });
+    const reproposer = () => { if (!nomTouche && champNom.isConnected) champNom.value = nomAuto(); };
+    ui.reproposer = reproposer;
+    const valider = () => { enregistrerVue(champNom.value || nomAuto()); nomTouche = false; champNom.value = nomAuto(); };
+    champNom.addEventListener('keydown', (e) => { e.stopPropagation(); if (e.key === 'Enter') valider(); });
     ui.liste = h('ol', { class: 'liste-vues' });
     ui.vide = h('p', { class: 'note', 'data-garder': '' }, 'Aucune vue enregistrée : placez la caméra, puis « Enregistrer la vue ».');
     ui.enregistrer = app.mode === 'presentateur' ? h('button', { type: 'button', class: 'bouton', onclick: enregistrer }, 'Enregistrer vues.json') : null;
     const optOutil = h('label', { class: 'case' }, h('input', { type: 'checkbox', checked: !!etat.options.outil, onchange: (e) => { etat.options.outil = e.target.checked; ecrireOptions(etat.options); } }),
       'Rétablir aussi l\'onglet et l\'outil ouverts');
     c.append(
+      edition() ? h('div', { class: 'ajout-vue tete-vues', 'data-garder': '' }, champNom,
+        h('button', { type: 'button', class: 'bouton principal', title: 'Enregistrer la vue actuelle (caméra, soleil, couches, outil et ses réglages)', onclick: valider }, 'Enregistrer la vue')) : null,
       h('section', {},
         h('div', { class: 'titre-info' }, h('h3', {}, 'Projection et focale'),
           info('Perspective : maquette 3D ordinaire. Axonométrie : projection orthographique (parallèle) qu\'on fait tourner comme la maquette. Plan : vue de dessus, nord en haut (touche V).',
@@ -391,8 +457,6 @@ export function creerVues(app) {
           info('Une vue garde la caméra, la focale, la projection, le soleil (jour et heure), l\'époque, les couches affichées, la coupe active, le mode du bâti, l\'onglet et l\'outil ouverts, avec une vignette.',
             'Positions en latitude / longitude : les vues restent justes si le centre (outil Centre) change.',
             'Clavier : N vue suivante, P vue précédente. Liste enregistrée dans data/vues.json (serveur local), sinon téléchargée : à déposer dans data/.')),
-        edition() ? h('div', { class: 'ajout-vue' }, champNom,
-          h('button', { type: 'button', class: 'bouton principal', onclick: () => { enregistrerVue(champNom.value); champNom.value = ''; champNom.placeholder = `Vue ${etat.liste.length + 1}`; } }, 'Enregistrer la vue')) : null,
         ui.vide, ui.liste,
         h('div', { class: 'actions' },
           h('button', { type: 'button', class: 'bouton', title: 'Vue précédente (P)', onclick: precedente }, '‹ Précédente'),
@@ -414,7 +478,7 @@ export function creerVues(app) {
 
   const api = {
     ajouterOutils, etat, axo, charger, enregistrer, serialiser, capturer, appliquer, enregistrerVue, mettreAJour, renommer, supprimer, deplacer,
-    aller, suivante, precedente, entrerAxo, quitterAxo, quitterModes, projection, definirFocale, focale, construirePanneau,
+    aller, suivante, precedente, nomAuto, reglagesOutils, appliquerReglages, entrerAxo, quitterAxo, quitterModes, projection, definirFocale, focale, construirePanneau,
     versGeo, versLocal, basculerVue, cam3, ctl3,
     get liste() { return etat.liste; },
   };

@@ -184,3 +184,24 @@ export function temperatureA(R, n, i, t) {
   const sf = Math.min(Math.max(t, 0), 24) / PAS_INSTANTANE, s0 = Math.min(NB_INSTANTANES - 1, Math.floor(sf)), s1 = Math.min(NB_INSTANTANES - 1, s0 + 1), w = sf - s0;
   return R.T[s0 * n + i] * (1 - w) + R.T[s1 * n + i] * w;
 }
+
+// Indice d'échauffement d'un matériau : température de surface d'équilibre dans des conditions de référence identiques
+// pour toutes les classes (plein soleil 800 W/m², air 30 °C, humidité 40 %, vent 2 m/s, ciel clair, ouverture au ciel 1),
+// même bilan que simulerJournee (absorption 1 − albédo − transmission, infrarouge du ciel de Brutsaert, émission selon
+// l'émissivité, convection h = 5,7 + 3,8 v, évapotranspiration = part du net, rappel force-restore vers la température
+// profonde, proportionnel à l'effusivité). Sol sous arbres : 20 % du rayonnement (ombre du houppier, comme le modèle).
+export const REFERENCE = { K: 800, ta: 30, hr: 40, v: 2, ombreArbres: 0.2 };
+export function temperatureReference(c, ref = REFERENCE) {
+  const TaK = ref.ta + 273.15;
+  const e = (ref.hr / 100) * 6.105 * Math.exp((17.27 * ref.ta) / (237.7 + ref.ta));
+  const Lciel = Math.min(1, 1.24 * Math.pow(e / TaK, 1 / 7)) * SIGMA * TaK ** 4;
+  const hc = 5.7 + 3.8 * ref.v;
+  const abs = Math.max(0, 1 - c.albedo - (c.transmission || 0)), eps = c.emissivite, evap = c.evaporation || 0;
+  const K = ref.K * (c.id === 'sousArbres' ? ref.ombreArbres : 1);
+  const Td = TaK + (evap > 0.2 || c.id === 'eau' ? 0 : 2);
+  const rappel = (OMEGA * c.effusivite) / C1; // W/m²/K : flux vers la profondeur à l'équilibre
+  const bilan = (T) => { const Rn = abs * K + eps * (Lciel - SIGMA * T ** 4); return Rn - hc * (T - TaK) - evap * Math.max(Rn, 0) - rappel * (T - Td); };
+  let a = TaK - 30, b = TaK + 70;
+  for (let q = 0; q < 60; q++) { const m = (a + b) / 2; if (bilan(m) > 0) a = m; else b = m; }
+  return (a + b) / 2 - 273.15;
+}
