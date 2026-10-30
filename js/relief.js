@@ -307,7 +307,7 @@ export function creerRelief(app) {
     if (oui) {
       if (!app.topo.disponible) await app.topo.charger();
       etat.grille = preparerGrille();
-      if (!etat.grille) throw new Error('aucune grille d\'altitudes : chargez le relief (Couches > Relief)');
+      if (!etat.grille) throw new Error('aucune grille d\'altitudes : chargez le relief (onglet Topographie)');
       etat.h0 = 0;
       etat.h0 = altitude(0, 0);
       etat.actif = true;

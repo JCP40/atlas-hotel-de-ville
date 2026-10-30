@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { h } from './util.js';
+import { h, ecrireLS, viderGroupe } from './util.js';
 import { enregistrerDonnees } from './donnees.js';
 
 // Le point du projet est l'origine de l'atlas : il fixe le centre du plateau (le cercle de la maquette
@@ -15,7 +15,7 @@ export function lireReglageCentre() {
 export function modifierReglageCentre(patch) {
   const r = { ...(lireReglageCentre() || {}), ...patch };
   for (const k of Object.keys(r)) if (r[k] == null) delete r[k];
-  if (Object.keys(r).length) localStorage.setItem(CLE, JSON.stringify(r)); else localStorage.removeItem(CLE);
+  ecrireLS(CLE, Object.keys(r).length ? JSON.stringify(r) : null);
 }
 
 // À appeler au démarrage, juste après la lecture de config.json
@@ -48,7 +48,7 @@ export function creerCentre(app) {
   apercu.visible = false;
   app.scene.add(apercu);
   function dessinerApercu() {
-    apercu.clear();
+    viderGroupe(apercu);
     const cercle = (r, couleur, opacite) => {
       const m = new THREE.Mesh(
         new THREE.RingGeometry(r - 0.8, r + 0.8, 160).rotateX(-Math.PI / 2),
@@ -95,7 +95,7 @@ export function creerCentre(app) {
   }
 
   function revenir() {
-    localStorage.removeItem(CLE);
+    ecrireLS(CLE, null);
     location.reload();
   }
 

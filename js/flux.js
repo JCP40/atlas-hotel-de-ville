@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { h } from './util.js';
+import { h, viderGroupe } from './util.js';
 import { lignesLocales } from './geo.js';
 import { chargerJSON, lireParkings, enregistrerDonnees } from './donnees.js';
 import { COULEURS } from './maquette.js';
@@ -204,7 +204,7 @@ export function creerFlux(app) {
   }
 
   function dessinerParkings() {
-    groupeParkings.clear();
+    viderGroupe(groupeParkings);
     app.etiquettes.retirerGroupe('parkings');
     for (const p of etat.parkings) {
       if (p.disponibles == null) continue;

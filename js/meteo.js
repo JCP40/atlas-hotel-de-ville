@@ -71,6 +71,7 @@ export const meteo = () => donnees;
 
 function activer(e) {
   epw = e;
+  indexEPW = null;
   donnees = e ? e.donnees : base?.donnees ?? null;
   donneesHoraires = e ? e.horaire : base?.horaire ?? null;
   donneesAnnees = e ? null : base?.annees ?? null;
@@ -162,6 +163,34 @@ export function rose(n = 16, saison = 'annee', temperature = 'all') {
 
 export const normales = () => donneesAnnee()?.normales ?? donnees?.normales ?? null;
 export const horaire = () => donneesHoraires;
+
+// Valeur d'une heure précise pour le diagramme solaire (js/diagramme-solaire.js) : v = 'ta' (°C), 'ghi' (W/m²), 'neb' (dixièmes, EPW seulement) ;
+// mois 0-11, jour du mois, heure légale de Paris 0-23. EPW : valeur de l'heure du fichier (convertie en heure de Paris comme adapterEPW) ;
+// météo de base : moyenne du mois à cette heure (meteo_horaire.json), pas de nébulosité. null si absente.
+let indexEPW = null;
+// décalage de Paris (h) à l'instant UTC ms : 2 en heure d'été (dernier dimanche de mars au dernier d'octobre, 1 h UTC), sinon 1 (comme js/epw.js)
+const dimanche = (a, m) => { const d = new Date(Date.UTC(a, m + 1, 0)); return d.getUTCDate() - d.getUTCDay(); };
+const decalageParis = (ms) => { const a = new Date(ms).getUTCFullYear(); return ms >= Date.UTC(a, 2, dimanche(a, 2), 1) && ms < Date.UTC(a, 9, dimanche(a, 9), 1) ? 2 : 1; };
+const COL_EPW = { ta: 'T', ghi: 'GHI', neb: 'neb', hr: 'HR' };
+export function valeurHoraire(v, mois, jour, heure) {
+  if (epw) {
+    const L = epw.lecture, col = L.col;
+    if (!indexEPW) {
+      indexEPW = new Map();
+      for (let i = 0; i < L.n; i++) {
+        const ms = Date.UTC(col.annee[i], col.mois[i] - 1, col.jour[i], col.heure[i]) - L.entete.fuseau * 3600e3;
+        const d = new Date(ms + decalageParis(ms) * 3600e3);
+        indexEPW.set(d.getUTCMonth() * 10000 + d.getUTCDate() * 100 + d.getUTCHours(), i);
+      }
+    }
+    const i = indexEPW.get(mois * 10000 + jour * 100 + heure);
+    const x = i == null ? NaN : col[COL_EPW[v]]?.[i];
+    return Number.isFinite(x) ? x : null;
+  }
+  if (v === 'neb') return null;
+  const x = donneesHoraires?.moyennes?.[mois]?.[heure]?.[v];
+  return Number.isFinite(x) ? x : null;
+}
 
 // Dépassements bruts : { N, J[secteur][seuil] } en % de toutes les heures, seuils EXC.seuils
 export function depassements(n = 12, saison = 'annee') {

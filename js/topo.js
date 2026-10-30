@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { h } from './util.js';
+import { h, lireLS, ecrireLS, viderGroupe } from './util.js';
 import { chargerJSON, interrogerAltitudes, lireJeuGeo, enregistrerDonnees } from './donnees.js';
 import { empriseAutour } from './geo.js';
 
@@ -9,7 +9,7 @@ import { lireCache, ecrireCache } from './cache.js';
 // Topographie du site : la maquette reste posée à plat (comme la maquette physique),
 // le relief est lu par des courbes de niveau, des teintes et des profils le long des axes.
 export function creerTopo(app) {
-  const memoire = parseFloat(localStorage.getItem('atlas-hdv-equidistance'));
+  const memoire = parseFloat(lireLS('atlas-hdv-equidistance'));
   const etat = { grille: null, intervalle: Number.isFinite(memoire) ? memoire : (app.config.topographie?.intervalle ?? 1), erreur: null };
 
   // Courbes maîtresses : une sur cinq (tous les 5 m pour une équidistance de 1 m) ;
@@ -23,7 +23,7 @@ export function creerTopo(app) {
   function changerIntervalle(v) {
     if (!(v > 0)) return;
     etat.intervalle = v;
-    localStorage.setItem('atlas-hdv-equidistance', String(v));
+    ecrireLS('atlas-hdv-equidistance', String(v));
     if (ui.libre?.isConnected) { ui.libre.value = v; ui.sel.value = [0.5, 1, 2, 2.5, 5, 10].includes(v) ? String(v) : 'autre'; }
     dessiner();
     majUI();
@@ -78,7 +78,7 @@ export function creerTopo(app) {
 
   // Lecture tolérante d'un CSV ou d'un GeoJSON de points (colonnes longitude, latitude, altitude)
   function pointsDepuisTexte(texte) {
-    const t = texte.replace(/^\uFEFF/, '').trim();
+    const t = texte.replace(/^﻿/, '').trim();
     if (t.startsWith('{')) {
       const fc = JSON.parse(t);
       return pointsDepuisGeoJSON(fc);
@@ -227,7 +227,7 @@ export function creerTopo(app) {
   }
 
   function dessiner() {
-    groupe.clear();
+    viderGroupe(groupe);
     app.etiquettes.retirerGroupe('topo');
     if (!etat.grille) return;
     const mineures = [], majeures = [];
@@ -293,7 +293,7 @@ export function creerTopo(app) {
 
   // Profil en SVG, pour le panneau des coupes
   function svgProfil(ax) {
-    if (!etat.grille) return h('p', { class: 'note' }, 'Topographie non chargée (outil Couches > Relief).');
+    if (!etat.grille) return h('p', { class: 'note' }, 'Topographie non chargée (onglet Topographie).');
     const pts = profil(ax.A, ax.B).filter((p) => Number.isFinite(p.z));
     if (pts.length < 2) return h('p', { class: 'note' }, 'Axe hors de la zone de relief.');
     const L = 300, H = 110, m = 24;

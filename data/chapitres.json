@@ -78,7 +78,7 @@
       ],
       "texte": [
         "Un parcellaire laniéré d'environ 8 m de large, recoupé par les alignements du XIXe siècle. Les aplats indiquent les immeubles décrits par le PSMV, du plus foncé (intérêt de type A) au plus clair.",
-        "Parcelles et bâtiments prennent la couleur de leur fiche du PSMV ; les options Couches permettent de masquer ou révéler chaque coloration. Cliquez une parcelle ou un bâtiment pour lire sa fiche."
+        "Parcelles et bâtiments prennent la couleur de leur fiche du PSMV ; le panneau PSMV permet de masquer ou révéler chaque coloration. Cliquez une parcelle ou un bâtiment pour lire sa fiche."
       ],
       "etat": "actuel",
       "vue": "2d",
@@ -114,7 +114,7 @@
       ],
       "texte": [
         "Les bombardements des 16 et 23 septembre 1943 ont détruit une grande partie des immeubles ; la plupart n'ont pas été reconstruits, laissant place au square de l'Amiral-Halgan et à des parkings.",
-        "Pour restituer le bâti disparu : caler un plan ancien (plan Cacault, cadastre napoléonien, plans des Archives) dans Couches, puis dessiner les emprises avec l'outil Relevé, sur la vue en plan."
+        "Pour restituer le bâti disparu : caler un plan ancien (plan Cacault, cadastre napoléonien, plans des Archives) dans l'onglet Fond de plan, puis dessiner les emprises avec l'outil Relevé, sur la vue en plan."
       ],
       "etat": "avant",
       "vue": "3d",
@@ -146,7 +146,7 @@
       "titre": "Évolution historique",
       "sousTitre": "Comparer les fonds de plan",
       "texte": [
-        "Glissez le rideau pour comparer la photo aérienne actuelle et celle des années 1950-1965, prise après les bombardements. Les plans du XVIIIe siècle du PSMV peuvent être calés sur la maquette depuis l'outil Couches."
+        "Glissez le rideau pour comparer la photo aérienne actuelle et celle des années 1950-1965, prise après les bombardements. Les plans du XVIIIe siècle du PSMV peuvent être calés sur la maquette depuis l'onglet Fond de plan."
       ],
       "etat": "actuel",
       "vue": "2d",
@@ -222,7 +222,7 @@
       "titre": "Soleil, vent et climat",
       "sousTitre": "Le confort de l'espace public",
       "texte": [
-        "Un climat océanique doux : 12,7 °C en moyenne et 820 mm de pluie par an. Deux régimes de vent : sud à ouest-sud-ouest, les plus fréquents et les plus forts, et nord-est, plus faibles. L'outil Soleil calcule les ombres portées ; l'outil Climat détaille les saisons."
+        "Un climat océanique doux : 13,2 °C en moyenne (Météo-France, 2016-2025) et environ 820 mm de pluie par an. Deux régimes de vent : sud à ouest, les plus fréquents et les plus forts, et nord-nord-est à est-nord-est. L'outil Soleil calcule les ombres portées ; les outils Climat et Vent (onglet Ambiance) détaillent les mois et les saisons."
       ],
       "etat": "actuel",
       "vue": "3d",

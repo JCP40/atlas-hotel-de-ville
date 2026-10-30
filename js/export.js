@@ -290,23 +290,34 @@ export function creerExport(app) {
       ajouter(nom, geos, mat(nom, couleur));
     }
 
-    // Arbres (les instances deviennent des géométries ordinaires)
+    // Arbres (les instances deviennent des géométries ordinaires) ; caducs selon la date de la barre Soleil :
+    // couronne à sa taille affichée (absente sans feuilles), branches nues tant qu'elles sont affichées
     if (app.arbres?.groupe.visible) {
-      const couronnes = [], troncs = [];
+      const couronnes = [], troncs = [], branches = [];
       const m4 = new THREE.Matrix4();
       for (const mesh of Object.values(app.arbres.meshes)) {
-        const tronc = mesh.userData.tronc;
+        const tronc = mesh.userData.tronc, B = mesh.userData.branches;
+        const avecCouronne = mesh.material.visible !== false;
         for (let i = 0; i < mesh.count; i++) {
           const a = mesh.userData.arbres[i];
           if (!dedans(a.x, a.z)) continue;
-          mesh.getMatrixAt(i, m4);
-          couronnes.push(poser(mesh.geometry.clone().applyMatrix4(m4), a.x, a.z));
+          if (avecCouronne) {
+            mesh.getMatrixAt(i, m4);
+            couronnes.push(poser(mesh.geometry.clone().applyMatrix4(m4), a.x, a.z));
+          }
           tronc.getMatrixAt(i, m4);
           troncs.push(poser(tronc.geometry.clone().applyMatrix4(m4), a.x, a.z));
+          if (B?.visible) {
+            const d = B.userData.debut;
+            const parts = [];
+            for (let j = d[i]; j < d[i + 1]; j++) { B.getMatrixAt(j, m4); parts.push(B.geometry.clone().applyMatrix4(m4)); }
+            if (parts.length) { const gb = mergeGeometries(parts.map((p) => p.toNonIndexed())); parts.forEach((p) => p.dispose()); branches.push(poser(gb, a.x, a.z)); }
+          }
         }
       }
       ajouter('Arbres couronnes', couronnes.map((g) => { g.deleteAttribute('uv'); return g; }), mat('Arbres', 0xc8deb0));
       ajouter('Arbres troncs', troncs.map((g) => { g.deleteAttribute('uv'); return g; }), mat('Troncs', 0xd9d6cc));
+      if (branches.length) ajouter('Arbres branches', branches.map((g) => { g.deleteAttribute('uv'); return g; }), mat('Branches', 0xa39d90));
     }
 
     // Couche de l'étudiant visible : mémoire de 1943

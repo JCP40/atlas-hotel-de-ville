@@ -10,7 +10,11 @@ import { visibiliteBatiment } from './maquette.js';
 // lus par les chargeurs de Three.js copiés dans lib/three/addons/loaders (même version que lib/three, r180).
 // - Placement au clic sur le sol, rotation (°), unité du fichier et échelle, hauteur au-dessus du sol (m).
 // - Le fichier est rangé dans data/imports/ (serveur local) et projet.json n'en garde que la référence :
-//   imports: [{ n, nom, fichiers: ['imports/x.glb'] | ['imports/x.obj', 'imports/x.mtl'], lat, lon, rot, unite, echelle, hauteur, vis }].
+//   imports: [{ n, nom, fichiers: ['imports/x.glb'] | ['imports/x.obj', 'imports/x.mtl'], lat, lon, rot, unite, echelle, hauteur, vis, axes? }].
+// - Axes du fichier : axes: { est, nord, haut } (chacun '+X' '-X' '+Y' '-Y' '+Z' '-Z' : l'axe du fichier qui alimente
+//   l'axe de l'atlas) ; absent = Y vers le haut (glTF, comportement d'avant). Appliqué avant l'unité, l'échelle et la rotation
+//   par un groupe intermédiaire (matrice fixe) ; un choix « miroir » (déterminant négatif) est rendu correctement par Three.js
+//   (sens des faces inversé automatiquement), et l'export recopie les sommets avec l'ordre des faces retourné.
 // - Bâti effectif (soleil, vent, coupes, confort) : le volume ne compte que par son emprise (enveloppe convexe
 //   extrudée jusqu'au point le plus haut) s'il est « simple » (ses faces vues de dessus couvrent au moins 85 % de
 //   l'enveloppe) ; sinon il est affiché et exporté, mais ignoré par le vent et les coupes (le panneau le dit).
@@ -18,12 +22,80 @@ import { visibiliteBatiment } from './maquette.js';
 const UNITES = [[1, 'mètres'], [0.01, 'centimètres'], [0.001, 'millimètres'], [0.3048, 'pieds']];
 const SEUIL_SIMPLE = 0.85;
 
+// Axes : l'atlas a l'est en +x, le nord en −z et le haut en +y (Three.js). Chaque axe de l'atlas reçoit un axe du fichier.
+const AXES = ['+X', '-X', '+Y', '-Y', '+Z', '-Z'];
+const AXES_Y = { est: '+X', nord: '-Z', haut: '+Y' }; // glTF / Three.js : axes inchangés (défaut, et lecture sans champ « axes »)
+const PRESELECTIONS = [
+  ['y', 'Y vers le haut (glTF, GLB, Three.js)', AXES_Y],
+  ['z', 'Z vers le haut, Y au nord (Rhino, Revit, ArchiCAD, AutoCAD)', { est: '+X', nord: '+Y', haut: '+Z' }],
+  ['z-avant', 'Z vers le haut, Y vers l\'avant (au sud)', { est: '-X', nord: '-Y', haut: '+Z' }],
+  ['x', 'X vers le haut', { est: '+Y', nord: '+Z', haut: '+X' }],
+  ['y-bas', 'Y vers le bas (modèle à l\'envers)', { est: '+X', nord: '+Z', haut: '-Y' }],
+  ['z-bas', 'Z vers le bas (modèle à l\'envers)', { est: '+X', nord: '-Y', haut: '-Z' }],
+];
+const inverse = (a) => (a[0] === '-' ? '+' : '-') + a[1];
+const memesAxes = (a, b) => a.est === b.est && a.nord === b.nord && a.haut === b.haut;
+const axesValides = (a) => !!a && [a.est, a.nord, a.haut].every((x) => AXES.includes(x)) && new Set([a.est[1], a.nord[1], a.haut[1]]).size === 3;
+// matrice fichier -> Three.js : x = est, y = haut, z = −nord
+function matriceAxes(a) {
+  const ligne = (ax, s = 1) => { const v = [0, 0, 0]; v['XYZ'.indexOf(ax[1])] = (ax[0] === '-' ? -1 : 1) * s; return v; };
+  return new THREE.Matrix4().set(...ligne(a.est), 0, ...ligne(a.haut), 0, ...ligne(a.nord, -1), 0, 0, 0, 0, 1);
+}
+const estMiroir = (a) => matriceAxes(a).determinant() < 0;
+// présélection correspondante (en ignorant le miroir avant-arrière, rendu par la case à cocher), sinon 'perso'
+function preselection(a) {
+  const b = estMiroir(a) ? { ...a, nord: inverse(a.nord) } : a;
+  return PRESELECTIONS.find(([, , p]) => memesAxes(p, b))?.[0] || 'perso';
+}
+const texteAxes = (a) => `Est ← ${a.est}, Nord ← ${a.nord}, Haut ← ${a.haut}`.replace(/-/g, '−');
+// axe vertical proposé pour un nouveau fichier : OBJ de Revit / Rhino / ArchiCAD / AutoCAD (Z vers le haut), sinon Y
+async function axesProposes(principal) {
+  if (!/\.obj$/i.test(principal.name)) return { axes: AXES_Y, raison: '' };
+  let tete = '';
+  try { tete = await principal.slice(0, 4096).text(); } catch { /* fichier illisible : défaut */ }
+  const m = tete.match(/Autodesk|Revit|ATF|Rhino|ArchiCAD|AutoCAD|Vectorworks/i);
+  if (m) return { axes: PRESELECTIONS[1][2], raison: `fichier exporté par ${/ATF|Autodesk|Revit/i.test(m[0]) ? 'Revit (Autodesk)' : m[0]} : Z vers le haut proposé` };
+  return { axes: AXES_Y, raison: '' };
+}
+
+// Volume signé d'un modèle (repère de sa racine) : positif si ses faces sont tournées vers l'extérieur
+function volumeSigne(racine) {
+  let vol = 0;
+  const a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3();
+  racine.traverse((m) => {
+    const p = m.isMesh && m.geometry?.getAttribute('position');
+    if (!p) return;
+    const idx = m.geometry.index, n = idx ? idx.count : p.count, k = (i) => (idx ? idx.getX(i) : i);
+    for (let i = 0; i + 2 < n; i += 3) {
+      a.fromBufferAttribute(p, k(i)).applyMatrix4(m.matrixWorld); b.fromBufferAttribute(p, k(i + 1)).applyMatrix4(m.matrixWorld); c.fromBufferAttribute(p, k(i + 2)).applyMatrix4(m.matrixWorld);
+      vol += a.dot(b.cross(c)) / 6;
+    }
+  });
+  return vol;
+}
+
+// Retourne l'ordre des sommets de chaque triangle (normales cohérentes après un miroir cuit dans les sommets)
+function inverserFaces(g) {
+  if (g.index) {
+    const a = g.index.array;
+    for (let i = 0; i + 2 < a.length; i += 3) { const t = a[i + 1]; a[i + 1] = a[i + 2]; a[i + 2] = t; }
+    g.index.needsUpdate = true;
+    return g;
+  }
+  for (const att of Object.values(g.attributes)) {
+    const s = att.itemSize, a = att.array;
+    for (let i = 0; i + 2 < att.count; i += 3) for (let k = 0; k < s; k++) { const p = (i + 1) * s + k, q = (i + 2) * s + k; const t = a[p]; a[p] = a[q]; a[q] = t; }
+    att.needsUpdate = true;
+  }
+  return g;
+}
+
 export function creerImports(app) {
   const groupe = new THREE.Group();
   groupe.name = 'imports';
   groupe.userData.pasDeRelief = true;
   app.scene.add(groupe);
-  const liste = []; // { n, nom, fichiers, lat, lon, x, z, rot, unite, echelle, hauteur, vis, objet, brut, emprise, simple, erreur }
+  const liste = []; // { n, nom, fichiers, lat, lon, x, z, rot, unite, echelle, hauteur, vis, axes, objet, orient, emprise, simple, erreur }
   let suivant = 1;
   let sel = -1;
   const ui = {};
@@ -68,6 +140,18 @@ export function creerImports(app) {
   function placer(it) {
     if (!it.objet) return;
     const o = it.objet;
+    // 1. axes du fichier (groupe intermédiaire), 2. unité × échelle et rotation, 3. posé au sol, centré sur le point choisi
+    if (it.orient) {
+      const M = matriceAxes(it.axes || AXES_Y);
+      it.orient.matrix.copy(M); it.orient.matrixWorldNeedsUpdate = true;
+      // miroir : Three.js inverse le sens des faces au rendu, ce qui convient à un modèle juste dans son repère (volume signé > 0).
+      // Un fichier exporté en repère main gauche (volume signé < 0) a alors ses faces retournées ici, pour que l'extérieur reste visible.
+      const retourner = M.determinant() < 0 && it.volumeLocal < 0;
+      if (retourner !== !!it.retourne) {
+        it.orient.traverse((m) => { if (m.isMesh && m.geometry?.getAttribute('position')) inverserFaces(m.geometry); });
+        it.retourne = retourner;
+      }
+    }
     o.rotation.set(0, THREE.MathUtils.degToRad(it.rot), 0);
     const k = it.unite * it.echelle;
     o.scale.setScalar(k);
@@ -158,17 +242,30 @@ export function creerImports(app) {
       };
     });
   }
-  // objets à exporter (copies posées à plat, matériaux et textures conservés)
+  // objets à exporter (copies posées à plat, matériaux et textures conservés) : axes, échelle et rotation cuits dans les
+  // sommets (un groupe placé en (x, −dz, z)) ; après un miroir, ordre des faces retourné pour que GLB, OBJ et DXF gardent
+  // des normales vers l'extérieur
   function objetsExport(dedans) {
     const res = [];
     for (const it of liste) {
       if (!it.vis || !it.objet || !dedans(it.x, it.z)) continue;
-      const copie = it.objet.clone(true);
       const dz = app.relief?.actif ? app.relief.dz(it.x, it.z) : 0;
-      copie.position.y -= dz;
-      copie.visible = true;
+      const copie = new THREE.Group();
       copie.name = `Import ${it.nom}`;
-      res.push(copie);
+      copie.position.set(it.x, -dz, it.z);
+      const versLocal = new THREE.Matrix4().makeTranslation(-it.x, 0, -it.z);
+      it.objet.updateMatrixWorld(true);
+      it.objet.traverse((m) => {
+        if (!m.isMesh || !m.geometry?.getAttribute('position')) return;
+        for (let p = m; p && p !== it.objet; p = p.parent) if (p.visible === false) return;
+        const M = new THREE.Matrix4().multiplyMatrices(versLocal, m.matrixWorld);
+        const g = m.geometry.clone().applyMatrix4(M);
+        if (M.determinant() < 0) inverserFaces(g);
+        const c = new THREE.Mesh(g, m.material);
+        c.name = m.name || copie.name;
+        copie.add(c);
+      });
+      if (copie.children.length) res.push(copie);
     }
     return res;
   }
@@ -176,8 +273,19 @@ export function creerImports(app) {
   // ---------------------------------------------------------------
   // Ajout depuis le panneau, relecture depuis projet.json
   // ---------------------------------------------------------------
-  function ajouterObjet(it, objet) {
+  function ajouterObjet(it, brut) {
+    // objet (rotation, échelle, position) > orient (axes du fichier, matrice fixe) > modèle lu
+    const objet = new THREE.Group();
+    const orient = new THREE.Group();
+    orient.name = 'axes-du-fichier';
+    orient.matrixAutoUpdate = false;
+    brut.updateMatrixWorld(true);
+    it.volumeLocal = volumeSigne(brut); // > 0 : faces tournées vers l'extérieur dans le repère du fichier
+    it.retourne = false;
+    orient.add(brut);
+    objet.add(orient);
     it.objet = objet;
+    it.orient = orient;
     objet.name = `import-${it.n}`;
     objet.userData.pasDeRelief = true;
     objet.traverse((m) => {
@@ -196,13 +304,14 @@ export function creerImports(app) {
     if (!principal) { app.signaler('Choisir un fichier .glb, .gltf ou .obj (avec, au besoin, son .mtl, son .bin et ses textures).'); return; }
     const urls = new Map(fichiers.map((f) => [f.name, URL.createObjectURL(f)]));
     note(`Lecture de ${principal.name}…`);
+    const propose = await axesProposes(principal);
     let objet;
     try { objet = await charger(fichiers.map((f) => f.name), urls); } catch (e) { note(`Lecture impossible : ${e.message || e}`); return; }
     const c = app.controls.target;
     const g = app.proj.versGeo(c.x, c.z);
     const it = {
       n: suivant++, nom: principal.name.replace(/\.[^.]+$/, ''), fichiers: fichiers.map((f) => `imports/${f.name}`),
-      lat: g.lat, lon: g.lon, x: c.x, z: c.z, rot: 0, unite: 1, echelle: 1, hauteur: 0, vis: true,
+      lat: g.lat, lon: g.lon, x: c.x, z: c.z, rot: 0, unite: 1, echelle: 1, hauteur: 0, vis: true, axes: { ...propose.axes },
     };
     liste.push(it);
     ajouterObjet(it, objet);
@@ -211,7 +320,7 @@ export function creerImports(app) {
     changement();
     // copie du fichier dans data/imports/ (serveur local) ; sinon téléchargé, à placer dans data/imports/
     for (const f of fichiers) await enregistrerDonnees(`imports/${f.name}`, f, { apres: 'référencé par projet.json' });
-    note(`${principal.name} importé au centre de la vue : « Placer au clic » pour le poser ailleurs. ${texteSimple(it)}`);
+    note(`${principal.name} importé au centre de la vue : « Placer au clic » pour le poser ailleurs.${propose.raison ? ` Axes : ${propose.raison} (à vérifier).` : ''} Si le modèle est couché ou à l'envers, choisir « Axes du fichier ». ${texteSimple(it)}`);
   }
 
   async function lire(entrees) {
@@ -222,6 +331,7 @@ export function creerImports(app) {
       const it = {
         n: x.n || suivant, nom: String(x.nom || x.fichiers[0]), fichiers: x.fichiers.map(String), lat: x.lat, lon: x.lon, x: p.x, z: p.z,
         rot: +x.rot || 0, unite: +x.unite || 1, echelle: +x.echelle || 1, hauteur: +x.hauteur || 0, vis: x.vis !== false,
+        axes: axesValides(x.axes) ? { est: x.axes.est, nord: x.axes.nord, haut: x.axes.haut } : { ...AXES_Y }, // sans champ : Y vers le haut
       };
       suivant = Math.max(suivant, it.n + 1);
       liste.push(it);
@@ -240,6 +350,7 @@ export function creerImports(app) {
     return liste.map((it) => ({
       n: it.n, nom: it.nom, fichiers: it.fichiers, lat: +it.lat.toFixed(7), lon: +it.lon.toFixed(7),
       rot: it.rot, unite: it.unite, echelle: it.echelle, hauteur: it.hauteur, vis: it.vis,
+      ...(it.axes && !memesAxes(it.axes, AXES_Y) ? { axes: { ...it.axes } } : {}), // omis pour Y vers le haut (fichiers d'avant inchangés)
     }));
   }
 
@@ -297,7 +408,31 @@ export function creerImports(app) {
     ui.reglages.hidden = !it;
     if (!it) return;
     ui.rot.value = it.rot; ui.unite.value = it.unite; ui.echelle.value = it.echelle; ui.hauteur.value = it.hauteur;
+    afficherAxes(it);
     ui.etat.textContent = it.erreur ? `${it.nom} : ${it.erreur}.` : texteSimple(it);
+  }
+  // listes des axes : présélection, case miroir et mode avancé (Est ←, Nord ←, Haut ←) reflètent it.axes
+  function afficherAxes(it) {
+    const a = it.axes || AXES_Y;
+    ui.preselection.value = preselection(a);
+    ui.miroir.checked = estMiroir(a);
+    ui.axeEst.value = a.est; ui.axeNord.value = a.nord; ui.axeHaut.value = a.haut;
+    ui.axesNote.textContent = `${texteAxes(a)}${estMiroir(a) ? ' — miroir : modèle retourné avant-arrière, faces réorientées automatiquement.' : '.'}`;
+    ui.axesNote.classList.remove('erreur-axes');
+  }
+  function changerAxes(a, { erreur } = {}) {
+    const it = liste[sel];
+    if (!it) return;
+    if (!axesValides(a)) {
+      ui.axesNote.textContent = erreur || 'Chaque axe du fichier (X, Y, Z) doit servir une seule fois : axes non appliqués.';
+      ui.axesNote.classList.add('erreur-axes');
+      return;
+    }
+    it.axes = { est: a.est, nord: a.nord, haut: a.haut };
+    placer(it);
+    afficherAxes(it);
+    ui.etat.textContent = texteSimple(it);
+    clearTimeout(editer.t); editer.t = setTimeout(changement, 300);
   }
   function editer() {
     const it = liste[sel];
@@ -328,18 +463,43 @@ export function creerImports(app) {
     ui.unite = h('select', { onchange: editer }, ...UNITES.map(([v, l]) => h('option', { value: v }, l)));
     ui.echelle = h('input', { type: 'number', step: 0.1, min: 0.001, value: 1, inputmode: 'decimal', oninput: editer });
     ui.hauteur = h('input', { type: 'number', step: 0.5, value: 0, inputmode: 'decimal', oninput: editer });
+    const option = (v) => h('option', { value: v }, v.replace('-', '−'));
+    ui.preselection = h('select', { onchange: () => {
+      const p = PRESELECTIONS.find(([id]) => id === ui.preselection.value);
+      if (!p) return; // « Personnalisé » : réglé par le mode avancé
+      const a = { ...p[2] };
+      if (ui.miroir.checked) a.nord = inverse(a.nord); // le miroir choisi est gardé
+      changerAxes(a);
+    } }, ...PRESELECTIONS.map(([id, l]) => h('option', { value: id }, l)), h('option', { value: 'perso', disabled: true }, 'Personnalisé (mode avancé)'));
+    ui.miroir = h('input', { type: 'checkbox', onchange: () => { const a = liste[sel]?.axes || AXES_Y; changerAxes({ ...a, nord: inverse(a.nord) }); } });
+    const avance = () => changerAxes({ est: ui.axeEst.value, nord: ui.axeNord.value, haut: ui.axeHaut.value });
+    ui.axeEst = h('select', { onchange: avance, 'aria-label': 'Axe du fichier vers l\'est' }, ...AXES.map(option));
+    ui.axeNord = h('select', { onchange: avance, 'aria-label': 'Axe du fichier vers le nord' }, ...AXES.map(option));
+    ui.axeHaut = h('select', { onchange: avance, 'aria-label': 'Axe du fichier vers le haut' }, ...AXES.map(option));
+    ui.axesNote = h('p', { class: 'note note-axes', 'data-garder': '' });
+    const tourner = (d) => { const it = liste[sel]; if (!it) return; ui.rot.value = ((((it.rot || 0) + d) % 360) + 360) % 360; editer(); };
     ui.placer = h('button', { type: 'button', class: 'bouton', 'aria-pressed': 'false', onclick: () => {
       if (!liste[sel]) return;
       if (app.captureSol === clic) { arreter(); return; }
       app.captureSol = clic; ui.placer.setAttribute('aria-pressed', 'true'); note('Cliquez le sol pour poser le modèle choisi.');
     } }, 'Placer au clic');
     ui.reglages = h('div', { hidden: true },
+      h('div', { class: 'bloc-axes' },
+        h('label', { class: 'champ-projet' }, h('span', {}, 'Axes du fichier'), ui.preselection),
+        h('label', { class: 'case-axes' }, ui.miroir, ' Inverser l\'avant et l\'arrière (modèle en miroir)'),
+        h('details', { class: 'axes-avances' }, h('summary', {}, 'Axes avancés'),
+          h('div', { class: 'formulaire-axes' }, champ('Est ←', ui.axeEst), champ('Nord ←', ui.axeNord), champ('Haut ←', ui.axeHaut))),
+        ui.axesNote),
       h('div', { class: 'formulaire-projet' }, champ('Rotation (°)', ui.rot), champ('Unité du fichier', ui.unite), champ('Échelle', ui.echelle), champ('Hauteur au sol (m)', ui.hauteur)),
-      h('div', { class: 'actions' }, ui.placer),
+      h('div', { class: 'actions' },
+        h('button', { type: 'button', class: 'bouton discret', title: 'Tourner de 90° (sens trigonométrique)', onclick: () => tourner(90) }, '↺ 90°'),
+        h('button', { type: 'button', class: 'bouton discret', title: 'Tourner de 90° (sens horaire)', onclick: () => tourner(-90) }, '↻ 90°'),
+        ui.placer),
       ui.etat);
     conteneur.replaceChildren(
       h('div', { class: 'titre-info' }, h('h3', {}, 'Importer un fichier 3D'),
-        info('GLB ou glTF (recommandé : un seul fichier, textures comprises) ou OBJ, avec son fichier MTL et ses textures choisis en même temps (facultatif). Unité : le mètre, y vers le haut (glTF) ; pour un OBJ en centimètres ou en millimètres, choisir l\'unité.',
+        info('GLB ou glTF (recommandé : un seul fichier, textures comprises) ou OBJ, avec son fichier MTL et ses textures choisis en même temps (facultatif). Unité : le mètre ; pour un OBJ en centimètres ou en millimètres, choisir l\'unité.',
+          'Axes du fichier : glTF et GLB ont Y vers le haut ; Rhino, Revit, ArchiCAD ou AutoCAD exportent souvent l\'OBJ avec Z vers le haut (proposé d\'office quand l\'en-tête du fichier le dit). Un modèle couché ou à l\'envers : changer la présélection. Un modèle en miroir (texte inversé, plan retourné) : cocher « Inverser l\'avant et l\'arrière ». Axes avancés : pour chaque direction de l\'atlas (est, nord, haut), l\'axe du fichier qui la donne, signe compris. Les axes s\'appliquent avant l\'unité, l\'échelle et la rotation, puis le modèle est reposé au sol.',
           'Le modèle est posé au centre de la vue, sur le sol, puis se place au clic ; rotation, échelle et hauteur au sol se règlent. Le fichier est copié dans data/imports/ (serveur local ; sinon téléchargé, à y déposer) et projet.json garde sa référence : « Enregistrer projet.json » pour le retrouver à l\'ouverture.',
           `Un modèle « simple » (vu de dessus, ses faces couvrent au moins ${Math.round(SEUIL_SIMPLE * 100)} % de son enveloppe) compte dans le bâti effectif par son emprise extrudée (soleil, confort, vent, coupes) ; un modèle complexe est affiché et exporté, mais ignoré par le vent et les coupes.`)),
       h('div', { class: 'actions' }, h('button', { type: 'button', class: 'bouton', onclick: () => fichier.click() }, 'Importer GLB / glTF / OBJ…'), fichier),

@@ -540,53 +540,142 @@ export function construireSurfaces(app, geojson) {
 }
 
 // ------------------------------------------------------------------
-// Arbres (OSM + arbres relevés par l'étudiant, dont les magnolias)
+// Arbres : patrimoine arboré de Nantes Métropole (data/arbres-nantes.geojson), arbres relevés (data/arbres.geojson)
+// et OpenStreetMap ; feuillage des caducs selon la date (feuillage), branches nues l'hiver.
 // ------------------------------------------------------------------
 
-export function construireArbres(app, ...collections) {
+export const ATTRIBUTION_ARBRES = 'Patrimoine arboré, Nantes Métropole et Ville de Nantes (data.nantesmetropole.fr) — Licence Ouverte';
+
+// Genres persistants (feuillage toute l'année) ; espèces persistantes de genres surtout caducs.
+// Mélèzes, métaséquoias, cyprès chauves et ginkgos sont des conifères (ou assimilés) caducs.
+const GENRES_PERSISTANTS = new Set(['abies', 'acacia', 'araucaria', 'arbutus', 'calocedrus', 'cedrus', 'chamaecyparis', 'chamaerops', 'cinnamomum',
+  'cryptomeria', 'cupressocyparis', 'cupressus', 'elaeagnus', 'eriobotrya', 'eucalyptus', 'ilex', 'juniperus', 'laurus', 'ligustrum', 'olea',
+  'phillyrea', 'phoenix', 'photinia', 'picea', 'pinus', 'pittosporum', 'pseudotsuga', 'sequoia', 'sequoiadendron', 'taxus', 'thuja', 'trachycarpus',
+  'tsuga', 'washingtonia', 'xcupressocyparis']);
+const ESPECES_PERSISTANTES = ['quercus ilex', 'quercus suber', 'quercus coccifera', 'prunus laurocerasus', 'prunus lusitanica', 'magnolia grandiflora', 'magnolia delavay'];
+const CONIFERES_CADUCS = new Set(['larix', 'metasequoia', 'taxodium', 'ginkgo', 'glyptostrobus', 'pseudolarix']);
+const sansAccents = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+
+// Lot d'un arbre : 'magnolia' (magnolias persistants), 'persistant' ou 'caduc', d'après le genre et l'espèce ;
+// un arbre relevé à la main garde son champ « caduc » s'il est renseigné.
+export function classerArbre(p, source) {
+  const espece = sansAccents(`${p.espece || ''} ${p.species || ''} ${p['species:fr'] || ''}`).replace(/\s+/g, ' ').trim();
+  const genre = sansAccents(p.genre || p.genus || espece.split(' ')[0]).replace(/[^a-z]/g, '');
+  const magnolia = genre === 'magnolia' || espece.includes('magnolia');
+  if (source === 'releve' && p.caduc != null) {
+    const caduc = p.caduc === true || p.caduc === 'oui';
+    return caduc ? 'caduc' : magnolia ? 'magnolia' : 'persistant';
+  }
+  if (magnolia) {
+    // « Magnolia » sans espèce : lot magnolia, comme les relevés d'origine (M. grandiflora, le plus planté à Nantes)
+    const precise = espece.replace(/magnolia/g, '').replace(/[^a-z]/g, '');
+    return !precise || ESPECES_PERSISTANTES.some((e) => e.startsWith('magnolia') && espece.includes(e)) ? 'magnolia' : 'caduc';
+  }
+  if (GENRES_PERSISTANTS.has(genre) || ESPECES_PERSISTANTES.some((e) => espece.includes(e))) return 'persistant';
+  if (p.leaf_cycle === 'evergreen') return 'persistant';
+  if (p.leaf_cycle === 'deciduous' || CONIFERES_CADUCS.has(genre)) return 'caduc';
+  if (p.leaf_type === 'needleleaved') return 'persistant';
+  return 'caduc';
+}
+
+// Facteur de feuillage des arbres caducs, de 0 (branches nues) à 1 (pleine feuille), selon le jour de l'année :
+// débourrement du 1er au 30 avril, pleine feuille jusqu'au 15 octobre, chute du 15 octobre au 15 novembre.
+// Accepte un Date (date locale), un jour de l'année (1-366) ou { mois (0-11), jour }.
+const J_DEBOURREMENT = [91, 120], J_CHUTE = [288, 319]; // 1er avril, 30 avril ; 15 octobre, 15 novembre (année non bissextile)
+const lisse = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+export function feuillage(date) {
+  let j;
+  if (typeof date === 'number') j = date;
+  else if (date instanceof Date) j = Math.floor((Date.UTC(2001, date.getMonth(), date.getDate()) - Date.UTC(2001, 0, 0)) / 86400000);
+  else if (date && date.mois != null) j = Math.floor((Date.UTC(2001, date.mois, date.jour || 1) - Date.UTC(2001, 0, 0)) / 86400000);
+  else return 1;
+  if (j < J_DEBOURREMENT[0] || j >= J_CHUTE[1]) return 0;
+  if (j < J_DEBOURREMENT[1]) return lisse(J_DEBOURREMENT[0], J_DEBOURREMENT[1], j);
+  if (j >= J_CHUTE[0]) return 1 - lisse(J_CHUTE[0], J_CHUTE[1], j);
+  return 1;
+}
+// Part de la lumière directe qui traverse la couronne (Chaleur) : persistants 12 % toute l'année,
+// caducs de 12 % (en feuilles) à 65 % (branches nues).
+export const TRANSMISSION_ARBRE = { feuille: 0.12, nu: 0.65 };
+export const transmissionCaduc = (f) => TRANSMISSION_ARBRE.nu + (TRANSMISSION_ARBRE.feuille - TRANSMISSION_ARBRE.nu) * f;
+
+// Sources fusionnées dans l'ordre de priorité : relevés > Nantes Métropole > OpenStreetMap
+export const sourcesArbres = (app) => ({ releves: app.donnees.arbres, nantes: app.donnees.arbresNantes, osm: app.donnees.osm?.arbres });
+
+// graine pseudo-aléatoire stable par arbre (branches)
+function aleatoire(graine) {
+  let s = graine >>> 0 || 1;
+  return () => { s = (s + 0x6d2b79f5) >>> 0; let t = s; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+}
+
+export function construireArbres(app, sources = sourcesArbres(app)) {
+  const ancien = app.arbres;
+  if (ancien?.groupe) {
+    app.scene.remove(ancien.groupe);
+    app.pickables = app.pickables.filter((p) => p.parent !== ancien.groupe);
+    ancien.groupe.traverse((o) => { if (o.isInstancedMesh) o.dispose(); });
+    for (const g of ancien.geometries || []) g.dispose();
+    for (const m of [...Object.values(ancien.materiaux || {}), ancien.matTronc]) m?.dispose();
+  }
   const g = new THREE.Group();
   g.name = 'arbres';
   const lots = { caduc: [], persistant: [], magnolia: [] };
-  const vus = [];
-  for (const col of collections) {
+  const R = app.config.rayonEtude * 1.1;
+  const pris = { releve: [], nantes: [], osm: [] };
+  const proche = (liste, x, z, d) => liste.some((v) => Math.abs(v[0] - x) < d && Math.abs(v[1] - z) < d && Math.hypot(v[0] - x, v[1] - z) < d);
+  const ordre = [['releve', sources.releves], ['nantes', sources.nantes], ['osm', sources.osm]];
+  for (const [source, col] of ordre) {
     for (const f of col?.features || []) {
       if (f.geometry?.type !== 'Point') continue;
       const p = f.properties || {};
       const [x, z] = app.proj.pt(f.geometry.coordinates);
-      if (Math.hypot(x, z) > app.config.rayonEtude * 1.1) continue;
-      // un arbre relevé à la main remplace l'arbre OSM voisin (moins de 2 m)
-      if (vus.some((v) => Math.hypot(v[0] - x, v[1] - z) < 2)) continue;
-      vus.push([x, z]);
-      const espece = `${p.espece || ''} ${p.species || ''} ${p.genus || ''} ${p['species:fr'] || ''}`.toLowerCase();
-      const estMagnolia = espece.includes('magnolia');
+      if (Math.hypot(x, z) > R) continue;
+      // un arbre relevé remplace tout arbre voisin à moins de 2 m ; un arbre OSM est ignoré à moins de 3 m d'un arbre de Nantes
+      if (proche(pris.releve, x, z, 2)) continue;
+      if (source === 'osm' && (proche(pris.nantes, x, z, 3) || proche(pris.osm, x, z, 2))) continue;
+      pris[source].push([x, z]);
+      const lot = classerArbre(p, source);
+      const estMagnolia = lot === 'magnolia' || /magnolia/i.test(`${p.espece || ''} ${p.genre || ''} ${p.genus || ''} ${p.species || ''}`);
       const h = parseFloat(p.hauteur ?? p.height) || (estMagnolia ? 9 : 12);
-      const d = parseFloat(p.diametre ?? p.diameter_crown) || h * 0.6;
-      const caduc = p.caduc != null ? p.caduc === true || p.caduc === 'oui' : !estMagnolia && p.leaf_cycle !== 'evergreen';
-      const lot = estMagnolia ? 'magnolia' : caduc ? 'caduc' : 'persistant';
-      lots[lot].push({ x, z, h, d, fiche: p.fiche, nom: p.nom || (estMagnolia ? 'Magnolia' : null) });
+      const d = Math.min(parseFloat(p.diametre ?? p.diameter_crown) || h * 0.6, h * 1.2);
+      const espece = p.espece || p.species || p['species:fr'] || p.genre || p.genus || null;
+      lots[lot].push({
+        x, z, h, d, lot, source, espece, genre: p.genre || p.genus || (source === 'nantes' && espece ? espece.split(' ')[0] : null), magnolia: estMagnolia, fiche: p.fiche,
+        nom: p.nom || espece || (estMagnolia ? 'Magnolia' : null),
+        gestionnaire: p.proprietaire ? (p.proprietaire === 'Nantes' ? 'Ville de Nantes' : p.proprietaire) : null,
+        classe: p.hauteur_classe || null, couronneEstimee: p.diametre_estime || null, stade: p.stade || null,
+        plantation: p.annee_plantation || p.start_date || null, inventaire: p.date_inventaire || null,
+        id: p.id_emplacement ?? p.osm ?? null, attribution: p.attribution || null, feature: source === 'releve' ? f : null,
+        graine: Number(p.id_emplacement) || Math.round(Math.abs(x * 7919 + z * 104729)) || 1,
+      });
     }
   }
 
   for (const liste of Object.values(lots)) liste.sort((a, b) => Math.hypot(a.x, a.z) - Math.hypot(b.x, b.z));
-  // arbres schématiques : une boule lisse sur un tronc fin, comme dans une maquette d'architecte
+  // arbres schématiques : une boule lisse sur un tronc fin, comme dans une maquette d'architecte ;
+  // caducs : squelette (tronc prolongé, 4 à 6 branches maîtresses et 2 rameaux chacune) visible quand ils perdent leurs feuilles
   const couronne = new THREE.SphereGeometry(1, 16, 10);
   const tronc = new THREE.CylinderGeometry(0.12, 0.18, 1, 6).translate(0, 0.5, 0);
+  const branche = new THREE.CylinderGeometry(0.55, 1, 1, 5, 1, true).translate(0, 0.5, 0);
   const matTronc = new THREE.MeshStandardMaterial({ color: 0xb8b3a6, roughness: 1 });
+  const matBranches = new THREE.MeshStandardMaterial({ color: 0xa39d90, roughness: 1 });
   const mats = {
     caduc: new THREE.MeshStandardMaterial({ color: COULEURS.arbre, roughness: 1, transparent: true, opacity: 1 }),
     persistant: new THREE.MeshStandardMaterial({ color: 0xb9d3a0, roughness: 1 }),
     magnolia: new THREE.MeshStandardMaterial({ color: COULEURS.magnolia, roughness: 0.9 }),
+    branches: matBranches,
   };
-  const m4 = new THREE.Matrix4();
+  const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), v = new THREE.Vector3(), s = new THREE.Vector3(), haut = new THREE.Vector3(0, 1, 0);
   const meshes = {};
   for (const [lot, liste] of Object.entries(lots)) {
     if (!liste.length) continue;
     const c = new THREE.InstancedMesh(couronne, mats[lot], liste.length);
     const t = new THREE.InstancedMesh(tronc, matTronc, liste.length);
     liste.forEach((a, i) => {
-      m4.compose(new THREE.Vector3(a.x, a.h * 0.62, a.z), new THREE.Quaternion(), new THREE.Vector3(a.d / 2, a.h * 0.38, a.d / 2));
+      a.k = Math.min(1.6, Math.max(0.7, a.h / 12)); // grosseur du tronc
+      m4.compose(v.set(a.x, a.h * 0.62, a.z), q.identity(), s.set(a.d / 2, a.h * 0.38, a.d / 2));
       c.setMatrixAt(i, m4);
-      m4.compose(new THREE.Vector3(a.x, 0, a.z), new THREE.Quaternion(), new THREE.Vector3(1, a.h * 0.45, 1));
+      m4.compose(v.set(a.x, 0, a.z), q.identity(), s.set(a.k, a.h * 0.45, a.k));
       t.setMatrixAt(i, m4);
     });
     c.castShadow = t.castShadow = true;
@@ -597,27 +686,106 @@ export function construireArbres(app, ...collections) {
     c.userData.tronc = t;
     g.add(c, t);
     meshes[lot] = c;
-    if (lot === 'magnolia') {
-      c.userData.fiche = 'magnolias';
-      c.userData.nom = 'Magnolia';
-      app.pickables.push(c);
-    }
+    app.pickables.push(c); // fiche de chaque arbre au clic (js/interface.js : userData.arbres[instanceId])
+  }
+
+  // branches des caducs (une seule géométrie instanciée)
+  const caducs = lots.caduc;
+  if (caducs.length) {
+    const segs = [];
+    const debut = new Int32Array(caducs.length + 1);
+    // longueur jusqu'à l'enveloppe de la couronne (ellipsoïde centré à 0,62 h, demi-axes d/2 et 0,38 h) depuis le point P selon u
+    const versEnveloppe = (a, px, py, pz, ux, uy, uz) => {
+      const rx = a.d / 2, ry = a.h * 0.38, cy = a.h * 0.62;
+      const X = px / rx, Y = (py - cy) / ry, Z = pz / rx, U = ux / rx, V = uy / ry, W = uz / rx;
+      const A = U * U + V * V + W * W, B = 2 * (X * U + Y * V + Z * W), C = X * X + Y * Y + Z * Z - 1;
+      const disc = B * B - 4 * A * C;
+      return disc > 0 ? Math.max(0.3, (-B + Math.sqrt(disc)) / (2 * A)) : 0.5;
+    };
+    caducs.forEach((a, i) => {
+      debut[i] = segs.length;
+      const r = aleatoire(a.graine);
+      const y0 = a.h * (0.36 + 0.08 * r());
+      const rb = 0.075 * a.k;
+      // flèche : prolonge le tronc vers le haut de la couronne
+      const lf = versEnveloppe(a, 0, a.h * 0.43, 0, 0, 1, 0) * 0.85;
+      segs.push([a, 0, a.h * 0.43, 0, (r() - 0.5) * 0.15, 1, (r() - 0.5) * 0.15, lf, 0.09 * a.k]);
+      const n = 4 + Math.floor(r() * 3);
+      const az0 = r() * Math.PI * 2;
+      for (let b = 0; b < n; b++) {
+        const az = az0 + (b / n) * Math.PI * 2 + (r() - 0.5) * 0.7;
+        const el = (30 + r() * 35) * (Math.PI / 180);
+        const ux = Math.cos(el) * Math.cos(az), uy = Math.sin(el), uz = Math.cos(el) * Math.sin(az);
+        const yb = y0 + (r() - 0.5) * a.h * 0.06;
+        const L = versEnveloppe(a, 0, yb, 0, ux, uy, uz) * 0.88;
+        segs.push([a, 0, yb, 0, ux, uy, uz, L, rb]);
+        for (const signe of [-1, 1]) {
+          const u = 0.45 + r() * 0.2;
+          const px = ux * L * u, py = yb + uy * L * u, pz = uz * L * u;
+          const az2 = az + signe * (0.45 + r() * 0.35), el2 = Math.min(1.35, el + 0.15 + r() * 0.25);
+          const vx = Math.cos(el2) * Math.cos(az2), vy = Math.sin(el2), vz = Math.cos(el2) * Math.sin(az2);
+          segs.push([a, px, py, pz, vx, vy, vz, versEnveloppe(a, px, py, pz, vx, vy, vz) * 0.85, rb * 0.55]);
+        }
+      }
+    });
+    debut[caducs.length] = segs.length;
+    const B = new THREE.InstancedMesh(branche, matBranches, segs.length);
+    segs.forEach(([a, px, py, pz, ux, uy, uz, L, rr], j) => {
+      v.set(ux, uy, uz).normalize();
+      q.setFromUnitVectors(haut, v);
+      m4.compose(v.set(a.x + px, py, a.z + pz), q, s.set(rr, L, rr));
+      B.setMatrixAt(j, m4);
+    });
+    B.name = 'arbres-branches';
+    B.castShadow = true;
+    B.userData.debut = debut;
+    B.visible = false;
+    meshes.caduc.userData.branches = B;
+    g.add(B);
   }
   app.scene.add(g);
-  app.arbres = { groupe: g, lots, meshes, materiaux: mats };
+  app.arbres = { groupe: g, lots, meshes, materiaux: mats, matTronc, geometries: [couronne, tronc, branche], f: 1, hiver: false, echelle: 1 };
+  appliquerFeuillage(app, ancien?.f ?? 1, true);
+  if (app.vueMaquette) arbresVueMaquette(app, true);
   return g;
 }
 
-// Les arbres caducs perdent leur feuillage en hiver : ombre réduite, couronne translucide.
+// Affichage selon le facteur de feuillage f des caducs : couronne réduite (60 % à nu) et de plus en plus transparente,
+// masquée sous f ≈ 0,17 (toujours cliquable) ; ombre portée de la couronne si f ≥ 0,5 ; branches visibles sous f = 0,97.
+export function appliquerFeuillage(app, f, force = false) {
+  const A = app.arbres;
+  if (!A) return;
+  if (!force && Math.abs((A.f ?? -1) - f) < 0.002) return;
+  A.f = f;
+  A.hiver = f < 0.5;
+  const m = A.meshes.caduc;
+  if (!m) return;
+  const op = lisse(0.15, 0.8, f);
+  const mat = A.materiaux.caduc;
+  const transparent = op < 0.99;
+  if (mat.transparent !== transparent) mat.needsUpdate = true;
+  mat.transparent = transparent;
+  mat.opacity = op;
+  mat.depthWrite = !transparent;
+  mat.visible = op > 0.02;
+  m.castShadow = f >= 0.5;
+  const e = 0.6 + 0.4 * f;
+  if (force || Math.abs(e - A.echelle) > 0.004) {
+    A.echelle = e;
+    const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), v = new THREE.Vector3(), s = new THREE.Vector3();
+    m.userData.arbres.forEach((a, i) => {
+      m4.compose(v.set(a.x, a.h * 0.62, a.z), q, s.set((a.d / 2) * e, a.h * 0.38 * e, (a.d / 2) * e));
+      m.setMatrixAt(i, m4);
+    });
+    m.instanceMatrix.needsUpdate = true;
+    m.boundingSphere = null;
+  }
+  if (m.userData.branches) m.userData.branches.visible = f < 0.97;
+}
+
+// Saison des arbres à la date de la barre Soleil (appelée par js/soleil.js)
 export function saisonArbres(app, date) {
-  if (!app.arbres?.meshes.caduc) return;
-  const mois = date.getMonth();
-  const hiver = mois <= 2 || mois >= 10;
-  const m = app.arbres.meshes.caduc;
-  m.castShadow = !hiver;
-  app.arbres.materiaux.caduc.opacity = hiver ? 0.28 : 1;
-  app.arbres.materiaux.caduc.depthWrite = !hiver;
-  app.arbres.hiver = hiver;
+  appliquerFeuillage(app, feuillage(date));
 }
 
 // En « vue maquette », seuls les arbres du plateau restent (ils sont triés du centre vers l'extérieur).
@@ -626,8 +794,37 @@ export function arbresVueMaquette(app, actif) {
     const n = actif ? m.userData.interieurs : m.userData.arbres.length;
     m.count = n;
     m.userData.tronc.count = n;
+    const B = m.userData.branches;
+    if (B) B.count = B.userData.debut[n];
   }
 }
+
+// Fiche d'un arbre (clic sur la maquette) : espèce, hauteur, couronne, gestionnaire, source
+export function ficheArbre(app, a) {
+  const nb = (x) => String(Math.round(x * 10) / 10).replace('.', ',');
+  const feuillageTxt = a.lot === 'caduc' ? 'feuillage caduc' : 'feuillage persistant';
+  const texte = [
+    `${a.genre ? `Genre *${a.genre}*, ` : ''}${feuillageTxt}.`,
+    `Hauteur : environ ${nb(a.h)} m${a.classe ? ` (classe ${a.classe} de l'inventaire)` : ''} ; couronne : ${nb(a.d)} m de diamètre${a.couronneEstimee === 'mediane-classe' ? ' (estimée : médiane de la classe de hauteur)' : a.source === 'osm' && !a.classe ? ' (estimée)' : ''}.`,
+  ];
+  const details = [a.stade ? `stade ${a.stade.toLowerCase()}` : null, a.plantation ? `planté en ${a.plantation}` : null, a.inventaire ? `inventorié le ${a.inventaire.split('-').reverse().join('/')}` : null].filter(Boolean);
+  if (details.length) texte.push(`${details.join(', ').replace(/^./, (c) => c.toUpperCase())}.`);
+  if (a.gestionnaire) texte.push(`Gestionnaire : ${a.gestionnaire}.`);
+  if (a.lot === 'caduc') {
+    const f = app.arbres?.f ?? 1;
+    texte.push(`À la date de la barre Soleil : ${f >= 0.97 ? 'en feuilles' : f <= 0.03 ? 'sans feuilles (branches nues)' : `feuillage à ${Math.round(f * 100)} %`} ; lumière directe sous la couronne (Chaleur) : ${Math.round(transmissionCaduc(f) * 100)} %.`);
+  }
+  if (a.magnolia) {
+    const fm = app.fiches?.trouver?.('magnolias');
+    for (const t of [].concat(fm?.texte || [])) texte.push(t);
+  }
+  const source = a.source === 'nantes' ? `${ATTRIBUTION_ARBRES}${a.id != null ? ` (emplacement ${a.id})` : ''}`
+    : a.source === 'osm' ? `OpenStreetMap (ODbL)${a.id ? `, ${a.id}` : ''}` : 'arbre relevé sur place (data/arbres.geojson, outil Relevé)';
+  return { titre: a.nom || a.espece || 'Arbre', type: 'Arbre', texte, source };
+}
+// Infobulle au survol
+export const infobulleArbre = (a) => [a.magnolia && a.nom !== 'Magnolia' && !/magnolia/i.test(a.nom || '') ? 'Magnolia' : null,
+  `${String(Math.round(a.h)).replace('.', ',')} m`, a.lot === 'caduc' ? 'caduc' : 'persistant', a.gestionnaire || (a.source === 'osm' ? 'OpenStreetMap' : a.source === 'releve' ? 'relevé' : null)].filter(Boolean).join(' · ');
 
 // Colore chaque bâtiment (ou le remet en blanc) : couleur(empreinte) renvoie une couleur CSS ou null.
 export function colorierBatiments(app, couleur) {

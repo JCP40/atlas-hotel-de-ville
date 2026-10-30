@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { h } from './util.js';
+import { h, lireLS, ecrireLS, viderGroupe } from './util.js';
 import { geometrieRubans } from './maquette.js';
 import { lignesLocales, polygonesLocaux } from './geo.js';
 
@@ -47,7 +47,7 @@ const SERVICES = {
     return { distance: r.distance, duree: r.duration, sections: [{ coords: r.geometry.coordinates, type }], service: 'OSRM de FOSSGIS (OpenStreetMap)' };
   },
   async fauteuil(a, b) {
-    const cle = localStorage.getItem(CLES.ors);
+    const cle = lireLS(CLES.ors);
     if (!cle) throw new Error('clé OpenRouteService absente (voir « Clés des services »)');
     const d = await json('https://api.openrouteservice.org/v2/directions/wheelchair/geojson', {
       method: 'POST', headers: { Authorization: cle, 'Content-Type': 'application/json' },
@@ -58,7 +58,7 @@ const SERVICES = {
     return { distance: f.properties.summary.distance, duree: f.properties.summary.duration, sections: [{ coords: f.geometry.coordinates, type: 'fauteuil' }], service: 'OpenRouteService (profil fauteuil roulant)' };
   },
   async tc(a, b) {
-    const cle = localStorage.getItem(CLES.navitia);
+    const cle = lireLS(CLES.navitia);
     if (!cle) throw new Error('clé Navitia absente (voir « Clés des services »)');
     const maintenant = new Date();
     const z = (v) => String(v).padStart(2, '0');
@@ -142,7 +142,7 @@ export function creerTrajets(app) {
   // Calcul et tracé
   // ---------------------------------------------------------------
   function effacer() {
-    groupe.clear();
+    viderGroupe(groupe);
     app.etiquettes.retirerGroupe('trajets-lignes');
     etat.resultats = [];
     etat.traces = [];
@@ -311,8 +311,8 @@ export function creerTrajets(app) {
     ui.arrivee = h('strong', {});
     ui.resultats = h('div');
     const cle = (id, libelle, lien) => {
-      const input = h('input', { type: 'password', autocomplete: 'off', value: localStorage.getItem(CLES[id]) || '' });
-      input.addEventListener('change', () => localStorage.setItem(CLES[id], input.value.trim()));
+      const input = h('input', { type: 'password', autocomplete: 'off', value: lireLS(CLES[id]) || '' });
+      input.addEventListener('change', () => ecrireLS(CLES[id], input.value.trim()));
       return h('label', { class: 'champ' }, h('span', {}, libelle, ' ', h('a', { href: lien, target: '_blank', rel: 'noopener' }, '(obtenir)')), input);
     };
     conteneur.append(
@@ -325,7 +325,7 @@ export function creerTrajets(app) {
         h('i', { class: 'pastille-trajet', style: { background: m.couleur } }), m.libelle, m.cle ? h('em', { class: 'note' }, ' (clé)') : null))),
       h('div', { class: 'actions' },
         h('button', { type: 'button', class: 'bouton principal', onclick: () => calculer([etat.mode]) }, 'Calculer'),
-        h('button', { type: 'button', class: 'bouton', onclick: () => calculer(Object.keys(MODES).filter((k) => !MODES[k].cle || localStorage.getItem(CLES[MODES[k].cle]))) }, 'Comparer les modes'),
+        h('button', { type: 'button', class: 'bouton', onclick: () => calculer(Object.keys(MODES).filter((k) => !MODES[k].cle || lireLS(CLES[MODES[k].cle]))) }, 'Comparer les modes'),
         h('button', { type: 'button', class: 'bouton discret', onclick: () => { effacer(); app.etiquettes.retirerGroupe('trajets-points'); etat.depart = etat.arrivee = null; majUI(); ui.resultats.replaceChildren(); } }, 'Effacer')),
       ui.resultats,
       h('h3', {}, 'Isochrones à pied'),

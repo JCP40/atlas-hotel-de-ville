@@ -1,0 +1,56 @@
+/* Études (23/10/2026), ajoutée par js/soleil.js : barre du temps (jours rapides, durée du jour, lecture),
+   modes du Soleil ; puis sélecteur Existant / Projet, pinceau des matériaux, barre des études. */
+
+/* Barre du temps (js/soleil.js) */
+.soleil-barre { max-width: 290px; }
+.soleil-barre-jours { display: grid; grid-template-columns: 1fr 1fr; gap: 3px; margin: 0 0 2px 48px; }
+.soleil-jour-rapide {
+  appearance: none; padding: 2px 4px; border: 1px solid var(--trait); border-radius: 2px; background: #fff; color: var(--ardoise);
+  font: inherit; font-size: 11.5px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.soleil-jour-rapide:hover { background: rgba(47, 59, 69, 0.08); }
+.soleil-jour-rapide.actif { background: #c98a14; border-color: #c98a14; color: #fff; font-weight: 600; }
+.soleil-lecture { flex: 0 0 30px; }
+.soleil-barre-duree { margin: 2px 0 0; font-size: 11.5px; color: var(--ardoise-doux); font-variant-numeric: tabular-nums; }
+.soleil-barre-corps input[type='range'] { cursor: ew-resize; }
+@media (pointer: coarse) { .soleil-jour-rapide { padding: 6px 4px; } }
+@media (max-width: 820px) { .soleil-barre-jours { margin-left: 0; } .soleil-barre-duree { display: none; } }
+
+/* Outil Soleil : mode d'affichage */
+.choix-soleil { display: flex; flex-wrap: wrap; gap: 4px 12px; margin: 4px 0 8px; }
+.choix-soleil label { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; cursor: pointer; }
+
+/* Sélecteur Existant / Projet (js/phase.js), en haut à droite (#haut-droite) au-dessus de la bascule Maquette 3D / Plan,
+   même boîte que #bascule-vue (css/atlas.css) ; largeurs égalisées par phase.js (min-width), boutons étirés */
+.barre-phase { display: flex; background: var(--calque); border: 1px solid var(--trait); border-radius: 2px; padding: 3px; gap: 0; box-sizing: border-box; }
+.phase-bouton {
+  flex: 1 1 0; appearance: none; border: 0; background: none; color: var(--ardoise-doux); font: inherit; font-size: 13px; padding: 5px 12px; border-radius: 2px; cursor: pointer; white-space: nowrap;
+}
+.phase-bouton:hover { background: rgba(47, 59, 69, 0.08); }
+.phase-bouton.actif { background: var(--ardoise); color: var(--calque-plein, #fff); font-weight: 600; }
+.phase-bouton[data-phase='projet'].actif { background: var(--projet, #5e9384); }
+#bascule-vue { box-sizing: border-box; }
+#bascule-vue button { flex: 1 1 0; white-space: nowrap; }
+@media (pointer: coarse) { .phase-bouton { padding: 7px 12px; } }
+@media (max-width: 820px) { .phase-bouton { font-size: 12px; padding: 4px 8px; } }
+
+/* Case « Routes » de Site > Couches > Éléments (js/elements.js) : chaussées et trottoirs en retrait dessous */
+.case.sous-case { padding-left: 24px; }
+
+/* Pinceau des matériaux (outil Chaleur, js/chaleur.js) */
+.champ-pinceau { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 8px; }
+.champ-pinceau input[type='range'] { min-width: 0; }
+.liste-corrections li.correction-projet span { color: var(--projet, #5e9384); font-weight: 600; }
+
+/* Barre du bas : sélecteur Chapitres / Études et études (js/etudes.js) */
+.mode-barre { display: flex; flex-direction: column; gap: 2px; justify-content: center; background: var(--calque); border: 1px solid var(--trait); border-radius: 2px; padding: 2px; }
+.mode-barre-bouton { appearance: none; border: 0; background: none; color: var(--ardoise-doux); font: inherit; font-size: 12px; padding: 3px 8px; border-radius: 2px; cursor: pointer; }
+.mode-barre-bouton:hover { background: rgba(47, 59, 69, 0.08); }
+.mode-barre-bouton.actif { background: var(--ardoise); color: var(--calque-plein, #fff); font-weight: 600; }
+.segment-etude { cursor: pointer; }
+.segment-etude .titre { font-size: 13.5px; }
+.etude-export { display: flex; align-items: center; gap: 4px; font-size: 11.5px; color: var(--ardoise-doux); }
+.etude-export[hidden] { display: none; }
+.etude-export-bouton { appearance: none; border: 1px solid var(--ardoise); background: #fff; color: var(--ardoise); font: inherit; font-size: 11px; font-weight: 600; padding: 1px 6px; border-radius: 2px; cursor: pointer; }
+.etude-export-bouton:hover { background: var(--ardoise); color: #fff; }
+@media (max-width: 820px) { .mode-barre-bouton { padding: 3px 5px; font-size: 11px; } .segment-etude .titre { font-size: 12px; } }

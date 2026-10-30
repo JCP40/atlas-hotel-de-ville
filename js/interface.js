@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { h, info } from './util.js';
+import { ficheArbre, infobulleArbre } from './maquette.js';
 
 const ICONES = {
   observateur: '<circle cx="7" cy="5" r="2"/><path d="M7 8v6m0 0-2 6m2-6 2 6M4.5 11h5"/><path d="m12 9 9-4v12l-9-4" stroke-dasharray="2 1.6"/>',
@@ -74,7 +75,7 @@ export function creerInterface(app) {
     ...g,
     bouton: h('button', {
       type: 'button', class: 'onglet-outil', role: 'tab', 'aria-selected': 'false', 'data-groupe': g.id, title: g.titre,
-      onclick: () => choisirGroupe(g.id, { ouvrirSeul: true }),
+      onclick: () => choisirGroupe(g.id, { ouvrirPremier: true }),
     }, g.libelle),
   }));
   rangeeOnglets.append(...onglets.map((o) => o.bouton));
@@ -87,16 +88,30 @@ export function creerInterface(app) {
     outils.forEach((o) => { o.bouton.hidden = o.groupe !== id; });
   }
 
-  // clic sur un onglet : ses outils s'affichent ; s'il n'en a qu'un, il s'ouvre
-  function choisirGroupe(id, { ouvrirSeul = false } = {}) {
+  // Outils jamais ouverts d'office par un clic sur l'onglet : capture au sol ou mode de saisie dès l'ouverture
+  // (Hauteurs, Projet, Centre, Relevé, Observateur, Parcours) ; l'onglet ouvre alors le premier outil « panneau simple ».
+  const PAS_D_OFFICE = new Set(['hauteurs', 'projet', 'centre', 'releve', 'observateur', 'parcours']);
+  function premierOutil(id) {
+    const liste = outilsDuGroupe(id);
+    // Ambiance : l'analyse affichée (js/ambiances.js) est rouverte plutôt qu'effacée par Soleil
+    const courante = id === 'climat' ? app.ambiances?.courante : null;
+    return liste.find((o) => o.id === courante) || liste.find((o) => !PAS_D_OFFICE.has(o.id)) || null;
+  }
+
+  // clic sur un onglet (seul appel avec ouvrirPremier) : ses outils s'affichent et, si aucun outil de l'onglet
+  // n'est ouvert, le premier s'ouvre (Site → Couches) ; un outil de l'onglet déjà ouvert reste tel quel.
+  // Raccourcis, ouvrir(id), vues et validerOnglets passent par afficherGroupe : pas d'ouverture supplémentaire.
+  function choisirGroupe(id, { ouvrirPremier = false } = {}) {
     const g = onglets.find((o) => o.id === id && !o.bouton.hidden);
     if (!g) return;
     afficherGroupe(id);
     memoriserOnglet(id);
     if (ouvert?.startsWith('onglet:') && ouvert !== `onglet:${id}`) fermer(); // panneau d'attente d'un autre onglet
-    if (!ouvrirSeul) return;
+    if (!ouvrirPremier) return;
     const liste = outilsDuGroupe(id);
-    if (liste.length === 1) ouvrir(liste[0].id);
+    if (liste.some((o) => o.id === ouvert)) return;
+    const premier = premierOutil(id);
+    if (premier) ouvrir(premier.id);
     else if (!liste.length && g.aVenir) ouvrirAVenir(g);
   }
 
@@ -272,7 +287,10 @@ export function creerInterface(app) {
       return;
     }
     const cible = objetSous(e);
-    if (app.captureObjet) { app.captureObjet(cible?.objet); return; }
+    if (app.captureObjet) { app.captureObjet(cible?.objet, cible); return; }
+    // arbre : fiche de l'instance touchée (espèce, hauteur, gestionnaire, source), ou fiche liée d'un arbre relevé
+    const arbre = cible?.instance != null ? cible.objet.userData.arbres?.[cible.instance] : null;
+    if (arbre) { if (arbre.fiche) app.fiches.ouvrir(arbre.fiche, { point: cible.point }); else app.fiches.afficher(ficheArbre(app, arbre)); return; }
     if (cible?.objet.userData.fiche) { app.fiches.ouvrir(cible.objet.userData.fiche, { point: cible.point }); return; }
     // clic sur le sol (ou sur un bâtiment sans fiche) : la parcelle cadastrale, si la couche est active
     let p = cible?.point ? [cible.point.x, cible.point.z] : null;
@@ -298,7 +316,8 @@ export function creerInterface(app) {
       return;
     }
     const cible = objetSous(e);
-    const ud = cible?.objet.userData;
+    const arbre = cible?.instance != null ? cible.objet.userData.arbres?.[cible.instance] : null;
+    const ud = arbre ? { nom: arbre.nom || 'Arbre', infobulle: infobulleArbre(arbre), fiche: true } : cible?.objet.userData;
     if (ud?.nom) {
       infobulle.replaceChildren(...[h('strong', {}, ud.nom), ud.infobulle && ud.infobulle !== ud.nom ? h('span', {}, ud.infobulle) : null].filter(Boolean));
       infobulle.style.transform = `translate(${e.clientX + 14}px, ${e.clientY + 14}px)`;

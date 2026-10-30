@@ -185,6 +185,7 @@ export function creerVues(app) {
       r.vent = {};
       for (const k of ['direction', 'vitesse', 'saison', 'temperature', 'modeVitesse', 'confort', 'seuil', 'roseMaquette', 'quatreSaisons']) if (V[k] != null) r.vent[k] = V[k];
     }
+    if (app.diagrammeSolaire) r.diagrammeSolaire = app.diagrammeSolaire.reglages();
     if (app.reseaux?.souterrains?.length) r.reseaux = Object.fromEntries(app.reseaux.souterrains.map((x) => [x.id, !!x.visible]));
     return r;
   }
@@ -198,6 +199,8 @@ export function creerVues(app) {
     }
     const V = app.vent?.etat;
     if (r.vent && V) Object.assign(V, r.vent);
+    // diagramme solaire : une vue enregistrée avant lui le masque
+    app.diagrammeSolaire?.regler(r.diagrammeSolaire || { visible: false });
     if (r.reseaux) for (const x of app.reseaux?.souterrains || []) if (x.id in r.reseaux) { x.visible = !!r.reseaux[x.id]; if (x.objet) x.objet.visible = x.visible; }
   }
 

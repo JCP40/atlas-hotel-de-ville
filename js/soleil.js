@@ -1,11 +1,21 @@
 import * as THREE from 'three';
 import { getPosition, getTimes } from '../lib/suncalc.js';
 import { dateParis, formaterHeure, polygonesLocaux } from './geo.js';
-import { h, MOIS, jourDeLAnnee, dateDepuisJour } from './util.js';
+import { h, info, MOIS, jourDeLAnnee, dateDepuisJour } from './util.js';
 import { saisonArbres, visibiliteBatiment, COULEURS } from './maquette.js';
+import { creerDiagrammeSolaire } from './diagramme-solaire.js';
 
 const RAD = Math.PI / 180;
 const HEURES_RAPIDES = [10, 13, 16]; // boutons de la barre Soleil (heure légale)
+// jours rapides de la barre Soleil (mois 0-11, jour) : solstices et équinoxes
+const JOURS_RAPIDES = [
+  { id: 'ete', libelle: 'Solstice d\'été', mois: 5, jour: 21, note: 'jour le plus long' },
+  { id: 'hiver', libelle: 'Solstice d\'hiver', mois: 11, jour: 21, note: 'jour le plus court' },
+  { id: 'printemps', libelle: 'Équinoxe 20 mars', mois: 2, jour: 20, note: 'jour et nuit égaux' },
+  { id: 'automne', libelle: 'Équinoxe 22 sept.', mois: 8, jour: 22, note: 'jour et nuit égaux' },
+];
+const MODES = { aucun: 'Aucun', trajectoire: 'Trajectoire simple', diagramme: 'Diagramme solaire' };
+const CLE_MODE = 'atlas-hdv-soleil-mode'; // mode d'affichage préféré (outil Soleil)
 
 // Direction (vecteur unitaire) vers le soleil dans le repère local : x = est, z = sud.
 // SunCalc 2 donne l'azimut en degrés depuis le nord, dans le sens horaire.
@@ -22,6 +32,7 @@ export function creerSoleil(app) {
     jour: jourDeLAnnee(maintenant),
     heure: 15,
     trajectoire: false,
+    mode: (() => { try { const m = localStorage.getItem(CLE_MODE); if (MODES[m]) return m; } catch { /* stockage indisponible */ } return 'trajectoire'; })(),
     lecture: null,
     carte: null,
   };
@@ -32,7 +43,7 @@ export function creerSoleil(app) {
   const disque = new THREE.Mesh(new THREE.SphereGeometry(4, 16, 12), new THREE.MeshBasicMaterial({ color: 0xf2c14e }));
   groupeTrajectoire.add(disque);
 
-  const ui = {};
+  const ui = { carteEtat: h('p'), ombre: h('p') }; // remplacés par ceux du panneau quand il est ouvert
 
   function date() {
     const d = dateDepuisJour(etat.annee, etat.jour);
@@ -75,15 +86,11 @@ export function creerSoleil(app) {
     disque.position.copy(dir).multiplyScalar(rTraj);
     disque.visible = pos.altitude > 0;
 
-    if (ui.date) {
-      ui.date.textContent = libelleDate();
-      ui.heure.textContent = formaterHeure(etat.heure);
-      ui.curseurJour.value = etat.jour;
-      ui.curseurHeure.value = etat.heure;
+    if (ui.infos?.isConnected) {
       const t = horaires();
-      ui.infos.textContent = pos.altitude > 0
+      ui.infos.textContent = `Le ${libelleDate()} à ${formaterHeure(etat.heure)} (barre Soleil en haut à droite). ` + (pos.altitude > 0
         ? `Hauteur du soleil ${pos.altitude.toFixed(0)}°, azimut ${pos.azimuth.toFixed(0)}°. Lever ${heureLocale(t.sunrise)}, coucher ${heureLocale(t.sunset)}.`
-        : `Le soleil est couché. Lever ${heureLocale(t.sunrise)}, coucher ${heureLocale(t.sunset)}.`;
+        : `Le soleil est couché. Lever ${heureLocale(t.sunrise)}, coucher ${heureLocale(t.sunset)}.`);
       ui.ombre.textContent = '';
       const n = app.climat?.normalesDuMois(d.getMonth());
       if (n) ui.infos.append(` Normales de ce mois : ${String(n.tmin).replace('.', ',')} à ${String(n.tmax).replace('.', ',')} °C.`);
@@ -95,45 +102,92 @@ export function creerSoleil(app) {
   }
 
   // ---------------------------------------------------------------
-  // Contrôle du soleil toujours visible (sous la bascule 3D / plan) : date et heure légale, compact,
-  // utilisable pendant que Climat, Vent, Confort ou un autre outil est ouvert. Styles : css/complements.css.
+  // Barre du temps (en haut à droite, toujours visible) : SEUL réglage de la date et de l'heure de l'atlas (23/10/2026).
+  // Curseur « jour de l'année » (molette dessus : ± 1 jour) avec la date, curseur d'heure légale (molette : ± 15 min),
+  // heures rapides 10 h / 13 h / 16 h, lecture de la journée, jours rapides (solstices, équinoxes), lever, coucher et
+  // durée du jour. Styles : css/complements.css et css/etudes.css.
   // ---------------------------------------------------------------
   const barre = {};
+  const joursAnnee = () => ((etat.annee % 4 === 0 && etat.annee % 100 !== 0) || etat.annee % 400 === 0 ? 366 : 365);
+  const heureDe = (dt) => {
+    const p = dt.toLocaleTimeString('fr-FR', { timeZone: 'Europe/Paris', hour: 'numeric', minute: 'numeric' }).split(':');
+    return +p[0] + +p[1] / 60;
+  };
+  // durée du jour (lever → coucher) en heures, pour un jour de l'année
+  function dureeJour(jour = etat.jour) {
+    const d = dateDepuisJour(etat.annee, jour);
+    const t = getTimes(dateParis(d.annee, d.mois, d.jour, 12), lat, lon);
+    return t.sunrise && t.sunset ? (t.sunset - t.sunrise) / 3600e3 : null;
+  }
+  const texteDuree = (hh) => (hh == null ? '–' : `${Math.floor(hh)} h ${String(Math.round((hh % 1) * 60)).padStart(2, '0')}`.replace(' h 60', ' h 00'));
+  function changerJour(j, { effacer = true } = {}) {
+    const n = joursAnnee();
+    etat.jour = ((Math.round(j) - 1 + n) % n) + 1;
+    if (effacer) effacerCarte();
+    maj();
+    if (etat.trajectoire) dessinerTrajectoire();
+  }
+  function changerHeure(hh) {
+    etat.heure = Math.min(23.75, Math.max(0, Math.round(hh * 4) / 4));
+    maj();
+  }
+  function molette(el, pas, fn) {
+    el.addEventListener('wheel', (e) => { e.preventDefault(); fn(e.deltaY < 0 ? pas : -pas); }, { passive: false });
+  }
   function construireBarre() {
     const hote = document.getElementById('haut-droite');
     if (!hote || barre.el) return;
     if (!document.querySelector('link[href="css/complements.css"]')) document.head.append(h('link', { rel: 'stylesheet', href: 'css/complements.css' }));
+    if (!document.querySelector('link[href="css/etudes.css"]')) document.head.append(h('link', { rel: 'stylesheet', href: 'css/etudes.css' }));
     barre.resume = h('span', { class: 'soleil-barre-resume' });
-    barre.date = h('input', { type: 'date', 'aria-label': 'Date du soleil' });
-    barre.heure = h('input', { type: 'range', min: 4, max: 23, step: 0.25, 'aria-label': 'Heure légale du soleil' });
+    barre.jour = h('input', { type: 'range', min: 1, max: joursAnnee(), step: 1, 'aria-label': 'Jour de l\'année (molette : un jour de plus ou de moins)', title: 'Jour de l\'année : glisser, ou molette de la souris (± 1 jour)' });
+    barre.texteJour = h('output', { class: 'soleil-barre-heure' });
+    barre.heure = h('input', { type: 'range', min: 0, max: 23.75, step: 0.25, 'aria-label': 'Heure légale du soleil', title: 'Heure légale : glisser, ou molette (± 15 min)' });
     barre.texteHeure = h('output', { class: 'soleil-barre-heure' });
-    const changer = () => { maj(); if (etat.trajectoire) dessinerTrajectoire(); };
-    barre.date.addEventListener('change', () => {
-      const [a, m, j] = barre.date.value.split('-').map(Number);
-      if (!a || !m || !j) return;
-      etat.annee = a; etat.jour = jourDeLAnnee(new Date(a, m - 1, j));
-      effacerCarte(); changer();
-    });
-    barre.heure.addEventListener('input', () => { etat.heure = +barre.heure.value; changer(); });
-    // heures rapides (heure légale) : 10 h, 13 h, 16 h ; l'heure active est surlignée par majBarre
+    barre.jour.addEventListener('input', () => changerJour(+barre.jour.value));
+    barre.heure.addEventListener('input', () => changerHeure(+barre.heure.value));
+    molette(barre.jour, 1, (d) => changerJour(etat.jour + d));
+    molette(barre.heure, 0.25, (d) => changerHeure(etat.heure + d));
+    // heures rapides (heure légale) : 10 h, 13 h, 16 h ; l'heure active est surlignée par majBarre ; ▶ : lecture de la journée
     barre.rapides = HEURES_RAPIDES.map((hh) => h('button', { type: 'button', class: 'soleil-heure-rapide', 'aria-pressed': 'false', title: `Soleil à ${hh} h (heure légale)`,
-      onclick: () => { etat.heure = hh; changer(); } }, `${hh} h`));
+      onclick: () => changerHeure(hh) }, `${hh} h`));
+    barre.lecture = h('button', { type: 'button', class: 'soleil-heure-rapide soleil-lecture', title: 'Jouer la journée (du lever au coucher, 20 s) ; recliquer pour arrêter', 'aria-pressed': 'false', onclick: jouerJournee }, '▶');
+    barre.joursRapides = JOURS_RAPIDES.map((J) => h('button', { type: 'button', class: 'soleil-jour-rapide', 'aria-pressed': 'false', 'data-jour': J.id,
+      onclick: () => changerJour(jourDeLAnnee(new Date(etat.annee, J.mois, J.jour))) }, J.libelle));
+    barre.duree = h('p', { class: 'soleil-barre-duree', 'aria-live': 'polite' });
     barre.el = h('details', { class: 'soleil-barre', open: !window.matchMedia('(max-width: 820px)').matches },
-      h('summary', { title: 'Soleil : date et heure (réglage commun à tous les outils)' }, h('span', { 'aria-hidden': 'true', class: 'soleil-barre-icone' }, '☀'), barre.resume),
+      h('summary', { title: 'Soleil : date et heure (seul réglage, commun à tous les outils)' }, h('span', { 'aria-hidden': 'true', class: 'soleil-barre-icone' }, '☀'), barre.resume),
       h('div', { class: 'soleil-barre-corps' },
-        h('label', {}, h('span', {}, 'Date'), barre.date),
+        h('label', {}, h('span', {}, 'Jour'), barre.jour, barre.texteJour),
+        h('div', { class: 'soleil-barre-jours', role: 'group', 'aria-label': 'Jours rapides' }, ...barre.joursRapides),
         h('label', {}, h('span', {}, 'Heure'), barre.heure, barre.texteHeure),
-        h('div', { class: 'soleil-barre-rapides', role: 'group', 'aria-label': 'Heures rapides' }, ...barre.rapides)));
+        h('div', { class: 'soleil-barre-rapides', role: 'group', 'aria-label': 'Heures rapides' }, ...barre.rapides, barre.lecture),
+        barre.duree));
     hote.append(barre.el);
   }
   function majBarre(pos) {
     if (!barre.el) return;
-    const d = dateDepuisJour(etat.annee, etat.jour);
-    const iso = `${d.annee}-${String(d.mois + 1).padStart(2, '0')}-${String(d.jour).padStart(2, '0')}`;
-    if (document.activeElement !== barre.date) barre.date.value = iso;
+    barre.jour.max = joursAnnee();
+    if (document.activeElement !== barre.jour) barre.jour.value = etat.jour;
     if (document.activeElement !== barre.heure) barre.heure.value = etat.heure;
+    barre.texteJour.textContent = libelleDate();
     barre.texteHeure.textContent = formaterHeure(etat.heure);
     for (const [k, b] of barre.rapides.entries()) { const on = Math.abs(etat.heure - HEURES_RAPIDES[k]) < 0.01; b.classList.toggle('actif', on); b.setAttribute('aria-pressed', String(on)); }
+    const d = dateDepuisJour(etat.annee, etat.jour);
+    let note = '';
+    for (const [k, b] of barre.joursRapides.entries()) {
+      const J = JOURS_RAPIDES[k], on = d.mois === J.mois && d.jour === J.jour;
+      if (on) note = J.note;
+      b.classList.toggle('actif', on); b.setAttribute('aria-pressed', String(on));
+      const dj = dureeJour(jourDeLAnnee(new Date(etat.annee, J.mois, J.jour)));
+      b.title = `${J.libelle} : ${J.jour} ${MOIS[J.mois]}, ${J.note} (${texteDuree(dj)} de jour)`;
+    }
+    barre.lecture.classList.toggle('actif', !!etat.lecture);
+    barre.lecture.textContent = etat.lecture ? '❚❚' : '▶';
+    const t = horaires();
+    barre.duree.textContent = t.sunrise && t.sunset
+      ? `Lever ${heureLocale(t.sunrise)} · coucher ${heureLocale(t.sunset)} · jour ${texteDuree(dureeJour())}${note ? ` (${note})` : ''}`
+      : '';
     barre.resume.textContent = `${libelleDate()}, ${formaterHeure(etat.heure)}${pos && pos.altitude <= 0 ? ' (nuit)' : ''}`;
   }
 
@@ -208,10 +262,13 @@ export function creerSoleil(app) {
       });
     };
     ajouterGroupe('fantomes', () => app.etat === 'avant');
-    // arbres : une couronne opaque (sauf caducs en hiver), triée avec le bâti (le plus haut l'emporte)
+    // arbres : une couronne opaque, triée avec le bâti (le plus haut l'emporte) ; caducs comptés
+    // seulement s'ils ont au moins la moitié de leur feuillage (feuillage() de maquette.js, date de la barre), couronne réduite comme à l'écran
     for (const [lot, liste] of Object.entries(app.arbres?.lots || {})) {
-      if (lot === 'caduc' && app.arbres.hiver) continue;
-      for (const a of liste) obstacles.push({ cercle: [a.x, a.z, a.d / 2], hauteur: a.h });
+      const caduc = lot === 'caduc';
+      if (caduc && (app.arbres.f ?? 1) < 0.5) continue;
+      const e = caduc ? app.arbres.echelle ?? 1 : 1;
+      for (const a of liste) obstacles.push({ cercle: [a.x, a.z, (a.d / 2) * e], hauteur: a.h });
     }
     obstacles.sort((a, b) => a.hauteur - b.hauteur);
     for (const o of obstacles) {
@@ -281,9 +338,8 @@ export function creerSoleil(app) {
     etat.carteMax = max;
     etat.carteDate = libelleDate();
     afficherCarte(zone, nx, nz, heures, max);
-    ui.carteEtat.textContent = `Heures de soleil direct le ${libelleDate()}, à 1,20 m du sol${app.arbres?.hiver ? ' (arbres caducs sans feuilles)' : ''}.`;
-    ui.legende.hidden = false;
-    ui.legendeMax.textContent = `${max.toFixed(1).replace('.', ',')} h`;
+    ui.carteEtat.textContent = `Heures de soleil direct le ${libelleDate()}, à 1,20 m du sol${app.arbres?.hiver ? ' (arbres caducs sans feuilles)' : (app.arbres?.f ?? 1) < 0.97 ? ` (arbres caducs feuillés à ${Math.round(app.arbres.f * 100)} %)` : ''}.`;
+    app.emettre('legende');
   }
 
   // de l'ombre (bleu ardoise) au plein soleil (jaune de Naples) ; aussi pour la légende automatique (js/legende.js)
@@ -329,8 +385,9 @@ export function creerSoleil(app) {
     app.scene.remove(etat.carte);
     etat.carte.geometry.dispose();
     etat.carte.material.map.dispose();
+    etat.carte.material.dispose();
     etat.carte = null;
-    if (ui.legende) ui.legende.hidden = true;
+    app.emettre('legende');
   }
 
   // Part de la zone à l'ombre à l'instant choisi
@@ -356,43 +413,38 @@ export function creerSoleil(app) {
   // Panneau
   // ------------------------------------------------------------
 
+  // Modes d'affichage (23/10/2026) : « Trajectoire simple » (course du jour choisi, pointillés et heures) ou
+  // « Diagramme solaire » (demi-sphère sans surface : trajectoires du 21 de chaque mois, analemmes, graduations, soleil courant).
+  // etat.mode = préférence (localStorage atlas-hdv-soleil-mode), appliquée à l'ouverture de l'outil Soleil ;
+  // masquerTrajectoires() (autre analyse d'Ambiance, js/ambiances.js) cache sans changer la préférence.
+  function afficherMode(m) {
+    etat.trajectoire = m === 'trajectoire';
+    groupeTrajectoire.visible = etat.trajectoire;
+    if (etat.trajectoire) dessinerTrajectoire();
+    else app.etiquettes.retirerGroupe('trajectoire');
+    app.diagrammeSolaire?.afficher?.(m === 'diagramme');
+    app.emettre('legende');
+  }
+  function definirMode(m) {
+    if (!MODES[m]) return;
+    etat.mode = m;
+    try { localStorage.setItem(CLE_MODE, m); } catch { /* stockage indisponible */ }
+    afficherMode(m);
+    ui.modes?.forEach((r) => { r.checked = r.value === m; });
+  }
+
   function construirePanneau(conteneur) {
-    ui.date = h('strong', { class: 'valeur' });
-    ui.heure = h('strong', { class: 'valeur' });
-    ui.curseurJour = h('input', { type: 'range', min: 1, max: 365, step: 1, 'aria-label': 'Jour de l\'année' });
-    ui.curseurHeure = h('input', { type: 'range', min: 4, max: 23, step: 0.25, 'aria-label': 'Heure' });
-    ui.curseurJour.addEventListener('input', () => { etat.jour = +ui.curseurJour.value; maj(); if (etat.trajectoire) dessinerTrajectoire(); effacerCarte(); });
-    ui.curseurHeure.addEventListener('input', () => { etat.heure = +ui.curseurHeure.value; maj(); });
     ui.infos = h('p', { class: 'note' });
     ui.ombre = h('p', { class: 'resultat', 'aria-live': 'polite' });
     ui.carteEtat = h('p', { class: 'note', 'aria-live': 'polite' });
-    ui.legendeMax = h('span');
-    ui.legende = h('div', { class: 'legende-soleil', hidden: true }, h('span', {}, '0 h'), h('i'), ui.legendeMax);
-
-    const preset = (libelle, fn) => h('button', { type: 'button', class: 'puce', onclick: () => { fn(); maj(); if (etat.trajectoire) dessinerTrajectoire(); } }, libelle);
-    const jours = { '21 mars': 80, '21 juin': 172, '21 septembre': 264, '21 décembre': 355 };
-
+    ui.modes = Object.keys(MODES).map((m) => h('input', { type: 'radio', name: 'soleil-mode', value: m, checked: etat.mode === m || undefined, onchange: () => definirMode(m) }));
     conteneur.append(
-      h('div', { class: 'ligne-valeur' }, h('span', {}, 'Date'), ui.date),
-      ui.curseurJour,
-      h('div', { class: 'puces' }, ...Object.entries(jours).map(([l, j]) => preset(l, () => { etat.jour = j; effacerCarte(); }))),
-      h('div', { class: 'ligne-valeur' }, h('span', {}, 'Heure légale'), ui.heure),
-      ui.curseurHeure,
-      h('div', { class: 'puces' },
-        ...[9, 12, 15, 18].map((hh) => preset(`${hh} h`, () => { etat.heure = hh; })),
-        preset('Maintenant', () => {
-          const n = new Date();
-          etat.annee = n.getFullYear(); etat.jour = jourDeLAnnee(n);
-          const p = n.toLocaleTimeString('fr-FR', { timeZone: 'Europe/Paris', hour: 'numeric', minute: 'numeric' }).split(':');
-          etat.heure = +p[0] + +p[1] / 60;
-          effacerCarte();
-        })),
+      h('div', { class: 'titre-info' }, h('h3', {}, 'Affichage du soleil'),
+        info('Date et heure : barre Soleil en haut à droite (curseur du jour, molette ± 1 jour, solstices, équinoxes, 10 h, 13 h, 16 h).',
+          'Trajectoire simple : course du soleil le jour choisi, avec les heures. Diagramme solaire : demi-sphère du rayon du plateau, sans surface (trajectoires du 21 de chaque mois, analemmes, graduations, soleil courant), et diagramme polaire 2D ci-dessous.')),
+      h('div', { class: 'choix choix-soleil', role: 'radiogroup', 'aria-label': 'Affichage du soleil' },
+        ...Object.entries(MODES).map(([m, l], i) => h('label', {}, ui.modes[i], l))),
       ui.infos,
-      h('div', { class: 'actions' },
-        h('button', { type: 'button', class: 'bouton', onclick: jouerJournee }, 'Jouer la journée'),
-        h('label', { class: 'case' },
-          h('input', { type: 'checkbox', onchange: (e) => { etat.trajectoire = e.target.checked; groupeTrajectoire.visible = etat.trajectoire; if (etat.trajectoire) dessinerTrajectoire(); } }),
-          'Course du soleil')),
       h('h3', {}, 'Ombre et ensoleillement'),
       h('p', { class: 'note' }, `Calcul sur le plateau de la maquette (${Math.round(app.config.rayonPlateau * 2)} m de diamètre).`),
       h('div', { class: 'actions' },
@@ -401,25 +453,21 @@ export function creerSoleil(app) {
         h('button', { type: 'button', class: 'bouton discret', onclick: () => { effacerCarte(); ui.carteEtat.textContent = ''; } }, 'Effacer la carte')),
       ui.ombre,
       ui.carteEtat,
-      ui.legende,
+      app.diagrammeSolaire?.bloc(), // diagramme solaire 2D, variable, exports (js/diagramme-solaire.js)
     );
     maj();
   }
 
   function jouerJournee() {
-    if (etat.lecture) { cancelAnimationFrame(etat.lecture); etat.lecture = null; return; }
+    if (etat.lecture) { cancelAnimationFrame(etat.lecture); etat.lecture = null; maj(); return; }
     const t = horaires();
-    const heureDe = (dt) => {
-      const p = dt.toLocaleTimeString('fr-FR', { timeZone: 'Europe/Paris', hour: 'numeric', minute: 'numeric' }).split(':');
-      return +p[0] + +p[1] / 60;
-    };
     const debut = t.sunrise ? heureDe(t.sunrise) : 6, fin = t.sunset ? heureDe(t.sunset) : 21;
     const t0 = performance.now(), duree = 20000;
     const pas = (n) => {
       const u = Math.min((n - t0) / duree, 1);
       etat.heure = debut + (fin - debut) * u;
-      maj();
       etat.lecture = u < 1 ? requestAnimationFrame(pas) : null;
+      maj();
     };
     etat.lecture = requestAnimationFrame(pas);
   }
@@ -434,9 +482,18 @@ export function creerSoleil(app) {
   });
 
   construireBarre();
+  // outil Soleil ouvert : mode d'affichage préféré rétabli (une autre ambiance a pu le masquer)
+  app.on('outil', (id) => { if (id === 'soleil') afficherMode(etat.mode); });
+  // diagramme solaire (demi-sphère 3D + SVG en fin de panneau) : créé ici pour ne pas toucher à app.js
+  app.diagrammeSolaire = creerDiagrammeSolaire(app);
 
   // légende automatique (js/legende.js) : carte des heures de soleil affichée
   function legendeAuto() {
+    const diag = app.diagrammeSolaire?.legendeAuto?.() ?? null; // diagramme solaire sur la maquette
+    const carte = legendeCarte();
+    return [carte, diag].filter(Boolean);
+  }
+  function legendeCarte() {
     if (!etat.carte) return null;
     const max = etat.carteMax || 1, f = (v) => `${v.toFixed(v % 1 ? 1 : 0).replace('.', ',')} h`;
     const grad = [0, max / 2, max];
@@ -446,6 +503,10 @@ export function creerSoleil(app) {
 
   return {
     etat, maj, construirePanneau, calculerCarte, effacerCarte, date, legendeAuto, libelleDate,
+    // trajectoire et diagramme masqués (une autre analyse d'Ambiance s'ouvre, js/ambiances.js)
+    masquerTrajectoires() { afficherMode('aucun'); },
+    definirMode, MODES, dureeJour, changerJour, changerHeure, jouerJournee,
+    get mode() { return etat.mode; },
     hauteur: () => etat.altitude,
     grilleHauteurs, hauteurEn, zoneAnalyse,
     regler({ jour, heure } = {}) {

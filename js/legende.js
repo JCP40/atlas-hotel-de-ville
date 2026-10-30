@@ -4,7 +4,8 @@ import { COULEURS_FLUX } from './flux.js';
 import { CLASSES_CONFORT } from './vent-calcul.js';
 import { formaterHeure } from './geo.js';
 
-// Légende automatique (22/10/2026) : un seul cadre repliable en bas à gauche, au-dessus de la barre des chapitres,
+// Légende automatique (22/10/2026) : un seul cadre repliable en bas à droite (23/10/2026), au-dessus de la boussole et de l'échelle,
+// toutes les légendes des analyses y sont regroupées (plus de légende de couleurs dans les panneaux : seulement les « i »),
 // qui liste ce qui est VISIBLE sur la maquette :
 // - éléments de la maquette (Site > Couches > Éléments : chaussées, trottoirs, bâti, toits détaillés, projet, arbres, espaces verts, eau),
 //   ombres portées (soleil de la barre Soleil) ;
@@ -52,7 +53,9 @@ export function creerLegende(app) {
     ajouter(affiche('maqTrottoirs') && chercher('voirie', 'trottoirs'), 'Trottoirs, places, stationnements', hex(COULEURS.cheminement));
     ajouter(affiche('maqEspacesVerts') && chercher('surfaces', 'vegetal'), 'Espaces verts', hex(COULEURS.vegetal));
     ajouter(affiche('maqEau') && chercher('surfaces', 'eau'), 'Eau', hex(COULEURS.eau));
-    ajouter(affiche('arbres') && app.arbres?.groupe?.visible !== false && Object.values(app.arbres?.lots || {}).some((l) => l.length), 'Arbres (couronne)', hex(COULEURS.arbre), 'cercle');
+    const arbres = affiche('arbres') && app.arbres?.groupe?.visible !== false && Object.values(app.arbres?.lots || {}).some((l) => l.length);
+    const fA = app.arbres?.f ?? 1, caducs = app.arbres?.lots?.caduc?.length;
+    ajouter(arbres, caducs && fA < 0.97 ? (fA < 0.17 ? 'Arbres (couronne des persistants ; caducs sans feuilles : branches)' : `Arbres (couronne ; caducs feuillés à ${Math.round(fA * 100)} %)`) : 'Arbres (couronne)', hex(COULEURS.arbre), 'cercle');
     const bati = chercher('batiments');
     if (bati?.visible !== false && app.bati?.etat?.mode !== 'masque') {
       ajouter(affiche('maqBati'), 'Bâti existant', hex(COULEURS.maquette), 'contour');
@@ -70,7 +73,7 @@ export function creerLegende(app) {
       const haut = app.soleil?.hauteur?.() ?? 1;
       if (haut > 0) it.push({ libelle: `Ombres portées (soleil du ${app.soleil.libelleDate?.() || ''}, ${formaterHeure(S.heure)})`.replace(' du ,', ','), couleur: 'rgba(47,59,69,0.35)', forme: 'aplat' });
     }
-    return it.length ? { id: 'maquette', titre: 'Maquette', items: it } : null;
+    return it.length ? { id: 'maquette', titre: 'Maquette', items: it, note: arbres && app.donnees?.arbresNantes?.features?.length ? 'Arbres : patrimoine arboré de Nantes Métropole (Licence Ouverte), compléments OpenStreetMap.' : undefined } : null;
   }
 
   function sectionReseaux() {
@@ -131,8 +134,14 @@ export function creerLegende(app) {
     return L;
   }
 
+  // sections ajoutées par d'autres modules (app.legende.ajouter(fn) : fn() → section, tableau de sections ou null), placées en tête
+  const extras = [];
+  function sectionsExtra() {
+    return extras.flatMap((f) => { try { return [].concat(f() || []); } catch (e) { console.warn('légende', e); return []; } });
+  }
+
   function decrire() {
-    return [...sectionsAnalyse(), sectionMaquette(), sectionReseaux(), sectionFlux()].filter(Boolean);
+    return [...sectionsExtra(), ...sectionsAnalyse(), sectionMaquette(), sectionReseaux(), sectionFlux()].filter(Boolean);
   }
 
   // ------------------------------------------------------------
@@ -176,6 +185,9 @@ export function creerLegende(app) {
   let signature = '', attente = 0;
   function maj() {
     construire();
+    // hauteur de la boussole + échelle (#orientation) : la légende se pose juste au-dessus
+    const o = document.getElementById('orientation');
+    if (o?.offsetHeight) document.documentElement.style.setProperty('--haut-orientation', `${o.offsetHeight}px`);
     const s = decrire();
     const sig = JSON.stringify(s);
     if (sig === signature) return s;
@@ -188,5 +200,5 @@ export function creerLegende(app) {
   setInterval(maj, 1500);
   setTimeout(maj, 0);
 
-  return { decrire, maj, get el() { return ui.el; } };
+  return { decrire, maj, ajouter(f) { extras.push(f); planifier(); }, get el() { return ui.el; } };
 }

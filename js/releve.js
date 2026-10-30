@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { h } from './util.js';
+import { h, viderGroupe } from './util.js';
 import { enregistrerDonnees } from './donnees.js';
 import { CERTITUDES, CONSTRUCTEURS } from './couches.js';
 import { construireArbres } from './maquette.js';
@@ -50,7 +50,7 @@ export function creerReleve(app) {
   }
 
   function dessinerApercu() {
-    apercu.clear();
+    viderGroupe(apercu);
     if (!etat.points.length) return;
     const pts = etat.points.map(([x, z]) => new THREE.Vector3(x, 0.6, z));
     const def = COUCHES[etat.couche];
@@ -83,7 +83,7 @@ export function creerReleve(app) {
     etat.points = [];
     etat.dessin = false;
     app.captureSol = null;
-    apercu.clear();
+    viderGroupe(apercu);
     ui.formulaire?.replaceChildren();
     majEtat();
   }
@@ -140,9 +140,8 @@ export function creerReleve(app) {
     const cible = COUCHES[cle].cible || cle;
     if (CONSTRUCTEURS[cible]) CONSTRUCTEURS[cible](app);
     else if (cible === 'arbres') {
-      const ancien = app.arbres?.groupe;
-      if (ancien) { app.scene.remove(ancien); app.pickables = app.pickables.filter((p) => !ancien.children.includes(p)); }
-      construireArbres(app, app.donnees.arbres, app.donnees.osm.arbres);
+      construireArbres(app); // retire et libère l'ancien groupe, garde la saison et la vue maquette
+      app.emettre('arbres');
     }
     app.temps.appliquer({ instantane: true });
   }
@@ -156,8 +155,11 @@ export function creerReleve(app) {
   // Suppression : cliquer un élément de la couche sur la maquette
   function supprimerParClic() {
     app.signaler('Cliquez l\'élément à supprimer sur la maquette.');
-    app.captureObjet = (obj) => {
+    app.captureObjet = (obj, cible) => {
       app.captureObjet = null;
+      // arbre relevé : instance touchée (les arbres de Nantes Métropole et d'OSM ne se suppriment pas ici)
+      const arbre = cible?.instance != null ? obj?.userData?.arbres?.[cible.instance] : null;
+      if (arbre?.feature) obj = { userData: { feature: arbre.feature, couche: 'arbres', nom: arbre.nom || 'Arbre' } };
       const f = obj?.userData?.feature;
       const cle = obj?.userData?.couche;
       if (!f || !cle) { app.signaler('Cet élément ne peut pas être supprimé ici.'); return; }

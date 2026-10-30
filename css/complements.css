@@ -68,15 +68,13 @@
 /* Onglet Vues : « Enregistrer la vue » toujours en tête du panneau */
 .ajout-vue.tete-vues { position: sticky; top: -1px; z-index: 1; margin: 0 0 8px; padding: 6px 0; background: var(--calque-plein); border-bottom: 1px solid var(--trait); }
 
-/* Légende automatique (js/legende.js) : en bas à gauche, au-dessus de la barre des chapitres, à droite du panneau ouvert */
+/* Légende automatique (js/legende.js) : en bas à droite, au-dessus de la boussole et de l'échelle (#orientation), à droite de la barre des chapitres */
 .legende-auto {
-  position: fixed; z-index: 5; left: calc(var(--marge) + var(--barre) + 18px); bottom: calc(var(--marge) + 70px);
-  width: 270px; max-height: calc(100vh - var(--haut-panneaux) - 110px); display: flex; flex-direction: column;
+  position: fixed; z-index: 5; right: var(--marge); bottom: calc(var(--marge) + var(--haut-orientation, 120px) + 8px);
+  width: 270px; max-height: calc(100vh - var(--marge) - var(--haut-orientation, 120px) - 330px); min-height: 0; display: flex; flex-direction: column;
   background: var(--calque); border: 1px solid var(--trait); border-radius: 2px; font-size: 12px;
   backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
 }
-body:has(#carte-chapitre:not([hidden])) .legende-auto { left: calc(var(--marge) + var(--barre) + 30px + min(400px, 40vw)); }
-body.panneau-ouvert .legende-auto { left: calc(var(--marge) + var(--barre) + 370px); }
 .legende-auto > summary { padding: 4px 10px; cursor: pointer; list-style: none; font-weight: 600; font-size: 12.5px; }
 .legende-auto > summary::-webkit-details-marker { display: none; }
 .legende-auto > summary::after { content: ' ▾'; color: var(--ardoise-doux); font-weight: 400; }
@@ -89,7 +87,7 @@ body.panneau-ouvert .legende-auto { left: calc(var(--marge) + var(--barre) + 370
 .legende-auto .legende-albedo { margin: 2px 0 4px; font-size: 11px; }
 .legende-auto-note { margin: 2px 0 0; font-size: 11px; color: var(--ardoise-doux); }
 @media (max-width: 820px) {
-  .legende-auto { left: var(--marge); bottom: 230px; width: 220px; max-height: 30vh; }
+  .legende-auto { right: var(--marge); bottom: calc(var(--bas, 150px) + 8px); width: 210px; max-height: 30vh; }
   body.panneau-ouvert .legende-auto { display: none; }
 }
 
@@ -117,3 +115,26 @@ body.panneau-ouvert .legende-auto { left: calc(var(--marge) + var(--barre) + 370
 .soleil-heure-rapide:hover { background: rgba(47, 59, 69, 0.08); }
 .soleil-heure-rapide.actif { background: var(--ardoise); border-color: var(--ardoise); color: var(--calque-plein, #fff); font-weight: 600; }
 @media (pointer: coarse) { .soleil-heure-rapide { padding: 6px 0; } }
+
+/* Diagramme solaire (js/diagramme-solaire.js) : bloc du panneau Soleil, SVG polaire, info-bulle, étiquettes de la demi-sphère */
+.bloc-diagramme { margin-top: 10px; }
+.bloc-diagramme .ligne-diagramme { display: flex; align-items: center; gap: 6px; margin: 4px 0; font-size: 13px; flex-wrap: wrap; }
+.bloc-diagramme .ligne-diagramme > span:first-child { min-width: 56px; }
+.bloc-diagramme .ligne-diagramme select { font: inherit; font-size: 12.5px; max-width: 100%; }
+.bloc-diagramme .ligne-diagramme small { color: #6b7680; }
+.diagramme-svg { display: block; width: 100%; max-width: 340px; margin: 6px auto 2px; aspect-ratio: 1; touch-action: none; }
+.diagramme-svg .grille circle, .diagramme-svg .grille line { fill: none; stroke: #b9c1c7; stroke-width: 0.5; }
+.diagramme-svg .grille circle.horizon { stroke: #6b7680; stroke-width: 0.9; }
+.diagramme-svg .textes text { font-size: 6.5px; fill: #55616b; }
+.diagramme-svg .textes text.fort { font-weight: 700; fill: #2f3b45; }
+.diagramme-svg .textes text.petit { font-size: 5px; fill: #8a949c; }
+.diagramme-svg .textes text.heure { font-size: 5px; fill: #9a6200; }
+.diagramme-svg .courbes path { fill: none; stroke: #f5a300; stroke-linejoin: round; }
+.diagramme-svg .courbes path.jour { stroke-width: 1.1; }
+.diagramme-svg .courbes path.analemme { stroke-width: 0.9; opacity: 0.85; }
+.diagramme-svg circle.soleil { fill: #ffd400; stroke: #8a5a00; stroke-width: 1.4; }
+.diagramme-position { font-size: 12.5px; margin: 4px 0; }
+.bulle-diagramme { position: fixed; z-index: 60; pointer-events: none; background: #f5a300; color: #1d232a; border: 1px solid #b97800; padding: 3px 7px; font-size: 12.5px; line-height: 1.35; border-radius: 2px; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25); max-width: 300px; }
+.etiquette.etiquette-diagramme { font-size: 10.5px; padding: 0 3px; background: rgba(255, 255, 255, 0.78); border-color: #b9c1c7; color: #3d4750; }
+.etiquette.etiquette-diagramme.fort { font-weight: 700; color: #1d232a; }
+.etiquette.etiquette-diagramme.heure { background: rgba(255, 236, 196, 0.85); border-color: #f5a300; color: #7a4d00; }

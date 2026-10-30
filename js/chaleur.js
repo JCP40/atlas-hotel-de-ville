@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { h, info, dateDepuisJour, jourDeLAnnee, MOIS } from './util.js';
 import { pointDansPolygone, polygonesLocaux, lignesLocales } from './geo.js';
 import { chargerJSON, enregistrerDonnees } from './donnees.js';
-import { visibiliteBatiment } from './maquette.js';
+import { visibiliteBatiment, feuillage, transmissionCaduc } from './maquette.js';
 import { chargerMeteo, horaire, journeesTypes, sourceEPW, libellePeriode } from './meteo.js';
 import { preparerPoints, calculerSVF, positionsSoleil, calculerMasques, simulerJournee, temperatureA, temperatureReference, REFERENCE, PAS_INSTANTANE, NB_INSTANTANES } from './chaleur-modele.js';
 import { creerPointsChauds } from './chaleur-points.js';
@@ -17,8 +17,11 @@ import { creerPointsChauds } from './chaleur-points.js';
 // - data/chaleur/materiaux.json : classes { libelle, type sol|toit, couleur, albedo, emissivite, effusivite, evaporation, transmission?, refs } + références ;
 // - data/chaleur/toitures.json : classe de toiture par bâtiment (osm / ign / centre), outils/chaleur/pretraitement.py (BD TOPO + orthophoto) ;
 // - data/chaleur/ortho.json : orthophoto IGN résumée en grille de 4 m (v végétal, c sol clair, . autre ; lignes codées par plages), même script ;
-// - data/chaleur/corrections.json : { description, corrections: [{ id, type: 'element'|'disque'|'polygone'|'toit', cle?, lat?, lon?, rayon?, points?, classe, date }] }
+// - data/chaleur/corrections.json : { description, corrections: [{ id, type: 'element'|'disque'|'polygone'|'trait'|'toit', cle?, lat?, lon?, rayon?, points?, classe, phase?, date }] }
 //   (WGS84 : indépendant de config.origine), écrit par enregistrerDonnees (serveur.py), sinon téléchargé.
+//   phase : 'existant' (défaut : corrections du site réel) ou 'projet' (matériaux du projet, appliqués seulement en phase Projet,
+//   après ceux de l'existant). Pinceau (23/10/2026) : cercle qui suit la souris, diamètre 1 à 30 m (curseur, molette pendant la peinture
+//   ou Maj + molette), cliquer-glisser : un trait = une correction « trait » (points lat/lon, rayon) dans la phase affichée (js/phase.js).
 // Ordre de peinture du sol : orthophoto (fond) < surfaces OSM (verts, places, parkings, eau) < trottoirs < chemins < chaussées
 // < sol sous les arbres < corrections ; le bâti effectif (app.batiEffectif) masque le sol.
 
@@ -41,7 +44,7 @@ export function creerChaleur(app) {
   const etat = {
     pret: null, mat: null, classes: [], idx: {}, toitures: null, ortho: null, corrections: [], modifie: false,
     grille: null, affichage: 'materiaux', calque: null, toitsColores: false,
-    capture: null, classeChoisie: 'paves', modeCorrection: 'element', rayonDisque: 4, polygone: [],
+    capture: null, classeChoisie: 'paves', modeCorrection: 'pinceau', diametre: 4, polygone: [],
     journees: null, temp: null, meteo: 'mois', vueTemp: 'heure', calcul: false, suspendu: false,
   };
   const ui = {};
@@ -114,7 +117,7 @@ export function creerChaleur(app) {
   // matériau de toiture : correction > corps détaillés (data/toits) > toitures.json > terrasse (projet) > ardoise
   function classeToit(e, corrections) {
     const cle = cleBatiment(e);
-    const c = corrections.find((k) => k.type === 'toit' && k.cle === cle);
+    const c = corrections.findLast((k) => k.type === 'toit' && k.cle === cle); // projet après existant
     if (c) return { id: c.classe, source: 'correction' };
     const corps = e.detail?.corps ? [].concat(e.detail.corps) : [];
     if (corps.length) {
@@ -135,7 +138,8 @@ export function creerChaleur(app) {
   // ------------------------------------------------------------
   // Grille des matériaux (maille de 2 m, 3 m au-delà de 150 m de rayon)
   // ------------------------------------------------------------
-  function construireGrille({ corrections = etat.corrections, bati = null } = {}) {
+  function construireGrille({ corrections = correctionsActives(), bati = null } = {}) {
+    corrections = ordonner(corrections);
     const r = rayon();
     const pas = r <= 150 ? 2 : 3;
     const n = Math.ceil((2 * r) / pas), x0 = -r, z0 = -r, N = n * n;
@@ -220,20 +224,28 @@ export function creerChaleur(app) {
       const z = nouvelleZone({ type: 'voie', cle: v.p.osm || null, nom: `Chaussée${v.p.name ? `, ${v.p.name}` : ''}`, osm: v.p.osm, surface: v.p.surface });
       for (const pts of v.lignes) pourRuban(pts, v.largeur / 2, peindre(z, () => I[t || 'enrobe']));
     }
-    // arbres : couronne au-dessus ; sol végétal ou stabilisé dessous -> « sol sous arbres »
-    for (const liste of Object.values(app.arbres?.lots || {})) {
+    // arbres : couronne au-dessus ; sol végétal ou stabilisé dessous -> « sol sous arbres » (matériau, toute l'année) ;
+    // arbre[k] = 1 sous un persistant (ou un magnolia), 2 sous un caduc seulement (lumière filtrée selon la saison, simulerJournee)
+    for (const [lot, liste] of Object.entries(app.arbres?.lots || {})) {
+      const code = lot === 'caduc' ? 2 : 1;
       for (const a of liste) {
         const rr = a.d / 2;
         if (Math.abs(a.x) > r + rr || Math.abs(a.z) > r + rr) continue;
         const cercle = [];
         for (let q = 0; q < 12; q++) cercle.push([a.x + rr * Math.cos((q / 12) * 2 * Math.PI), a.z + rr * Math.sin((q / 12) * 2 * Math.PI)]);
-        pourPolygone([cercle], (k) => { arbre[k] = 1; if (cls[k] === I.pelouse || cls[k] === I.stabilise) cls[k] = I.sousArbres; });
+        pourPolygone([cercle], (k) => { if (arbre[k] !== 1) arbre[k] = code; if (cls[k] === I.pelouse || cls[k] === I.stabilise) cls[k] = I.sousArbres; });
       }
     }
-    // corrections dessinées (disques, polygones)
+    // corrections dessinées (disques, polygones, traits de pinceau) ; matériaux du projet après ceux de l'existant
+    const disque = (la, lo, rr) => { const p = app.proj.versLocal(la, lo); return Array.from({ length: 16 }, (_, q) => [p.x + rr * Math.cos((q / 16) * 2 * Math.PI), p.z + rr * Math.sin((q / 16) * 2 * Math.PI)]); };
     for (const c of corrections) {
+      if (c.type === 'trait') {
+        const z = nouvelleZone({ type: 'correction', id: c.id, nom: c.phase === 'projet' ? 'Matériau du projet' : 'Zone corrigée' });
+        for (const [la, lo] of c.points || []) pourPolygone([disque(la, lo, c.rayon)], (k) => { cls[k] = I[c.classe]; zone[k] = z; });
+        continue;
+      }
       if (c.type !== 'disque' && c.type !== 'polygone') continue;
-      const z = nouvelleZone({ type: 'correction', id: c.id, nom: 'Zone corrigée' });
+      const z = nouvelleZone({ type: 'correction', id: c.id, nom: c.phase === 'projet' ? 'Matériau du projet' : 'Zone corrigée' });
       const pts = c.type === 'disque'
         ? Array.from({ length: 16 }, (_, q) => { const p = app.proj.versLocal(c.lat, c.lon); return [p.x + c.rayon * Math.cos((q / 16) * 2 * Math.PI), p.z + c.rayon * Math.sin((q / 16) * 2 * Math.PI)]; })
         : c.points.map(([la, lo]) => { const p = app.proj.versLocal(la, lo); return [p.x, p.z]; });
@@ -313,14 +325,7 @@ export function creerChaleur(app) {
     }
     return null;
   }
-  function legendeDegrade() {
-    const D = degradeActif();
-    if (!D) return null;
-    return h('div', { class: 'legende-albedo' },
-      h('div', { class: 'legende-albedo-barre', style: { background: `linear-gradient(90deg, ${D.palette.map(([u, c]) => `rgb(${c.join(',')}) ${u * 100}%`).join(', ')})` } }),
-      h('div', { class: 'legende-albedo-graduations' }, ...D.graduations.map((a) => h('span', { style: { left: `${((a - D.min) / (D.max - D.min)) * 100}%` } }, D.texte(a)))),
-      h('div', { class: 'legende-albedo-sens' }, h('span', {}, D.gauche), h('span', {}, D.droite)));
-  }
+
   const couleurClasse = (c, mode) => (mode === 'albedo' ? rampeAlbedo(c.albedo) : mode === 'echauffement' ? rampeEchauffement(c.tref) : c.rgb);
 
   function poserTexture(G, couleurDe) {
@@ -429,7 +434,6 @@ export function creerChaleur(app) {
       h('ul', { class: 'legende legende-chaleur' }, ...sol.map((c) => ligne(c, s.nb.get(etat.idx[c.id])))),
       h('p', { class: 'legende-titre' }, ui.toits?.checked ? 'Toitures (colorées sur la maquette)' : 'Toitures (cocher « Colorer les toitures »)'),
       h('ul', { class: 'legende legende-chaleur' }, ...toits.map((c) => ligne(c, s.toits.get(c.id)))),
-      legendeDegrade(),
       ech ? h('p', { class: 'note' }, `Couleur = température de surface d'équilibre de chaque matériau dans les mêmes conditions de référence (plein soleil ${REFERENCE.K} W/m², air ${REFERENCE.ta} °C, vent ${REFERENCE.v} m/s, ciel clair, sans ombre ; sol sous arbres : ${Math.round(REFERENCE.ombreArbres * 100)} % du rayonnement), d'après l'albédo, l'émissivité, l'évaporation et l'inertie de materiaux.json. L'herbe reste fraîche malgré un albédo moyen (${fmt(classe('pelouse')?.albedo ?? 0.23, 2)}) parce qu'elle évapore de l'eau (évapotranspiration) ; l'eau, par sa grande inertie ; le zinc chauffe faute d'émissivité et d'inertie.`) : null,
     );
   }
@@ -459,8 +463,14 @@ export function creerChaleur(app) {
   // Corrections au clic
   // ------------------------------------------------------------
   const nouvelId = () => `c${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`;
+  // phase affichée (js/phase.js) : en Projet, les corrections sont des matériaux du projet
+  const phaseCourante = () => app.phase?.phase || (app.projet?.visible === false ? 'existant' : 'projet');
+  const phaseDe = (c) => (c.phase === 'projet' ? 'projet' : 'existant');
+  function correctionsActives() { return etat.corrections.filter((c) => phaseDe(c) === 'existant' || app.projet?.visible !== false); }
+  function ordonner(L) { return [...L].sort((a, b) => (phaseDe(a) === 'projet') - (phaseDe(b) === 'projet')); }
   function ajouterCorrection(c) {
-    const liste = etat.corrections.filter((k) => !(k.type === c.type && c.cle && k.cle === c.cle));
+    c.phase = phaseCourante();
+    const liste = etat.corrections.filter((k) => !(k.type === c.type && c.cle && k.cle === c.cle && phaseDe(k) === c.phase));
     liste.push({ id: nouvelId(), ...c, date: new Date().toISOString().slice(0, 10) });
     etat.corrections = liste;
     etat.modifie = true;
@@ -481,6 +491,7 @@ export function creerChaleur(app) {
       return;
     }
     if (cl.type !== 'sol') { app.signaler('Sol : choisissez un matériau de sol.'); return; }
+    if (etat.modeCorrection === 'pinceau') return; // tracé par le pinceau (pointerdown / pointermove)
     if (etat.modeCorrection === 'polygone') {
       etat.polygone.push([r7(g.lat), r7(g.lon)]);
       dessinerPolygone();
@@ -492,8 +503,8 @@ export function creerChaleur(app) {
       ajouterCorrection({ type: 'element', cle: zz.cle, nom: zz.nom, lat: r7(g.lat), lon: r7(g.lon), classe: cl.id });
       app.signaler(`${zz.nom} : ${cl.libelle}.`);
     } else {
-      ajouterCorrection({ type: 'disque', lat: r7(g.lat), lon: r7(g.lon), rayon: etat.rayonDisque, classe: cl.id });
-      app.signaler(`Disque de ${etat.rayonDisque} m : ${cl.libelle}.`);
+      ajouterCorrection({ type: 'disque', lat: r7(g.lat), lon: r7(g.lon), rayon: etat.diametre / 2, classe: cl.id });
+      app.signaler(`Disque de ${etat.diametre} m de diamètre : ${cl.libelle}.`);
     }
   }
   // tracé provisoire du polygone
@@ -516,7 +527,113 @@ export function creerChaleur(app) {
     dessinerPolygone();
     majCorrections();
   }
+  // ------------------------------------------------------------
+  // Pinceau circulaire (23/10/2026) : anneau qui suit la souris, cliquer-glisser pour peindre la classe choisie ;
+  // diamètre 1 à 30 m (curseur ; molette pendant la peinture ou Maj + molette). Aperçu en disques pendant le trait,
+  // une correction « trait » à la fin (grille recalculée une fois).
+  // ------------------------------------------------------------
+  const pinceau = (() => {
+    const anneau = new THREE.Mesh(new THREE.RingGeometry(0.9, 1, 64).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0xd4452a, transparent: true, opacity: 0.95, depthTest: false }));
+    anneau.name = 'pinceau-chaleur'; anneau.renderOrder = 12; anneau.visible = false; anneau.raycast = () => {}; anneau.userData.pasDeRelief = true;
+    const apercu = new THREE.Group();
+    apercu.name = 'pinceau-chaleur-trait'; apercu.userData.pasDeRelief = true;
+    app.scene.add(anneau, apercu);
+    const disqueGeo = new THREE.CircleGeometry(1, 24).rotateX(-Math.PI / 2);
+    const ray = new THREE.Raycaster(), ndc = new THREE.Vector2(), plan = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), q = new THREE.Vector3();
+    let trait = null, dernier = null;
+    const actif = () => !!etat.capture && etat.modeCorrection === 'pinceau';
+    const dz = (x, z) => (app.relief?.dz ? app.relief.dz(x, z) || 0 : 0);
+    function solSous(e) {
+      const cv = app.renderer.domElement, R = cv.getBoundingClientRect();
+      ndc.set(((e.clientX - R.left) / R.width) * 2 - 1, -((e.clientY - R.top) / R.height) * 2 + 1);
+      ray.setFromCamera(ndc, app.camera);
+      plan.constant = -dz(0, 0);
+      if (!ray.ray.intersectPlane(plan, q)) return null;
+      return [q.x, q.z];
+    }
+    function placer(p) {
+      const r = etat.diametre / 2;
+      anneau.position.set(p[0], dz(p[0], p[1]) + 0.7, p[1]);
+      anneau.scale.setScalar(r);
+      anneau.visible = true;
+    }
+    function diametre(d) {
+      etat.diametre = Math.min(30, Math.max(1, Math.round(d)));
+      if (ui.diametre) ui.diametre.value = etat.diametre;
+      if (ui.texteDiametre) ui.texteDiametre.textContent = `${etat.diametre} m`;
+      if (dernier) placer(dernier);
+      if (trait) trait.rayon = Math.max(trait.rayon, etat.diametre / 2);
+    }
+    function ajouterPoint(p, force = false) {
+      const r = etat.diametre / 2;
+      const prec = trait.local[trait.local.length - 1];
+      if (!force && prec && Math.hypot(p[0] - prec[0], p[1] - prec[1]) < r * 0.45) return;
+      trait.local.push(p);
+      const g = app.proj.versGeo(p[0], p[1]);
+      trait.points.push([r7(g.lat), r7(g.lon)]);
+      trait.rayons.push(r);
+      const m = new THREE.Mesh(disqueGeo, trait.mat);
+      m.position.set(p[0], dz(p[0], p[1]) + 0.6, p[1]); m.scale.setScalar(r); m.renderOrder = 11; m.raycast = () => {};
+      apercu.add(m);
+    }
+    function finir() {
+      const t = trait;
+      trait = null;
+      if (app.controls) app.controls.enabled = true;
+      apercu.clear();
+      t?.mat.dispose();
+      if (!t?.points.length) return;
+      // un trait par diamètre : les points peints avec un autre diamètre (molette) gardent le leur
+      const groupes = new Map();
+      t.points.forEach((pt, i) => { const r = t.rayons[i]; if (!groupes.has(r)) groupes.set(r, []); groupes.get(r).push(pt); });
+      for (const [r, pts] of groupes) ajouterCorrection({ type: 'trait', points: pts, rayon: r, classe: t.classe });
+      app.signaler(`Pinceau : ${classe(t.classe).libelle}${phaseCourante() === 'projet' ? ' (matériau du projet)' : ''}.`);
+    }
+    function brancher() {
+      const cv = app.renderer?.domElement;
+      if (!cv || cv.dataset.pinceau) return;
+      cv.dataset.pinceau = '1';
+      cv.addEventListener('pointermove', (e) => {
+        if (!actif()) { if (anneau.visible) anneau.visible = false; return; }
+        const p = solSous(e);
+        if (!p) return;
+        dernier = p;
+        placer(p);
+        if (trait && (e.buttons & 1)) ajouterPoint(p);
+      }, { passive: true });
+      cv.addEventListener('pointerdown', (e) => {
+        if (!actif() || e.button !== 0) return;
+        const cl = classe(etat.classeChoisie);
+        if (cl?.type !== 'sol') return; // toiture : clic ordinaire sur le bâtiment
+        const p = solSous(e);
+        if (!p) return;
+        e.stopImmediatePropagation(); e.preventDefault();
+        if (app.controls) app.controls.enabled = false;
+        const c = classe(etat.classeChoisie);
+        trait = { classe: c.id, points: [], rayons: [], local: [], rayon: etat.diametre / 2, mat: new THREE.MeshBasicMaterial({ color: c.couleur, transparent: true, opacity: 0.75, depthTest: false }) };
+        ajouterPoint(p, true);
+      }, { capture: true });
+      window.addEventListener('pointerup', () => { if (trait) finir(); });
+      cv.addEventListener('wheel', (e) => {
+        if (!actif() || !(trait || e.shiftKey)) return;
+        e.preventDefault(); e.stopImmediatePropagation();
+        diametre(etat.diametre + ((e.deltaY || e.deltaX) < 0 ? 1 : -1));
+      }, { capture: true, passive: false });
+    }
+    return {
+      brancher, diametre, finir,
+      cacher() { anneau.visible = false; if (trait) finir(); },
+      peindre(pts, cl = etat.classeChoisie) { // pour les essais : trait sur des points locaux [[x, z]]
+        const c = classe(cl);
+        trait = { classe: c.id, points: [], rayons: [], local: [], rayon: etat.diametre / 2, mat: new THREE.MeshBasicMaterial({ color: c.couleur }) };
+        pts.forEach((p, i) => ajouterPoint(p, i === 0));
+        finir();
+      },
+    };
+  })();
+
   function commencerCapture() {
+    pinceau.brancher();
     if (!etat.calque) { etat.affichage = ['albedo', 'echauffement'].includes(etat.affichage) ? etat.affichage : 'materiaux'; afficher(); }
     const f = (p) => clic(p);
     app.captureSol = f;
@@ -526,11 +643,12 @@ export function creerChaleur(app) {
   function arreterCapture() {
     if (etat.capture && app.captureSol === etat.capture) app.captureSol = null;
     etat.capture = null;
+    pinceau.cacher();
     if (etat.polygone.length) { etat.polygone = []; dessinerPolygone(); }
     majCorrections();
   }
   async function enregistrer() {
-    const d = { description: 'Corrections des matériaux de l\'outil Chaleur (onglet Ambiance) : type element (élément OSM, clé osm ou osm#trottoir), disque (centre lat/lon, rayon m), polygone (points lat/lon) ou toit (clé du bâtiment) ; classe = clé de materiaux.json.', corrections: etat.corrections };
+    const d = { description: 'Corrections des matériaux de l\'outil Chaleur (onglet Ambiance) : type element (élément OSM, clé osm ou osm#trottoir), disque (centre lat/lon, rayon m), polygone (points lat/lon), trait (pinceau : points lat/lon, rayon m) ou toit (clé du bâtiment) ; classe = clé de materiaux.json ; phase = existant (site réel, défaut) ou projet (matériaux du projet, appliqués en phase Projet).', corrections: etat.corrections };
     await enregistrerDonnees('chaleur/corrections.json', JSON.stringify(d, null, 1));
     etat.modifie = false;
     majCorrections();
@@ -541,11 +659,15 @@ export function creerChaleur(app) {
     ui.boutonCapture.classList.toggle('actif', !!etat.capture);
     ui.terminer.hidden = !(etat.capture && etat.modeCorrection === 'polygone');
     ui.terminer.textContent = `Terminer la zone (${etat.polygone.length} points)`;
-    ui.rayon.hidden = etat.modeCorrection === 'polygone';
-    const L = etat.corrections;
-    ui.corrections.replaceChildren(...(L.length ? L.map((c) => h('li', {},
+    ui.rayon.hidden = etat.modeCorrection === 'polygone' || etat.modeCorrection === 'element';
+    if (ui.notePhase) ui.notePhase.textContent = phaseCourante() === 'projet'
+      ? 'Phase Projet (sous le titre) : les corrections sont enregistrées comme matériaux du projet, appliqués seulement en phase Projet.'
+      : 'Phase Existant (sous le titre) : les corrections décrivent le site réel (communes aux deux phases).';
+    const L = ordonner(etat.corrections);
+    const decrireC = (c) => (c.type === 'toit' ? 'toiture' : c.type === 'element' ? (c.nom || c.cle) : c.type === 'disque' ? `disque de ${fmt(2 * c.rayon)} m` : c.type === 'trait' ? `trait de pinceau (⌀ ${fmt(2 * c.rayon)} m, ${c.points.length} points)` : `zone de ${c.points.length} sommets`);
+    ui.corrections.replaceChildren(...(L.length ? L.map((c) => h('li', { class: phaseDe(c) === 'projet' ? 'correction-projet' : null },
       h('i', { style: { background: classe(c.classe)?.couleur } }),
-      h('span', {}, `${classe(c.classe)?.libelle} — ${c.type === 'toit' ? 'toiture' : c.type === 'element' ? (c.nom || c.cle) : c.type === 'disque' ? `disque de ${c.rayon} m` : `zone de ${c.points.length} sommets`}`),
+      h('span', {}, `${classe(c.classe)?.libelle} — ${decrireC(c)}${phaseDe(c) === 'projet' ? ' · projet' : ''}`),
       h('button', { type: 'button', class: 'mini', title: 'Supprimer', 'aria-label': 'Supprimer la correction', onclick: () => { etat.corrections = etat.corrections.filter((k) => k !== c); etat.modifie = true; invalider(); majCorrections(); } }, '×')))
       : [h('li', { class: 'vide' }, 'Aucune correction.')]));
     ui.enregistrer.disabled = !etat.modifie;
@@ -618,10 +740,12 @@ export function creerChaleur(app) {
     const positions = positionsSoleil({ annee: d.annee, mois: d.mois, jour: d.jour, lat, lon });
     const M = await calculerMasques(P, g, S.hauteurEn, positions, note);
     note('Bilan d\'énergie de la journée…'); await new Promise((r) => setTimeout(r, 0));
-    const R = simulerJournee(P, etat.classes, heures, positions, M);
+    // feuillage des caducs au jour calculé (même règle que l'affichage et la grille des hauteurs de Soleil)
+    const f = feuillage({ mois: d.mois, jour: d.jour });
+    const R = simulerJournee(P, etat.classes, heures, positions, M, { tauCaduc: transmissionCaduc(f), caducsDansGrille: (app.arbres?.f ?? f) >= 0.5 });
     const idx = new Int32Array(G.n * G.n).fill(-1);
     for (let i = 0; i < P.nSol; i++) idx[P.k[i]] = i;
-    const res = { G, P, R, M, positions, heures, d, source: etat.meteo, champ, idx, cle: d.cle, ta: (t) => heures[Math.min(23, Math.round(t))]?.ta };
+    const res = { G, P, R, M, positions, heures, d, feuillage: f, source: etat.meteo, champ, idx, cle: d.cle, ta: (t) => heures[Math.min(23, Math.round(t))]?.ta };
     if (garder) etat.temp = res;
     return res;
   }
@@ -695,7 +819,6 @@ export function creerChaleur(app) {
     const toitsOk = [...V.toits].filter(Number.isFinite);
     ui.legende.replaceChildren(
       h('p', { class: 'resultat' }, `${titre} : sol entre ${fmt(min)} et ${fmt(max)} °C (moyenne ${fmt(moy)} °C) pour un air à ${fmt(ta, 1)} °C${toitsOk.length ? ` ; toits jusqu'à ${fmt(Math.max(...toitsOk))} °C` : ''}. Météo : ${lib.toLowerCase()}.`),
-      h('div', { class: 'legende-soleil' }, h('span', {}, '15 °C'), h('i', { style: { background: DEGRADE_T } }), h('span', {}, '70 °C')),
       h('table', { class: 'table-chaleur' },
         h('thead', {}, h('tr', {}, h('th', {}, 'Matériau'), h('th', {}, mode === 'max' ? 'Moyenne' : 'Au soleil'), h('th', {}, mode === 'max' ? 'Maximum' : 'À l\'ombre'))),
         h('tbody', {}, ...lignes.map(([c, a]) => h('tr', {},
@@ -732,7 +855,7 @@ export function creerChaleur(app) {
       'Bilan d\'énergie de surface simplifié, maille par maille (2 m) : rayonnement solaire direct (ombres réelles du bâti effectif — existant non démoli et volumes du projet — et des arbres, à la date de la barre Soleil) et diffus (pondéré par l\'ouverture au ciel), absorbé selon l\'albédo ; infrarouge du ciel (formule de Brutsaert, corrigée de la nébulosité estimée) et des façades voisines ; émission selon l\'émissivité ; convection h = 5,7 + 3,8 v avec le vent local ; évapotranspiration des sols végétaux (part fixe du rayonnement net) ; inertie par la méthode force-restore (effusivité du matériau).',
       'Météo (source choisie en tête du panneau) : moyenne horaire du mois (par défaut Météo-France, Nantes-Bouguenais, 2016-2025 ; ou fichier EPW, rayonnement direct et diffus du fichier), journée chaude type (moyenne heure par heure des jours d\'été à 30 °C ou plus) ou jour le plus chaud mesuré ; rayonnement direct et diffus estimés depuis le global mesuré (modèle d\'Erbs). La journée est simulée deux fois pour la mise en régime ; « Maximum de la journée » garde la valeur la plus haute de chaque maille.',
       'Toitures : quelques points par toit, sans pente ni orientation des pans (toit traité comme horizontal), toujours bien ventilés (vent × 0,8).',
-      h('strong', {}, 'Limites : '), 'estimation pédagogique, à ±5 °C au mieux ; pas de réflexions multiples ni d\'ombre des façades sur elles-mêmes, pas d\'humidité du sol ni d\'arrosage, arbres opaques (12 % de lumière filtrée), pas de chaleur anthropique (circulation, climatisation), air supposé uniforme (pas d\'îlot de chaleur de l\'air), vent simplifié. Pour une étude : Ladybug Tools / ENVI-met avec un fichier EPW.',
+      h('strong', {}, 'Limites : '), 'estimation pédagogique, à ±5 °C au mieux ; pas de réflexions multiples ni d\'ombre des façades sur elles-mêmes, pas d\'humidité du sol ni d\'arrosage, lumière filtrée par les arbres fixe (persistants 12 % ; caducs de 12 % en feuilles à 65 % sans feuilles, selon la date), pas de chaleur anthropique (circulation, climatisation), air supposé uniforme (pas d\'îlot de chaleur de l\'air), vent simplifié. Pour une étude : Ladybug Tools / ENVI-met avec un fichier EPW.',
       h('ol', { class: 'refs' }, ...(etat.mat?.modele || []).map((r) => h('li', {}, r))),
     );
   }
@@ -856,13 +979,16 @@ export function creerChaleur(app) {
       h('optgroup', { label: 'Sol' }, ...etat.classes.filter((c) => c.type === 'sol').map((c) => h('option', { value: c.id }, c.libelle))),
       h('optgroup', { label: 'Toiture (clic sur un bâtiment)' }, ...etat.classes.filter((c) => c.type === 'toit').map((c) => h('option', { value: c.id }, c.libelle))));
     selClasse.value = etat.classeChoisie;
-    const selMode = h('select', { 'aria-label': 'Étendue de la correction', onchange: () => { etat.modeCorrection = selMode.value; if (etat.polygone.length) { etat.polygone = []; dessinerPolygone(); } majCorrections(); } },
+    const selMode = h('select', { 'aria-label': 'Étendue de la correction', onchange: () => { etat.modeCorrection = selMode.value; if (etat.polygone.length) { etat.polygone = []; dessinerPolygone(); } if (etat.modeCorrection !== 'pinceau') pinceau.cacher(); majCorrections(); } },
+      h('option', { value: 'pinceau' }, 'Pinceau (cercle, cliquer-glisser)'),
       h('option', { value: 'element' }, 'Élément OSM sous le clic (rue, place, jardin…)'),
       h('option', { value: 'disque' }, 'Disque autour du clic'),
       h('option', { value: 'polygone' }, 'Zone dessinée (clics successifs)'));
     selMode.value = etat.modeCorrection;
-    const inRayon = h('input', { type: 'number', min: 1, max: 30, step: 1, value: etat.rayonDisque, onchange: () => { etat.rayonDisque = Math.min(30, Math.max(1, +inRayon.value || 4)); } });
-    ui.rayon = h('label', { class: 'champ' }, h('span', {}, 'Rayon du disque (m)'), inRayon);
+    ui.diametre = h('input', { type: 'range', min: 1, max: 30, step: 1, value: etat.diametre, 'aria-label': 'Diamètre du pinceau (m)', oninput: () => pinceau.diametre(+ui.diametre.value) });
+    ui.texteDiametre = h('output', { class: 'valeur' }, `${etat.diametre} m`);
+    ui.rayon = h('label', { class: 'champ champ-pinceau' }, h('span', {}, 'Diamètre (m)'), ui.diametre, ui.texteDiametre);
+    ui.notePhase = h('p', { class: 'note', 'data-garder': '' });
     ui.boutonCapture = h('button', { type: 'button', class: 'bouton', onclick: () => (etat.capture ? arreterCapture() : commencerCapture()) }, 'Corriger au clic');
     ui.terminer = h('button', { type: 'button', class: 'bouton', hidden: true, onclick: terminerPolygone }, 'Terminer la zone');
     ui.enregistrer = h('button', { type: 'button', class: 'bouton discret', onclick: enregistrer }, 'Enregistrer les corrections');
@@ -881,11 +1007,13 @@ export function creerChaleur(app) {
       construireSectionTemperature(),
       points.construireSection(),
       h('div', { class: 'titre-info' }, h('h3', {}, 'Corriger un matériau'), info(
-        'Choisir le matériau, l\'étendue, puis « Corriger au clic » et cliquer sur la carte : un élément OSM (toute la rue, la place ou le jardin), un disque, ou une zone dessinée point par point (« Terminer la zone »). Un clic sur un bâtiment corrige sa toiture (choisir un matériau de toiture).',
+        'Choisir le matériau, l\'étendue, puis « Corriger au clic » : au pinceau, un cercle suit la souris ; cliquer-glisser peint le matériau (diamètre de 1 à 30 m : curseur, ou molette pendant la peinture, ou Maj + molette). Ou cliquer un élément OSM (toute la rue, la place ou le jardin), un disque, une zone dessinée point par point (« Terminer la zone »). Un clic sur un bâtiment corrige sa toiture (choisir un matériau de toiture).',
+        'Phase Existant : corrections du site réel. Phase Projet : matériaux du projet, enregistrés à part (champ phase) et appliqués seulement en phase Projet ; la comparaison existant / projet de la température en tient compte.',
         'Les corrections sont enregistrées dans data/chaleur/corrections.json (coordonnées WGS84) par le serveur local de l\'atlas, sinon le fichier est téléchargé : le copier dans data/chaleur/.')),
       h('label', { class: 'champ' }, h('span', {}, 'Matériau'), selClasse),
       h('label', { class: 'champ' }, h('span', {}, 'Étendue'), selMode),
       ui.rayon,
+      ui.notePhase,
       h('div', { class: 'actions' }, ui.boutonCapture, ui.terminer),
       ui.corrections,
       h('div', { class: 'actions' }, ui.enregistrer),
@@ -904,7 +1032,9 @@ export function creerChaleur(app) {
   }
 
   app.on('outil', (id) => { if (id !== 'chaleur') { arreterCapture(); } });
+  app.on('phase', () => majCorrections());
   app.on('bati', () => { if (etat.grille && !etat.suspendu) invalider(); });
+  app.on('arbres', () => { if (etat.grille) invalider(); }); // arbres relevés ajoutés ou supprimés (outil Relevé)
   // source météo changée (base / EPW) : section Température refaite (journées types), journée recalculée si affichée
   app.on('meteoSource', () => {
     if (!sourcesMeteo().some(([k]) => k === etat.meteo)) etat.meteo = 'mois';
@@ -917,7 +1047,7 @@ export function creerChaleur(app) {
 
   return {
     etat, charger, construire, construireGrille, afficher, effacerTout, decrire, enregistrer,
-    calculerTemperature, lancerCalcul, prereglage, valeursTemperature, points, legendeAuto, degradeActif,
+    calculerTemperature, lancerCalcul, prereglage, valeursTemperature, points, legendeAuto, degradeActif, pinceau, correctionsActives,
     classes: () => etat.classes,
   };
 }

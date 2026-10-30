@@ -14,3 +14,11 @@
 .champ-projet input, .champ-projet select { width: 100%; box-sizing: border-box; font: inherit; font-size: 14px; padding: 4px 6px; color: var(--ardoise, #2f3b45); }
 .bouton[aria-pressed='true'] { box-shadow: inset 0 0 0 2px var(--projet, #5e9384); }
 .consigne-projet:empty { display: none; }
+/* Import 3D : axes du fichier (js/imports.js) */
+.bloc-axes { margin: 6px 0 8px; padding: 6px 0 4px; border-top: 1px dotted var(--trait, #c9cfd2); border-bottom: 1px dotted var(--trait, #c9cfd2); }
+.case-axes { display: flex; gap: 6px; align-items: center; margin: 6px 0 2px; font-size: 13px; }
+.axes-avances { margin: 4px 0; font-size: 13px; }
+.axes-avances summary { cursor: pointer; color: var(--ardoise-doux, #5b6770); }
+.formulaire-axes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px 8px; margin: 6px 0 2px; }
+.note-axes { margin: 4px 0 0; font-size: 12px; }
+.note-axes.erreur-axes { color: var(--coupe, #c8372d); }

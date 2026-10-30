@@ -156,7 +156,8 @@ export function creerPointsChauds(app, api) {
     try {
       api.note('Comparaison : état existant…');
       if (aProjet) projet.definirVisible(false);
-      const A = await api.calculerTemperature({ grilleMat: api.construireGrille(), garder: false });
+      // existant : sans les matériaux du projet (corrections de phase « projet », js/phase.js)
+      const A = await api.calculerTemperature({ grilleMat: api.construireGrille({ corrections: api.etat.corrections.filter((c) => c.phase !== 'projet') }), garder: false });
       api.note('Comparaison : projet et variantes…');
       if (aProjet) projet.definirVisible(true);
       const B = await api.calculerTemperature({ grilleMat: api.construireGrille({ corrections: [...api.etat.corrections, ...etat.variantes] }), garder: false });
@@ -197,9 +198,8 @@ export function creerPointsChauds(app, api) {
     const m2 = E.G.pas * E.G.pas;
     const quand = E.mode === 'max' ? 'maximum de la journée' : `à ${String(E.t).replace('.', ',')} h`;
     ui.ecart.replaceChildren(
-      h('p', { class: 'resultat' }, `Projet − existant (${quand}) : ${E.moy >= 0 ? '+' : ''}${fmt(E.moy, 1)} °C en moyenne sur le sol commun${E.aProjet ? '' : ' (aucun volume ni démolition dans le projet : seules les variantes changent)'} ; ${Math.round(E.bati * m2)} m² de sol bâtis par le projet, ${Math.round(E.libere * m2)} m² libérés.`),
-      ...E.parVar.filter((x) => x.n).map((x) => h('p', { class: 'resultat' }, `${x.v.nom} → ${api.classe(x.v.classe).libelle.toLowerCase()} : ${fmt(x.avant, 1)} → ${fmt(x.apres, 1)} °C (${x.apres - x.avant >= 0 ? '+' : ''}${fmt(x.apres - x.avant, 1)} °C sur ${Math.round(x.n * m2)} m²).`)),
-      h('div', { class: 'legende-soleil' }, h('span', {}, '−10 °C'), h('i', { style: { background: 'linear-gradient(90deg, rgb(33,102,172), rgb(146,197,222) 35%, rgb(247,247,247) 50%, rgb(244,165,130) 65%, rgb(178,24,43))' } }), h('span', {}, '+10 °C')));
+      h('p', { class: 'resultat' }, `Projet − existant (${quand}) : ${E.moy >= 0 ? '+' : ''}${fmt(E.moy, 1)} °C en moyenne sur le sol commun${E.aProjet ? '' : ' (aucun volume ni démolition dans le projet : seuls les matériaux du projet et les variantes changent)'} ; ${Math.round(E.bati * m2)} m² de sol bâtis par le projet, ${Math.round(E.libere * m2)} m² libérés.`),
+      ...E.parVar.filter((x) => x.n).map((x) => h('p', { class: 'resultat' }, `${x.v.nom} → ${api.classe(x.v.classe).libelle.toLowerCase()} : ${fmt(x.avant, 1)} → ${fmt(x.apres, 1)} °C (${x.apres - x.avant >= 0 ? '+' : ''}${fmt(x.apres - x.avant, 1)} °C sur ${Math.round(x.n * m2)} m²).`))); // dégradé : légende automatique
   }
 
   // ------------------------------------------------------------

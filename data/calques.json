@@ -1,9 +1,87 @@
 {
-  "_note": "Images calées sur le sol. Les entrées sans « points » sont en attente de calage : outil Couches > Plans anciens et calques > Caler (mode présentateur), puis enregistrer ce fichier.",
+  "_note": "Images calées sur le sol. Les entrées sans « points » sont en attente de calage : onglet Fond de plan > Plans anciens et calques > Caler (mode présentateur), puis enregistrer ce fichier. Une entrée « fond »: true n'est pas un calque superposé : elle apparaît seulement dans la liste « Fond au sol » (image redressée par ses points ; « taille » = largeur et hauteur de l'image au calage, en pixels).",
   "calques": [
-    { "id": "psmv-numerotation-sud", "nom": "PSMV, plan des fiches (partie sud)", "fichier": "psmv-numerotation-sud.jpg", "periode": "A.U.P. 2014", "opacite": 0.7, "altitude": 0.23 },
-    { "id": "psmv-numerotation-nord", "nom": "PSMV, plan des fiches (partie nord)", "fichier": "psmv-numerotation-nord.jpg", "periode": "A.U.P. 2014", "opacite": 0.7, "altitude": 0.235 },
-    { "id": "plan-cacault-1759", "nom": "Plan Cacault", "fichier": "psmv-plan-cacault-1759.jpg", "periode": "1759", "opacite": 0.8, "altitude": 0.24 },
-    { "id": "psmv-plan-historique", "nom": "Plan historique de l'A.U.P.", "fichier": "psmv-plan-historique-aup.jpg", "periode": "synthèse PSMV", "opacite": 0.75, "altitude": 0.245 }
+    {
+      "id": "psmv-numerotation-sud",
+      "nom": "PSMV, plan des fiches (partie sud)",
+      "fichier": "psmv-numerotation-sud.jpg",
+      "periode": "A.U.P. 2014",
+      "opacite": 0.7,
+      "altitude": 0.23
+    },
+    {
+      "id": "psmv-numerotation-nord",
+      "nom": "PSMV, plan des fiches (partie nord)",
+      "fichier": "psmv-numerotation-nord.jpg",
+      "periode": "A.U.P. 2014",
+      "opacite": 0.7,
+      "altitude": 0.235
+    },
+    {
+      "id": "plan-cacault-1759",
+      "nom": "Plan Cacault",
+      "fichier": "psmv-plan-cacault-1759.jpg",
+      "periode": "1759",
+      "opacite": 0.8,
+      "altitude": 0.24
+    },
+    {
+      "id": "psmv-plan-historique",
+      "nom": "Plan historique de l'A.U.P.",
+      "fichier": "psmv-plan-historique-aup.jpg",
+      "periode": "synthèse PSMV",
+      "opacite": 0.75,
+      "altitude": 0.245
+    },
+    {
+      "id": "gemini-generated-image-84h1yu84h1yu84h1",
+      "nom": "IGNF 1923 ( avant bombardement )",
+      "fichier": "Gemini_Generated_Image_84h1yu84h1yu84h1.jpeg",
+      "fond": true,
+      "attribution": "IGNF, 1923 — cliché restauré par IA (retouche numérique, pas un document d'origine).",
+      "note": "Fond calé par 3 points (onglet Fond de plan), avant les bombardements de 1943.",
+      "avertissement": [
+        "Image restaurée (et éventuellement recolorisée) par intelligence artificielle (fichier Gemini_Generated_Image_….jpeg) à partir d'un cliché aérien IGN de 1923 : ce n'est pas le document d'origine.",
+        "Les détails fins (toitures, cours, arbres, petits bâtiments, textures) ont pu être reconstitués ou inventés par la retouche ; les teintes ne sont pas celles du tirage d'origine.",
+        "À utiliser comme repère de lecture du tissu d'avant 1943, pas comme source primaire : vérifier l'original avant de le citer ou d'en tirer un relevé (IGN, « Remonter le temps » ; Archives de Nantes).",
+        "Référence précise du cliché IGNF (mission, numéro) à compléter."
+      ],
+      "taille": [
+        1952,
+        2152
+      ],
+      "points": [
+        {
+          "image": [
+            915.9,
+            1077.3
+          ],
+          "geo": [
+            47.2177884,
+            -1.5553722
+          ]
+        },
+        {
+          "image": [
+            1296.8,
+            900.9
+          ],
+          "geo": [
+            47.2182374,
+            -1.5533714
+          ]
+        },
+        {
+          "image": [
+            943.9,
+            772.5
+          ],
+          "geo": [
+            47.2188074,
+            -1.5550479
+          ]
+        }
+      ]
+    }
   ]
 }

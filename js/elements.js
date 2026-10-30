@@ -1,4 +1,5 @@
 import { h, info } from './util.js';
+import { ATTRIBUTION_ARBRES } from './maquette.js';
 
 // Éléments de la maquette (onglet Site > Couches, 21/10/2026) : afficher ou masquer chaussées, trottoirs, bâti,
 // toits détaillés et façades, projet, arbres, eau, sol, relief, noms de rues, étiquettes.
@@ -7,7 +8,10 @@ import { h, info } from './util.js';
 // compte (les images PNG, rendues par le même moteur, montrent ce qui est affiché).
 // États dans app.couches (clés maq*, arbres, rues, etiquettes) : gardés par les points de vue (outil Vues) ;
 // clés maq* mémorisées dans localStorage « atlas-hdv-elements ».
+// Case « Routes » (30/10/2026, reprise des bascules rapides Arbres / Routes qui étaient en haut à gauche, js/phase.js) :
+// chaussées + trottoirs ensemble, cochée si les deux le sont, indéterminée si une seule ; les deux cases restent dessous.
 const CLE_MEMOIRE = 'atlas-hdv-elements';
+const ROUTES = ['maqChaussees', 'maqTrottoirs'];
 
 export const ELEMENTS = [
   { cle: 'maqChaussees', libelle: 'Chaussées (routes)', objets: (s) => [s('voirie', 'chaussees'), s('surfaces', 'voirie')] },
@@ -66,11 +70,18 @@ export function creerElements(app) {
 
   function construireCommandes(conteneur) {
     const cases = [];
-    const caseEl = (cle, libelle, apres) => {
+    const caseEl = (cle, libelle, apres, classe = 'case') => {
       const input = h('input', { type: 'checkbox', checked: app.couches[cle] !== false, onchange: (e) => { app.couches[cle] = e.target.checked; apres?.(); memoriser(); app.emettre('couches'); } });
       cases.push([cle, input]);
-      return h('label', { class: 'case' }, input, libelle);
+      return h('label', { class: classe }, input, libelle);
     };
+    const routes = h('input', { type: 'checkbox', onchange: (e) => { for (const k of ROUTES) app.couches[k] = e.target.checked; memoriser(); app.emettre('couches'); } });
+    const majRoutes = () => {
+      const n = ROUTES.filter((k) => app.couches[k] !== false).length;
+      routes.checked = n === ROUTES.length; routes.indeterminate = n > 0 && n < ROUTES.length;
+    };
+    majRoutes();
+    const caseRoutes = h('label', { class: 'case', title: 'Chaussées, trottoirs, places et stationnements ensemble' }, routes, 'Routes (chaussées et trottoirs)');
     const vueMaq = h('input', { type: 'checkbox', checked: !!app.vueMaquette, onchange: (e) => app.definirVueMaquette(e.target.checked) });
     const relief = h('input', {
       type: 'checkbox', checked: !!app.relief?.actif,
@@ -83,22 +94,28 @@ export function creerElements(app) {
     });
     conteneur.append(
       h('div', { class: 'titre-info' }, h('h3', {}, 'Éléments de la maquette'),
-        info('Affichage seulement : soleil, vent, confort, chaleur, coupes et exports DXF/GLB gardent tout le bâti. Le relief, lui, pose réellement la maquette sur le terrain (comme dans l\'onglet Topographie).')),
+        info('Affichage seulement : soleil, vent, confort, chaleur, coupes et exports DXF/GLB gardent tout le bâti. Le relief, lui, pose réellement la maquette sur le terrain (comme dans l\'onglet Topographie).',
+          h('br'), h('br'), `Arbres : ${ATTRIBUTION_ARBRES} (data/arbres-nantes.geojson : espèce, classe de hauteur, couronne, gestionnaire), complété par OpenStreetMap (ODbL) à plus de 3 m d'un arbre de l'inventaire et par les arbres relevés avec l'outil Relevé (prioritaires). Clic sur un arbre : sa fiche. Les caducs suivent la date de la barre Soleil : feuilles du 1er au 30 avril, chute du 15 octobre au 15 novembre, branches nues l'hiver (ombres, Soleil et Chaleur en tiennent compte).`)),
       h('label', { class: 'case' }, vueMaq, 'Vue maquette (plateau coupé net au bord, touche M)'),
-      ...ELEMENTS.map((e) => caseEl(e.cle, e.libelle, e.cle === 'arbres' ? () => { if (app.arbres) app.arbres.groupe.visible = true; } : null)),
+      caseRoutes,
+      ...ELEMENTS.map((e) => caseEl(e.cle, e.libelle, e.cle === 'arbres' ? () => { if (app.arbres) app.arbres.groupe.visible = true; } : null, ROUTES.includes(e.cle) ? 'case sous-case' : 'case')),
       h('label', { class: 'case' }, relief, 'Relief (maquette posée sur le terrain)'),
       caseEl('rues', 'Noms des rues (sur les voies)'),
       caseEl('etiquettes', 'Étiquettes (noms et repères)'),
     );
     const majCases = () => {
       for (const [cle, input] of cases) input.checked = app.couches[cle] !== false;
+      majRoutes();
       vueMaq.checked = !!app.vueMaquette;
       relief.checked = !!app.relief?.actif;
     };
-    app.on('couches', majCases);
-    app.on('vueMaquette', majCases);
-    app.on('relief', majCases);
+    majCasesCourant = majCases; // écouteurs posés une seule fois (le panneau Couches est reconstruit à chaque ouverture)
   }
+  let majCasesCourant = null;
+  const majSiAffiche = () => majCasesCourant?.();
+  app.on('couches', majSiAffiche);
+  app.on('vueMaquette', majSiAffiche);
+  app.on('relief', majSiAffiche);
 
   return { affiche, construireCommandes, masques, ELEMENTS };
 }

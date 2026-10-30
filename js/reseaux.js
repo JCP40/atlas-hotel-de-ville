@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { h, info } from './util.js';
+import { h, info, lireLS, ecrireLS } from './util.js';
 import { chargerJSON, chercherJeux, lireJeuGeo, enregistrerDonnees } from './donnees.js';
 import { lireCache, ecrireCache } from './cache.js';
 import { empriseAutour, lignesLocales, polygonesLocaux } from './geo.js';
@@ -263,13 +263,13 @@ export function creerReseaux(app) {
   }
 
   function memoriser() {
-    localStorage.setItem(CLE, JSON.stringify(jeux.map((j) => ({ id: j.id, titre: j.titre }))));
+    ecrireLS(CLE, JSON.stringify(jeux.map((j) => ({ id: j.id, titre: j.titre }))));
   }
 
   async function construire() {
     construireOSM();
     await construireSouterrains();
-    const liste = [...(app.config.reseaux || []), ...JSON.parse(localStorage.getItem(CLE) || '[]')];
+    const liste = [...(app.config.reseaux || []), ...(() => { try { return JSON.parse(lireLS(CLE) || '[]'); } catch { return []; } })()];
     for (const { id, titre } of liste) await ajouterJeu(id, titre, { silencieux: true });
     majVisibilite();
   }

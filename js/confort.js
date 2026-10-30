@@ -104,10 +104,18 @@ export function creerConfort(app) {
     return etat.grille;
   }
 
+  // hauteur maximale de la grille (gardée sur g, comme chaleur-modele.js) : arrêt des marches au-dessus de tout obstacle
+  const hauteurMax = (g) => { if (g.hMax == null) { let m = 0; for (let i = 0; i < g.H.length; i++) if (g.H[i] > m) m = g.H[i]; g.hMax = m; } return g.hMax; };
+  // pause rendue au navigateur au plus toutes les 100 ms (chaque pause laisse passer une image : moins de pauses, calcul plus court, mêmes résultats)
+  let tPause = 0;
+  const pause = () => { const t = performance.now(); if (t - tPause < 100) return null; tPause = t; return new Promise((r) => setTimeout(r, 0)); };
+
   // Hauteur d'horizon (angle d'élévation) vue depuis (x, z, y0) dans une direction
   function horizon(g, x, z, y0, sx, sz, dMax = 160) {
     let tanMax = 0;
+    const Hm = hauteurMax(g);
     for (let d = 2; d <= dMax; d += 2) {
+      if ((Hm - y0) / d <= tanMax) break; // plus rien ne peut dépasser l'horizon trouvé (résultat identique)
       const hh = app.soleil.hauteurEn(g, x + sx * d, z + sz * d);
       const t = (hh - y0) / d;
       if (t > tanMax) tanMax = t;
@@ -128,7 +136,7 @@ export function creerConfort(app) {
         for (const [sx, sz] of dirs) { const b = horizon(g, x, z, 1.2, sx, sz); s += Math.sin(b) ** 2; }
         svf[j * nx + i] = 1 - s / n;
       }
-      if (j % 10 === 0) { note(`Ouverture au ciel : ${Math.round((j / nz) * 100)} %`); await new Promise((r) => setTimeout(r, 0)); }
+      if (j % 10 === 0) { note(`Ouverture au ciel : ${Math.round((j / nz) * 100)} %`); await pause(); }
     }
     etat.svf = svf;
     return svf;
@@ -138,7 +146,7 @@ export function creerConfort(app) {
   function auSoleil(g, x, z, y0, sx, sz, tanAlt) {
     for (let d = 1; d < 400; d += 1.5) {
       const ray = y0 + d * tanAlt;
-      if (ray > 150) return true;
+      if (ray > 150 || ray > hauteurMax(g)) return true; // au-dessus du plus haut obstacle : rien ne peut plus masquer
       if (app.soleil.hauteurEn(g, x + sx * d, z + sz * d) > ray) return false;
     }
     return true;
@@ -183,7 +191,7 @@ export function creerConfort(app) {
         }
         res[k] = e / 1000; // Wh -> kWh
       }
-      if (j % 6 === 0) { note(`Rayonnement : ${Math.round((j / nz) * 100)} %`); await new Promise((r) => setTimeout(r, 0)); }
+      if (j % 6 === 0) { note(`Rayonnement : ${Math.round((j / nz) * 100)} %`); await pause(); }
     }
     return res;
   }
@@ -222,7 +230,7 @@ export function creerConfort(app) {
         vals[v] = e2 / 1000;
       }
       valeurs.push({ e, vals });
-      if (++fait % 10 === 0) { note(`Façades : ${Math.round((fait / cibles.length) * 100)} %`); await new Promise((res) => setTimeout(res, 0)); }
+      if (++fait % 10 === 0) { note(`Façades : ${Math.round((fait / cibles.length) * 100)} %`); await pause(); }
     }
     return valeurs;
   }
@@ -299,7 +307,7 @@ export function creerConfort(app) {
         // température ressentie de Steadman (1994), avec rayonnement absorbé Q
         ressenti[k] = Ta + 0.348 * e - 0.70 * v + (0.70 * K) / (v + 10) - 4.25;
       }
-      if (j % 10 === 0) { note(`Confort : ${Math.round((j / nz) * 100)} %`); await new Promise((r) => setTimeout(r, 0)); }
+      if (j % 10 === 0) { note(`Confort : ${Math.round((j / nz) * 100)} %`); await pause(); }
     }
     return { tmrt, ressenti, met, soleilHaut: pSol.altitude };
   }
@@ -337,9 +345,7 @@ export function creerConfort(app) {
     if (info.classes) {
       const parts = info.classes.map((c) => ({ ...c, n: ok.filter((v) => info.classeDe(v) === c).length }));
       ui.resultat.append(h('ul', { class: 'legende' }, ...parts.filter((c) => c.n).map((c) => h('li', {}, h('i', { style: { background: `rgb(${c.couleur.join(',')})` } }), `${c.libelle} : ${Math.round((100 * c.n) / ok.length)} %`))));
-    } else if (info.min != null) {
-      ui.resultat.append(h('div', { class: 'legende-soleil' }, h('span', {}, info.format(info.min)), h('i', { style: { background: 'linear-gradient(90deg, rgb(40,50,110), rgb(60,110,170) 25%, rgb(120,180,170) 50%, rgb(230,210,110) 75%, rgb(245,150,40))' } }), h('span', {}, info.format(info.max))));
-    }
+    } // dégradé : dans la légende automatique (js/legende.js)
     if (info.note) ui.resultat.append(h('p', { class: 'note' }, info.note));
   }
 
@@ -348,6 +354,7 @@ export function creerConfort(app) {
     app.scene.remove(etat.calque);
     etat.calque.geometry.dispose();
     etat.calque.material.map.dispose();
+    etat.calque.material.dispose();
     etat.calque = null;
     etat.valeurs = null;
   }
@@ -404,9 +411,9 @@ export function creerConfort(app) {
       const tout = vals.flatMap((x) => [...x.vals]);
       const max = Math.max(...tout);
       colorierFacades(vals, max);
+      etat.facadesMax = max; etat.facadesPeriode = PERIODES[selPeriode.value].libelle.toLowerCase();
       ui.resultat.replaceChildren(
         h('p', { class: 'resultat' }, `Façades et toits du cercle d'analyse colorés selon le rayonnement reçu, ${PERIODES[selPeriode.value].libelle.toLowerCase()} (jusqu'à ${Math.round(max)} kWh/m²).`),
-        h('div', { class: 'legende-soleil' }, h('span', {}, '0'), h('i', { style: { background: 'linear-gradient(90deg, rgb(40,50,110), rgb(60,110,170) 25%, rgb(120,180,170) 50%, rgb(230,210,110) 75%, rgb(245,150,40))' } }), h('span', {}, `${Math.round(max)} kWh/m²`)),
         h('p', { class: 'note' }, 'Les ombres portées par les bâtiments voisins et les arbres sont prises en compte ; les façades reçoivent aussi le rayonnement réfléchi par le sol.'));
       note('');
     });
@@ -468,6 +475,12 @@ export function creerConfort(app) {
 
   // légende automatique (js/legende.js) : carte affichée (classes de température ressentie ou dégradé gradué)
   function legendeAuto() {
+    const L = [legendeCarte()];
+    if (etat.facadesActives && etat.facadesMax) L.push({ id: 'confort-facades', titre: `Rayonnement reçu par les façades et toits, ${etat.facadesPeriode || ''}`.replace(/, $/, ''),
+      degrade: { stops: STOPS_DEGRADE, graduations: [0, 0.5, 1].map((u) => ({ u, texte: `${Math.round(u * etat.facadesMax)} kWh/m²` })) } });
+    return L.filter(Boolean);
+  }
+  function legendeCarte() {
     const I = etat.info;
     if (!etat.calque || !I) return null;
     if (I.classes) {
@@ -482,5 +495,5 @@ export function creerConfort(app) {
       degrade: { stops: STOPS_DEGRADE, graduations: [0, 0.5, 1].map((u) => ({ u, texte: I.format(min + u * (max - min)) })) } };
   }
 
-  return { construirePanneau, calculerSVF, legendeAuto, calculerRayonnement, calculerConfort, climatologie, effacerCarte, etat };
+  return { construirePanneau, calculerSVF, legendeAuto, calculerRayonnement, calculerConfort, climatologie, effacerCarte, effacerFacades, etat };
 }

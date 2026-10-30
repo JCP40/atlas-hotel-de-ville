@@ -16,7 +16,6 @@
 }
 .liste-corrections .mini:focus-visible, .liste-chauds .mini:focus-visible { outline: 2px solid #c0392b; }
 .bouton.actif { box-shadow: inset 0 0 0 2px #c0392b; }
-.ref-chaleur { font-size: 12px; }
 .liste-chauds { list-style: none; margin: 6px 0; padding: 0; display: grid; gap: 4px; font-size: 13px; }
 .liste-chauds li { display: grid; grid-template-columns: 26px minmax(0, 1fr) auto; gap: 6px; align-items: start; padding: 3px 5px; border: 1px solid var(--trait); background: #fff; border-radius: 2px; }
 .liste-chauds b { display: inline-block; min-width: 22px; text-align: center; color: #fff; border-radius: 2px; font-size: 12px; line-height: 20px; }

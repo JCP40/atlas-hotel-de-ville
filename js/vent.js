@@ -731,15 +731,12 @@ export function creerVent(app) {
       curDen,
       h('div', { class: 'actions serrees' }, boutonPause,
         app.export ? h('button', { type: 'button', class: 'bouton discret petit', onclick: () => app.export.exporterImage() }, 'Enregistrer l\'image') : null),
-      h('div', { class: 'legende-soleil' }, h('span', {}, 'abrité'),
-        h('i', { style: { background: 'linear-gradient(90deg, hsl(210 95% 42%), hsl(150 95% 42%) 30%, hsl(85 95% 42%) 55%, hsl(20 95% 42%))' } }), h('span', {}, 'accéléré')),
       ui.etat,
       h('h3', {}, 'Confort au vent piéton'),
       h('label', { class: 'case' }, curConfort, 'Afficher la carte de confort au sol'),
       selecteur('Seuil', SEUILS, etat.seuil, (v) => { etat.seuil = +v; majConfort(); }),
       ui.projet,
       ui.noteProjet,
-      h('ul', { class: 'legende' }, ...CLASSES_CONFORT.map((c) => h('li', {}, h('i', { style: { background: `rgb(${c.c.join(',')})` } }), `${c.t} : seuil dépassé ${c.l}`))),
       ui.confort,
       ui.pointeur,
       h('div', { class: 'titre-action' }, h('div', { class: 'titre-info' }, h('h3', {}, 'Phénomènes de vent'), ui.aPropos), toutEffets),
@@ -805,7 +802,7 @@ export function creerVent(app) {
     majBoutonsProjet();
     if (etat.actif) { recalculer(); if (etat.confort) setTimeout(majConfort, 60); }
   }
-  app.on('outil', (id) => { if (id !== 'vent') fermer(); });
+  // fermeture : quand une autre analyse d'Ambiance s'ouvre (js/ambiances.js) ; gardé pendant Export, Vues, bascule 3D / plan
   // période des mesures changée (Moyenne 2016-2025 / année, js/climat.js) : rose, saisons, mois et rose posée suivent
   app.on('meteoAnnee', () => {
     if (!ui.rose?.isConnected) return;

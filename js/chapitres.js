@@ -1,4 +1,5 @@
 import { h, allerVers, versVecteur, texteRiche } from './util.js';
+import { creerEtudes } from './etudes.js';
 
 // Les chapitres forment un parcours du plus large au plus proche.
 // La navigation est une règle graduée, comme l'échelle graphique d'un plan.
@@ -19,9 +20,9 @@ export function creerChapitres(app) {
     return b;
   });
   regle.append(
-    h('button', { type: 'button', class: 'fleche', 'aria-label': 'Chapitre précédent', onclick: precedent }, '‹'),
+    h('button', { type: 'button', class: 'fleche', 'aria-label': 'Précédent', onclick: () => (app.etudes?.actif ? app.etudes.precedent() : precedent()) }, '‹'),
     h('div', { class: 'segments' }, ...segments),
-    h('button', { type: 'button', class: 'fleche', 'aria-label': 'Chapitre suivant', onclick: suivant }, '›'),
+    h('button', { type: 'button', class: 'fleche', 'aria-label': 'Suivant', onclick: () => (app.etudes?.actif ? app.etudes.suivant() : suivant()) }, '›'),
   );
 
   function rendreCarte(ch) {
@@ -91,8 +92,13 @@ export function creerChapitres(app) {
   function suivant() { aller(Math.min(index + 1, liste.length - 1)); }
   function precedent() { aller(Math.max(index - 1, 0)); }
 
+  // barre du bas : sélecteur « Chapitres / Études » et les six études d'Ambiance (js/etudes.js)
+  app.etudes = creerEtudes(app, regle);
+
   return {
-    aller, suivant, precedent, liste,
+    aller, liste,
+    suivant: () => (app.etudes?.actif ? app.etudes.suivant() : suivant()),
+    precedent: () => (app.etudes?.actif ? app.etudes.precedent() : precedent()),
     get index() { return index; },
     masquerCarte() { carte.hidden = true; },
     afficherCarte() { if (liste[index]) rendreCarte(liste[index]); },

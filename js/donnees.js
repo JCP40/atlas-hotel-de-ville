@@ -386,8 +386,8 @@ function urlTuile(layer, style, format, z, x, y) {
 
 // Session Google Map Tiles API (clé personnelle, facturée au-delà du quota gratuit)
 async function sessionGoogle(fond) {
-  const cle = fond.cle || localStorage.getItem('atlas-hdv-cle-google');
-  if (!cle) throw new Error('clé Google Maps absente : renseignez-la dans le panneau Couches');
+  const cle = fond.cle || (() => { try { return localStorage.getItem('atlas-hdv-cle-google'); } catch { return null; } })();
+  if (!cle) throw new Error('clé Google Maps absente : renseignez-la dans l\'onglet Fond de plan');
   const r = await fetch(`https://tile.googleapis.com/v1/createSession?key=${encodeURIComponent(cle)}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

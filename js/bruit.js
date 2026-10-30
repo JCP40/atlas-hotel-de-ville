@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { h } from './util.js';
+import { h, ecrireLS, viderGroupe } from './util.js';
 import { chercherJeux, lireJeuGeo, lireCartesBruitEtat, enregistrerDonnees } from './donnees.js';
 import { lireCache, ecrireCache } from './cache.js';
 import { empriseAutour, polygonesLocaux } from './geo.js';
@@ -48,7 +48,7 @@ export function creerBruit(app) {
   const emprise = () => empriseAutour(app.config.origine.lat, app.config.origine.lon, app.config.rayonEtude * 1.1);
 
   function dessiner() {
-    groupe.clear();
+    viderGroupe(groupe);
     if (!etat.fc) return;
     const parClasse = new Map();
     let sansNiveau = 0;
@@ -92,7 +92,7 @@ export function creerBruit(app) {
     }
     etat.jeu = { id, titre };
     etat.fc = fc;
-    localStorage.setItem(CLE, JSON.stringify(etat.jeu));
+    ecrireLS(CLE, JSON.stringify(etat.jeu));
     app.couches.bruit = true;
     dessiner();
     app.emettre('couches');
@@ -110,7 +110,7 @@ export function creerBruit(app) {
     }
     etat.jeu = { id, titre: 'Cartes de bruit stratégiques de l\'État (DDTM 44, 2022), routes et voies ferrées' };
     etat.fc = fc;
-    localStorage.setItem(CLE, JSON.stringify(etat.jeu));
+    ecrireLS(CLE, JSON.stringify(etat.jeu));
     app.couches.bruit = true;
     dessiner();
     app.emettre('couches');
@@ -123,7 +123,7 @@ export function creerBruit(app) {
       etat.jeu = { id: `fichier-${fichier.name}`, titre: fichier.name };
       etat.fc = fc;
       ecrireCache(`bruit-${etat.jeu.id}-${app.cleZone}`, fc);
-      localStorage.setItem(CLE, JSON.stringify(etat.jeu));
+      ecrireLS(CLE, JSON.stringify(etat.jeu));
       app.couches.bruit = true;
       dessiner();
       app.emettre('couches');
@@ -168,7 +168,6 @@ export function creerBruit(app) {
       h('div', { class: 'choix', role: 'radiogroup' }, ...[[false, 'Lden (jour, soir, nuit)'], [true, 'Ln (nuit)']].map(([v, l]) => h('label', {},
         h('input', { type: 'radio', name: 'indic-bruit', checked: etat.nuit === v, onchange: () => { etat.nuit = v; dessiner(); rafraichir(); } }), l))),
       etat.jeu ? h('p', { class: 'resultat' }, `${etat.jeu.titre} : ${r?.total ?? 0} zones${r?.sansNiveau ? `, dont ${r.sansNiveau} sans niveau lisible` : ''}.`) : h('p', { class: 'note' }, 'Aucune carte de bruit chargée.'),
-      h('ul', { class: 'legende' }, ...CLASSES_BRUIT.filter((c) => !r || r.classes.includes(c)).map((c) => h('li', {}, h('i', { style: { background: c.couleur } }), c.libelle))),
       h('p', { class: 'note' }, 'Cartes de bruit stratégiques : niveaux calculés à 4 m de hauteur, moyennés sur l\'année. Le Lden pondère plus fortement le soir et la nuit. Au-delà de 68 dB(A) en Lden pour le bruit routier, la valeur limite réglementaire est dépassée.'),
       app.mode !== 'borne' ? h('h3', {}, 'Trouver une carte de bruit') : null,
       app.mode !== 'borne' ? h('div', { class: 'actions' },

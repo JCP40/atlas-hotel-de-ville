@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { h, info } from './util.js';
+import { h, info, ecrireLS } from './util.js';
 
 const CLE = 'atlas-hdv-bati';
 
@@ -68,7 +68,7 @@ if (toitsActifs > 0.5 && vHautToit > 0.6) {
       }
       if (o.isLineSegments && o.material) o.material.opacity = transp ? Math.min(0.55, (o.userData.opaciteInitiale ??= o.material.opacity) + 0.2) : (o.userData.opaciteInitiale ?? o.material.opacity);
     });
-    localStorage.setItem(CLE, JSON.stringify({ mode: etat.mode, opacite: etat.opacite, monumentsOpaques: etat.monumentsOpaques }));
+    ecrireLS(CLE, JSON.stringify({ mode: etat.mode, opacite: etat.opacite, monumentsOpaques: etat.monumentsOpaques }));
     majUI();
   }
 

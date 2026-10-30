@@ -469,11 +469,11 @@ export function creerCoupes(app) {
 
   // Coupe dessinée à la main, posée dans le plan de coupe (coupes prédéfinies avec « image »)
   function chargerImage(c) {
-    if (etat.image) { app.scene.remove(etat.image); etat.image.geometry.dispose(); etat.image = null; }
+    if (etat.image) { app.scene.remove(etat.image); etat.image.geometry.dispose(); etat.image.material.map?.dispose(); etat.image.material.dispose(); etat.image = null; }
     if (!c.image) return;
     const L = repereLigne(c).L;
     new THREE.TextureLoader().load(`data/coupes/${c.image.fichier}`, (tex) => {
-      if (etat.actif !== c.id) return;
+      if (etat.actif !== c.id) { tex.dispose(); return; }
       tex.colorSpace = THREE.SRGBColorSpace;
       const l = c.image.longueur || L;
       const hh = c.image.hauteur || (l * tex.image.height) / tex.image.width;

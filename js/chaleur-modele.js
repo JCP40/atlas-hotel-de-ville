@@ -115,7 +115,10 @@ export function meteoA(heures, t) {
 }
 
 // Simulation d'une journée (deux jours enchaînés pour la mise en régime) ; T en °C
-export function simulerJournee(P, classes, heures, positions, M, { dt = 300 } = {}) {
+// Arbres (P.arbre) : 1 = sous un persistant, lumière directe filtrée à 12 % ; 2 = sous un caduc seulement, transmission tauCaduc
+// (12 % en feuilles à 65 % sans feuilles, js/maquette.js) ; si les caducs ne sont pas dans la grille des hauteurs (feuillage < 0,5),
+// leur ombre n'est pas dans M : elle est appliquée ici (soleil × tauCaduc).
+export function simulerJournee(P, classes, heures, positions, M, { dt = 300, tauCaduc = 0.12, caducsDansGrille = true } = {}) {
   const n = P.n;
   const Tm = heures.filter(Boolean).reduce((a, h) => a + h.ta, 0) / heures.filter(Boolean).length;
   // nébulosité moyenne du jour (part de diffus) pour le ciel nocturne
@@ -153,7 +156,10 @@ export function simulerJournee(P, classes, heures, positions, M, { dt = 300 } = 
         const pr = props[P.cls[i]];
         const svf = P.svf[i];
         let soleil = M[s0 * n + i] * (1 - w) + M[s1 * n + i] * w;
-        if (P.arbre[i] && i < P.nSol) soleil = Math.max(soleil, 0.12); // lumière filtrée par le houppier
+        if (P.arbre[i] && i < P.nSol) { // lumière filtrée par le houppier
+          if (P.arbre[i] === 1) soleil = Math.max(soleil, 0.12);
+          else soleil = caducsDansGrille ? Math.max(soleil, tauCaduc) : soleil * tauCaduc;
+        }
         const K = m.dni * sinAlt * soleil + m.dhi * svf + 0.25 * m.ghi * (1 - svf) * 0.5;
         const Ld = svf * Lciel + (1 - svf) * Lmur;
         const u = Math.max(0.3, m.v * (P.bat[i] >= 0 ? 0.8 : 0.5 * P.fv[i]));

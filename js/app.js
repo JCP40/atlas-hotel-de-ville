@@ -25,6 +25,8 @@ import { creerVuesRapides } from './vues-rapides.js';
 import { creerLegende } from './legende.js';
 import { creerRosesSaisons } from './roses-saisons.js';
 import { creerPlanche } from './planche.js';
+import { creerAmbiances } from './ambiances.js';
+import { creerPhase } from './phase.js';
 import {
   creerScene, creerSol, construireBatiments, construireVoirie, construireSurfaces, construireArbres,
   majBrouillard, arbresVueMaquette,
@@ -88,12 +90,15 @@ async function chargerDonnees() {
   const vide = collection();
   const lire = (f, d = vide) => chargerJSON(`data/${f}`, d);
   etape('Lecture des contenus de l\'atlas…');
-  const [fantomes, parcelles, arbres, fiches, chapitres, calques, psmv] = await Promise.all([
+  const [fantomes, parcelles, arbres, arbresNantes, fiches, chapitres, calques, psmv] = await Promise.all([
     lire('fantomes.geojson'), lire('parcelles.geojson'),
-    lire('arbres.geojson'), lire('fiches.json', { fiches: [] }), lire('chapitres.json', { chapitres: [] }),
+    lire('arbres.geojson'), lire('arbres-nantes.geojson'), lire('fiches.json', { fiches: [] }), lire('chapitres.json', { chapitres: [] }),
     lire('calques.json', { calques: [] }), lire('psmv/fiches.json', null),
   ]);
-  Object.assign(app.donnees, { fantomes, parcelles, arbres, fiches, chapitres, calques, psmv });
+  // arbres : relevés (data/arbres.geojson, outil Relevé) > patrimoine arboré de Nantes Métropole > OpenStreetMap ;
+  // l'inventaire de Nantes est découpé en parties (champ « suite » : fichiers lus et réunis ici)
+  for (const f of arbresNantes?.suite || []) arbresNantes.features.push(...((await lire(f))?.features || []));
+  Object.assign(app.donnees, { fantomes, parcelles, arbres, arbresNantes, fiches, chapitres, calques, psmv });
   const enLigne = app.mode !== 'borne' && navigator.onLine;
   const emprise = empriseAutour(app.config.origine.lat, app.config.origine.lon, app.config.rayonEtude * 1.2);
 
@@ -178,7 +183,7 @@ async function chargerDonnees() {
 // ------------------------------------------------------------------
 
 // Depuis le 21/10/2026 (js/decoupe.js) : tout est coupé net au bord du plateau, faces de coupe pochées, socle ;
-// sol urbain (chaussées, trottoirs) gardé sur le plateau. Vue maquette par défaut (config.vueMaquetteParDefaut).
+// sol urbain (chaussées, trottoirs) gardé sur le plateau. À l'ouverture : config.demarrage.vueMaquette (false depuis le 30/10/2026), touche M.
 app.definirVueMaquette = (actif) => {
   app.vueMaquette = actif;
   app.sol.epaisseur.visible = actif;
@@ -195,7 +200,7 @@ app.definirVueMaquette = (actif) => {
 app.reconstruireBatiments = () => {
   const ancien = app.scene.getObjectByName('batiments');
   if (ancien) {
-    ancien.traverse((o) => { app.temps.retirer(o); const i = app.pickables.indexOf(o); if (i >= 0) app.pickables.splice(i, 1); });
+    ancien.traverse((o) => { app.temps.retirer(o); const i = app.pickables.indexOf(o); if (i >= 0) app.pickables.splice(i, 1); o.geometry?.dispose(); });
     app.scene.remove(ancien);
   }
   app.etiquettes.retirerGroupe('batiments');
@@ -364,7 +369,7 @@ async function demarrer() {
   construireVoirie(app, app.donnees.osm.voirie);
   app.rues = creerRues(app); // noms des rues à plat sur la chaussée (couche « rues »)
   construireSurfaces(app, app.donnees.osm.surfaces);
-  construireArbres(app, app.donnees.arbres, app.donnees.osm.arbres);
+  construireArbres(app); // relevés, Nantes Métropole, puis OSM à plus de 3 m d'un arbre de Nantes (js/maquette.js)
   await app.rues.demarrer(); // après les arbres : aucun nom posé sous une couronne
 
   etape('Couches de l\'atlas…'); await pause();
@@ -436,14 +441,16 @@ async function demarrer() {
   app.vues.ajouterOutils(I, ajouterLigneAide); // onglet Vues (outils déclarés par js/vues.js)
   I.ajouterOutil({ id: 'flux', groupe: 'site', libelle: 'Flux', titre: 'Bus, tram et parkings', construire: (c) => app.flux.construirePanneau(c) });
   I.ajouterOutil({ id: 'reseaux', groupe: 'site', libelle: 'Réseaux', titre: 'Réseaux', construire: (c) => app.reseaux.construirePanneau(c) });
-  I.ajouterOutil({ id: 'bruit', groupe: 'climat', libelle: 'Bruit', titre: 'Carte du bruit', construire: (c) => app.bruit.construirePanneau(c) });
+  I.ajouterOutil({ id: 'bruit', groupe: 'climat', libelle: 'Bruit', titre: 'Carte du bruit', construire: (c) => { if (app.bruit.zones?.features?.length && !app.couches.bruit) { app.couches.bruit = true; app.emettre('couches'); } app.bruit.construirePanneau(c); } }); // ouvrir Bruit affiche la carte
   I.ajouterOutil({ id: 'trajets', groupe: 'site', libelle: 'Trajets', titre: 'Trajets et isochrones', construire: (c) => app.trajets.construirePanneau(c) });
   I.ajouterOutil({ id: 'fiches', groupe: 'site', libelle: 'Fiches', titre: 'Toutes les fiches', construire: (c) => app.fiches.construireSommaire(c) });
   app.export = creerExport(app);
   app.centre = creerCentre(app);
-  app.legende = creerLegende(app); // légende automatique de ce qui est affiché (cadre en bas à gauche)
+  app.legende = creerLegende(app); // légende automatique de ce qui est affiché (cadre en bas à droite)
   app.rosesSaisons = creerRosesSaisons(app); // 4 roses des vents des saisons (outil Vent, planche)
   app.planche = creerPlanche(app); // planche à l'échelle PDF / SVG (onglet Export)
+  app.ambiances = creerAmbiances(app); // une seule analyse d'Ambiance affichée à la fois
+  app.phase = creerPhase(app); // phase Existant / Projet et bascules Arbres / Routes (sous le titre)
   I.ajouterOutil({ id: 'centre', groupe: 'site', libelle: 'Centre', titre: 'Centre du projet et cercle de la maquette', masqueEnBorne: true, construire: (c) => app.centre.construirePanneau(c) });
   I.ajouterOutil({ id: 'exporter', groupe: 'export', libelle: 'Exporter', titre: 'Exporter', horsBorne: true, construire: (c) => app.export.construirePanneau(c) });
   I.ajouterOutil({ id: 'releve', groupe: 'site', libelle: 'Relevé', titre: 'Relever et caler', masqueEnBorne: true, construire: (c) => app.releve.construirePanneau(c) });
@@ -484,27 +491,47 @@ async function demarrer() {
   I.relancerAttente();
 }
 
-// État de départ (demande du 14/10/2026) : vue 3D, bâti détaillé avec photos, soleil du 21 juin à 12 h (heure légale),
-// caméra centrée sur la place de l'Hôtel de Ville, aucune coupe active ni tracée. Réglable par config.json > demarrage
-// ({ cible: [lat, lon], recul: [dx, dy, dz] en mètres, jour: "06-21", heure: 12 }).
+// État de départ (demande du 14/10/2026, revue le 23/10/2026 et le 30/10/2026) : phase Existant, vue étendue (bâti du contexte
+// visible au-delà du plateau ; touche M pour revenir à la maquette coupée), vue 3D oblique rapprochée sur l'Hôtel de Ville
+// (façades photographiées au premier plan), bâti détaillé avec photos, soleil du 21 juin à 10 h (heure légale, façades éclairées),
+// carte du chapitre masquée (texte accessible en cliquant sur le chapitre), aucune coupe active ni tracée.
+// Réglable par config.json > demarrage :
+//   phase: "existant" | "projet" (défaut existant), vueMaquette: true | false (sans la clé : config.vueMaquetteParDefaut, false par défaut),
+//   cible: "mairie" (défaut, app.toits.centre()) | "plateau" (centre du plateau) | [lat, lon],
+//   decalageCible: [m vers l'est, m vers le sud] ajoutés à la cible (défaut [0, 30] pour la mairie : point visé avancé vers les
+//   façades sud, le centre de la parcelle EY 64 tombant dans le jardin ; [0, 0] ailleurs),
+//   recul: distance en m (défaut 130) ou [dx, dy, dz] en m (ancienne forme, avec cible "plateau", [40, 110, 128] redonne la vue d'ensemble d'avant),
+//   elevation: degrés au-dessus de l'horizon (défaut 27), azimut: direction d'où l'on regarde, degrés depuis le nord en sens
+//   horaire (défaut 150 : depuis le sud-sud-est), hauteurCible: m au-dessus du sol (défaut 9), jour: "MM-JJ", heure.
 function etatDeDemarrage() {
   const d = app.config.demarrage || {};
   if (app.vue2D) app.vue.basculer(false);
-  // vue maquette coupée par défaut (config.json > vueMaquetteParDefaut, touche M pour la vue étendue)
-  app.definirVueMaquette(app.config.vueMaquetteParDefaut !== false);
+  app.phase?.definir?.(d.phase === 'projet' ? 'projet' : 'existant');
+  app.definirVueMaquette(!!(d.vueMaquette ?? app.config.vueMaquetteParDefaut ?? false));
   app.toits?.definirRepresentation?.('photos');
   if (app.coupes.etat.actif) app.coupes.desactiver();
+  app.chapitres?.masquerCarte?.();
   app.couches.axes = false;
   app.couches.rues = true;
   const [mm, jj] = String(d.jour || '06-21').split('-').map(Number);
   const an = app.soleil.etat.annee ?? new Date().getFullYear();
-  app.soleil.regler({ jour: jourDeLAnnee(new Date(an, mm - 1, jj)), heure: d.heure ?? 12 });
+  app.soleil.regler({ jour: jourDeLAnnee(new Date(an, mm - 1, jj)), heure: d.heure ?? 10 });
   app.emettre('couches');
-  const [lat, lon] = d.cible || [47.21768, -1.55419]; // place de l'Hôtel de Ville (OSM)
-  const c = app.proj.versLocal(lat, lon);
-  const [dx, dy, dz] = d.recul || [0, 160, 210];
+  // cible : la mairie (centroïde de la parcelle EY 64), le centre du plateau ou un point [lat, lon]
+  let c = { x: 0, z: 0 }, mairie = false;
+  if (Array.isArray(d.cible)) c = app.proj.versLocal(d.cible[0], d.cible[1]);
+  else if (d.cible !== 'plateau') { const m = app.toits?.centre?.(); if (m) { c = { x: m[0], z: m[1] }; mairie = true; } }
+  const [ox, oz] = Array.isArray(d.decalageCible) ? d.decalageCible : (mairie ? [0, 30] : [0, 0]);
+  c = { x: c.x + (Number(ox) || 0), z: c.z + (Number(oz) || 0) };
   const y0 = app.relief?.dz ? app.relief.dz(c.x, c.z) || 0 : 0;
-  allerVers(app, [c.x + dx, y0 + dy, c.z + dz], [c.x, y0, c.z], 0);
+  let dx, dy, dz;
+  if (Array.isArray(d.recul)) [dx, dy, dz] = d.recul;
+  else {
+    const r = Number(d.recul) || 130, el = (d.elevation ?? 27) * Math.PI / 180, az = (d.azimut ?? 150) * Math.PI / 180;
+    dx = r * Math.cos(el) * Math.sin(az); dy = r * Math.sin(el); dz = -r * Math.cos(el) * Math.cos(az); // x est, z sud
+  }
+  const hc = d.hauteurCible ?? 9;
+  allerVers(app, [c.x + dx, y0 + hc + dy, c.z + dz], [c.x, y0 + hc, c.z], 0);
 }
 
 demarrer().catch((err) => {

@@ -100,6 +100,25 @@ export function info(...contenu) {
   return h('span', { class: 'info' }, bouton, panneau);
 }
 
+// localStorage protégé : null (lecture) ou rien (écriture) si le stockage est indisponible
+// (navigation privée, site bloqué, quota) ; ecrireLS(k, null) retire la clé.
+export const lireLS = (k) => { try { return localStorage.getItem(k); } catch { return null; } };
+export function ecrireLS(k, v) {
+  try { if (v == null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch { /* stockage indisponible */ }
+}
+
+// Vide un groupe Three.js en libérant géométries, matériaux et textures de ses objets
+// (à n'utiliser que pour des groupes dont les matériaux ne sont pas partagés ailleurs).
+export function viderGroupe(g) {
+  g.traverse((o) => {
+    if (o === g) return;
+    o.geometry?.dispose();
+    const mats = Array.isArray(o.material) ? o.material : o.material ? [o.material] : [];
+    for (const m of mats) { m.map?.dispose(); m.dispose(); }
+  });
+  g.clear();
+}
+
 // Publication en ligne (GitHub Pages) : les documents du PSMV (PDF, photos et planches
 // des fiches, extraits de plans) ne sont pas publiés tant que leurs droits ne sont pas vérifiés.
 // Ces chemins sont signalés « document non publié en ligne » au lieu d'être chargés (pas de 404).

@@ -181,8 +181,8 @@
       "type": "Climat",
       "chapitre": "climat",
       "texte": [
-        "Climat océanique doux. Normales 1991-2020 à Nantes-Bouguenais : 12,7 °C en moyenne annuelle, de 3,0 °C (minimales de février) à 25,4 °C (maximales d'août) ; 820 mm de pluie par an, surtout d'octobre à janvier.",
-        "Deux régimes de vent (1971-2000) : sud à ouest-sud-ouest (36,5 % des vents, les plus forts), nord-est (24,7 %, plutôt faibles). L'outil Climat calcule une rose des vents récente et donne les conditions du moment.",
+        "Climat océanique doux. Météo-France, Nantes-Bouguenais, 2016-2025 : 13,2 °C en moyenne annuelle, de 3,2 °C (minimales de janvier) à 26,3 °C (maximales d'août). Pluie : environ 820 mm par an, surtout d'octobre à janvier (normales Météo-France 1991-2020 ; la base météo de l'atlas ne contient pas les précipitations).",
+        "Deux régimes de vent (Météo-France 2016-2025) : sud à ouest (43 % des heures, les plus forts, autour de 4 m/s en moyenne) et nord-nord-est à est-nord-est (23 % des heures). L'outil Vent (onglet Ambiance) détaille la rose par saison, l'outil Climat les mois et les jours extrêmes.",
         "La station est à l'aéroport : le centre-ville, plus minéral, est en général un peu plus chaud, et les rues canalisent le vent."
       ]
     },

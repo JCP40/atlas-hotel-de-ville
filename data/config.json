@@ -118,8 +118,21 @@
   },
   "epoques": false,
   "epoques_note": "false : sélecteur d'époque « Avant 1943 / Aujourd'hui » (en haut à droite) et touches 1 et 2 retirés, l'atlas reste sur « Aujourd'hui ». Code et données gardés : mettre true pour les remettre.",
-  "vueMaquetteParDefaut": true,
-  "vueMaquette_note": "true : au démarrage, vue maquette (plateau de rayonPlateau seul ; bâti, toits, façades, projet et imports coupés net au bord, faces de coupe pochées, socle). Touche M ou case de l'onglet Site > Couches pour revenir à la vue étendue.",
+  "vueMaquetteParDefaut": false,
+  "vueMaquette_note": "true : au démarrage, vue maquette (plateau de rayonPlateau seul ; bâti, toits, façades, projet et imports coupés net au bord, faces de coupe pochées, socle). false (depuis le 30/10/2026) : vue étendue, bâti du contexte visible. Touche M ou case de l'onglet Site > Couches pour basculer. demarrage.vueMaquette, s'il est présent, l'emporte.",
+  "demarrage": {
+    "phase": "existant",
+    "vueMaquette": false,
+    "cible": "mairie",
+    "decalageCible": [0, 30],
+    "recul": 130,
+    "elevation": 27,
+    "azimut": 150,
+    "hauteurCible": 9,
+    "jour": "06-21",
+    "heure": 10
+  },
+  "demarrage_note": "Ouverture de l'atlas (30/10/2026) : phase existant|projet ; vueMaquette false = vue étendue (M pour la maquette coupée) ; cible \"mairie\" (centre de la parcelle EY 64), \"plateau\" (centre du plateau) ou [lat, lon] ; decalageCible [m vers l'est, m vers le sud] ajouté à la cible (défaut [0, 30] pour la mairie : point visé avancé vers les façades photographiées, le centre de la parcelle tombant dans le jardin) ; recul = distance caméra-cible en m (ou [dx, dy, dz] en m : [40, 110, 128] avec la cible \"plateau\" redonne l'ancienne vue d'ensemble) ; elevation en degrés au-dessus de l'horizon ; azimut = direction d'où l'on regarde, en degrés depuis le nord, sens horaire (150 = sud-sud-est, face aux façades de la rue de la Commune et de la cour d'honneur) ; hauteurCible = point visé, en m au-dessus du sol ; jour MM-JJ et heure légale du soleil (10 h : façades sud-est éclairées ; 16-17 h : ombres plus longues, façades à contre-jour).",
   "etats": [
     "avant",
     "actuel"
