@@ -661,8 +661,8 @@ export function creerChaleur(app) {
     ui.terminer.textContent = `Terminer la zone (${etat.polygone.length} points)`;
     ui.rayon.hidden = etat.modeCorrection === 'polygone' || etat.modeCorrection === 'element';
     if (ui.notePhase) ui.notePhase.textContent = phaseCourante() === 'projet'
-      ? 'Phase Projet (sous le titre) : les corrections sont enregistrées comme matériaux du projet, appliqués seulement en phase Projet.'
-      : 'Phase Existant (sous le titre) : les corrections décrivent le site réel (communes aux deux phases).';
+      ? 'Phase Projet (en haut à droite) : les corrections sont enregistrées comme matériaux du projet, appliqués seulement en phase Projet.'
+      : 'Phase Existant (en haut à droite) : les corrections décrivent le site réel (communes aux deux phases).';
     const L = ordonner(etat.corrections);
     const decrireC = (c) => (c.type === 'toit' ? 'toiture' : c.type === 'element' ? (c.nom || c.cle) : c.type === 'disque' ? `disque de ${fmt(2 * c.rayon)} m` : c.type === 'trait' ? `trait de pinceau (⌀ ${fmt(2 * c.rayon)} m, ${c.points.length} points)` : `zone de ${c.points.length} sommets`);
     ui.corrections.replaceChildren(...(L.length ? L.map((c) => h('li', { class: phaseDe(c) === 'projet' ? 'correction-projet' : null },
