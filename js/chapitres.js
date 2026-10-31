@@ -14,7 +14,7 @@ export function creerChapitres(app) {
   let index = -1;
 
   const segments = liste.map((ch, i) => {
-    const b = h('button', { type: 'button', class: 'segment', 'aria-label': `Chapitre ${ch.numero} : ${ch.titre}`, onclick: () => aller(i) },
+    const b = h('button', { type: 'button', class: 'segment', 'aria-label': `Chapitre ${ch.numero} : ${ch.titre}`, title: `Chapitre ${ch.numero} : ${ch.titre}`, onclick: () => aller(i) },
       h('span', { class: 'numero' }, String(ch.numero)),
       h('span', { class: 'titre' }, ch.titre));
     return b;

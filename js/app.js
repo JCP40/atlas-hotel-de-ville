@@ -23,6 +23,7 @@ import { creerDecoupe } from './decoupe.js';
 import { creerElements } from './elements.js';
 import { creerVuesRapides } from './vues-rapides.js';
 import { creerLegende } from './legende.js';
+import { creerZoomMenus } from './zoom-menus.js';
 import { creerRosesSaisons } from './roses-saisons.js';
 import { creerPlanche } from './planche.js';
 import { creerAmbiances } from './ambiances.js';
@@ -456,6 +457,7 @@ async function demarrer() {
   I.ajouterOutil({ id: 'releve', groupe: 'site', libelle: 'Relevé', titre: 'Relever et caler', masqueEnBorne: true, construire: (c) => app.releve.construirePanneau(c) });
   const boutonAide = document.getElementById('bouton-aide');
   boutonAide.addEventListener('click', () => document.getElementById('aide').showModal());
+  app.zoomMenus = creerZoomMenus(app); // téléphone : pincement et double-tap sans effet sur les menus (case dans l'Aide)
 
   app.soleil.maj();
   app.temps.changer('actuel', { instantane: true });

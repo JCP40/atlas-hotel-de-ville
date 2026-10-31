@@ -406,8 +406,14 @@ body.presentation-auto #outils, body.presentation-auto #panneau-outil { opacity:
   #carte-chapitre .texte p { font-size: 14.5px; }
   #regle-chapitres { right: var(--marge); }
   #regle-chapitres .fleche { width: 32px; }
-  .segment { min-height: 64px; padding: 14px 4px 4px; }
-  .segment .titre { display: none; }
+  .segment { min-height: 64px; padding: 14px 4px 4px; min-width: 0; gap: 1px; align-content: start; }
+  /* nom du chapitre (ou de l'étude) en petit sous le numéro, deux lignes au plus (31/10/2026 ; avant : masqué) */
+  .segment .titre { font-size: 10.5px; line-height: 1.12; color: var(--ardoise-doux); -webkit-hyphens: auto; hyphens: auto; overflow-wrap: anywhere; }
+  .segment.actif .titre { color: var(--ardoise); font-weight: 600; }
+  .segment .numero { font-size: 15px; }
+  /* segments au moins 52 px : au-delà de la largeur disponible, la règle défile horizontalement */
+  #regle-chapitres .segments { grid-auto-columns: minmax(52px, 1fr); overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none; }
+  #regle-chapitres .segments::-webkit-scrollbar { display: none; }
   #orientation { bottom: 158px; width: auto; }
   #orientation .echelle { display: none; }
   #bandeau { max-width: 92vw; top: auto; bottom: 230px; }
@@ -491,3 +497,15 @@ body.vue-2d #orientation .nord { cursor: default; }
 .titre-info > h3 { margin-right: 0; }
 .titre-info > .info { display: contents; }
 .titre-info .info-panneau { flex-basis: 100%; }
+
+/* Téléphone (31/10/2026) : flèches de la règle retirées sous 600 px (les segments se touchent directement ; ← → au clavier),
+   pour laisser la place aux noms des chapitres */
+@media (max-width: 600px) {
+  #regle-chapitres { gap: 4px; }
+  #regle-chapitres .fleche { display: none; }
+}
+
+/* Verrouillage du zoom des menus sur écran tactile (js/zoom-menus.js, case de l'Aide) : pincement et double-tap
+   sans effet hors du canevas ; spécificité nulle pour laisser gagner les touch-action: none existants (#scene, diagramme, pavé piéton) */
+:where(body.zoom-menus-verrouille), :where(body.zoom-menus-verrouille) :where(*) { touch-action: pan-x pan-y; }
+.case-zoom-menus { margin: 10px 0 4px; }

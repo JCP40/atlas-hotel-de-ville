@@ -48,6 +48,13 @@ export function creerElements(app) {
     for (const e of ELEMENTS) if (app.couches[e.cle] === false) for (const o of e.objets(chercher, app)) if (o) liste.push(o);
     return liste;
   }
+  // Vue Plan (31/10/2026, demande de l'utilisateur) : le cercle du plateau (trait app.sol.bord, anneau sombre de rayonPlateau,
+  // et disque plus clair app.sol.plateau posé sur le sol) n'est pas dessiné quand la caméra est celle du plan (app.vue.ortho) ;
+  // gardé en 3D, en axonométrie et dans la planche (caméras à part). En vue maquette coupée, le disque reste (c'est le sol du plateau).
+  function cerclePlan(camera) {
+    if (!app.vue2D || camera !== app.vue?.ortho || !app.sol) return [];
+    return app.vueMaquette ? [app.sol.bord] : [app.sol.bord, app.sol.plateau];
+  }
 
   // rendu : éléments décochés masqués le temps de l'image, puis remis (calculs, lancers de rayons et exports intacts)
   const r = app.renderer;
@@ -55,7 +62,7 @@ export function creerElements(app) {
   r.render = (scene, camera) => {
     const caches = [];
     if (scene === app.scene) {
-      for (const o of masques()) if (o.visible) { o.visible = false; caches.push(o); }
+      for (const o of [...masques(), ...cerclePlan(camera)]) if (o?.visible) { o.visible = false; caches.push(o); }
       app.decoupe?.synchroniserFaces?.();
     }
     try { rendre(scene, camera); } finally { for (const o of caches) o.visible = true; }
