@@ -118,9 +118,3 @@ export function viderGroupe(g) {
   });
   g.clear();
 }
-
-// Publication en ligne (GitHub Pages) : les documents du PSMV (PDF, photos et planches
-// des fiches, extraits de plans) ne sont pas publiés tant que leurs droits ne sont pas vérifiés.
-// Ces chemins sont signalés « document non publié en ligne » au lieu d'être chargés (pas de 404).
-export const NON_PUBLIE = 'document non publié en ligne';
-export const estNonPublie = (url) => /(^|\/)(psmv\/(photos|planches)|documents)\/|(^|\/)psmv-[^/]*\.(jpe?g|png|pdf)(#.*)?$/i.test(String(url || ''));

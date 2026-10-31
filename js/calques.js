@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { h, info, lireLS, ecrireLS, estNonPublie, NON_PUBLIE } from './util.js';
+import { h, info, lireLS, ecrireLS } from './util.js';
 import { affineDepuis3Points, appliquerAffine, empriseAutour } from './geo.js';
 import { chargerJSON, fichierExiste, enregistrerDonnees, assemblerFond } from './donnees.js';
 import { lireCache, ecrireCache } from './cache.js';
@@ -257,7 +257,6 @@ export function creerCalques(app) {
     if (!c) { c = { entree, mesh: null }; calques.push(c); }
     c.entree = entree;
     if (!entree.points || entree.points.length < 3) return c; // en attente de calage
-    if (estNonPublie(url)) return c; // plan du PSMV non publié en ligne (droits à vérifier)
     try {
       const tex = await new THREE.TextureLoader().loadAsync(url);
       tex.colorSpace = THREE.SRGBColorSpace;
@@ -345,7 +344,7 @@ export function creerCalques(app) {
       if (!c.mesh) {
         return h('li', { class: 'a-caler' },
           h('span', {}, e.nom, e.periode ? h('em', {}, ` ${e.periode}`) : null),
-          estNonPublie(`data/calques/${e.fichier}`) ? h('em', {}, ` ${NON_PUBLIE}`) : app.mode === 'presentateur' ? bouton(e, 'Caler') : h('em', {}, ' pas encore calé'));
+          app.mode === 'presentateur' ? bouton(e, 'Caler') : h('em', {}, ' pas encore calé'));
       }
       const op = h('input', { type: 'range', min: 0, max: 1, step: 0.05, value: c.mesh.material.opacity, 'aria-label': `Opacité de ${e.nom}` });
       op.addEventListener('input', () => { c.mesh.material.opacity = +op.value; });

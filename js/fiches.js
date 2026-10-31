@@ -1,4 +1,4 @@
-import { h, texteRiche, allerVers, estNonPublie, NON_PUBLIE } from './util.js';
+import { h, texteRiche, allerVers } from './util.js';
 
 // Fiches d'information : un panneau latéral (feuille de calque) qui s'ouvre au clic
 // sur un élément de la maquette. Une fiche peut raconter les trois états du site.
@@ -48,7 +48,6 @@ export function creerFiches(app) {
     if (c.images?.length) {
       corps.append(h('div', { class: 'fiche-images' }, ...c.images.map((img) => {
         const src = img.fichier.startsWith('http') ? img.fichier : `data/medias/${img.fichier}`;
-        if (estNonPublie(src)) return h('figure', { class: 'non-publie' }, h('p', { class: 'mots' }, h('span', {}, NON_PUBLIE)), img.legende ? h('figcaption', {}, img.legende) : null);
         return h('figure', {},
           h('button', { type: 'button', class: 'vignette', onclick: () => ouvrirImage(src, img.legende), 'aria-label': `Agrandir : ${img.legende || f.titre}` },
             h('img', { src, alt: img.legende || '', loading: 'lazy' })),
@@ -61,7 +60,7 @@ export function creerFiches(app) {
     }
 
     if (c.liens?.length) {
-      corps.append(h('ul', { class: 'liens' }, ...c.liens.map((l) => h('li', {}, estNonPublie(l.url) ? `${l.titre} (${NON_PUBLIE})` : h('a', { href: l.url, target: '_blank', rel: 'noopener' }, l.titre)))));
+      corps.append(h('ul', { class: 'liens' }, ...c.liens.map((l) => h('li', {}, h('a', { href: l.url, target: '_blank', rel: 'noopener' }, l.titre)))));
     }
 
     const actions = h('div', { class: 'actions' });

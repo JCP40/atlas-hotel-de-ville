@@ -18,11 +18,8 @@ Application statique (HTML, CSS, JavaScript en modules ES, sans compilation). Mo
 - Météo : Météo-France, station 44020001 Nantes-Bouguenais, données horaires 2016-2025, Licence Ouverte Etalab 2.0 (`data/meteo/meteo*.json`, `data/meteo/meteofrance_44020001_horaire.csv`).
 - Année météo type : `data/meteo/FRA_PL_Nantes.Atlantique.AP.072220_TMYx.2011-2025.epw`, Climate.OneBuilding.org (TMYx 2011-2025), CC BY 4.0.
 - Photos de façade : Panoramax (immergis), Licence Ouverte 2.0 ; Koreller, CC BY-SA 4.0 (pavillon ouest) ; photos du PSMV redressées (crédits détaillés dans `data/facades/*.json`).
-- Fiches du PSMV (`data/psmv/fiches.json`, texte seulement) : extraites du « Descriptif, environs de l'Hôtel de Ville », Secteur sauvegardé de Nantes, A.U.P. architectes urbanistes, ministère de la Culture et Nantes Métropole.
-
-## Documents non publiés
-
-Les documents du PSMV (PDF du descriptif, photos et planches des fiches, extraits de plans à caler) ne sont **pas publiés** dans ce dépôt, leurs droits de diffusion n'étant pas vérifiés. L'atlas affiche à leur place « document non publié en ligne ».
+- Fiches du PSMV (`data/psmv/fiches.json`) : extraites du « Descriptif, environs de l'Hôtel de Ville », Secteur sauvegardé de Nantes, A.U.P. architectes urbanistes, ministère de la Culture et Nantes Métropole.
+- Documents du PSMV de Nantes (`data/documents/psmv-descriptif-hotel-de-ville.pdf`, photos et planches des fiches `data/psmv/photos/` et `data/psmv/planches/`, extraits de plans `data/calques/psmv-*` et `data/medias/psmv-*`) : « Descriptif, environs de l'Hôtel de Ville », Secteur sauvegardé de Nantes, A.U.P. architectes urbanistes (mandataire), maîtrise d'ouvrage ministère de la Culture (DRAC Pays de la Loire) et Nantes Métropole, 2014-2016.
 
 ## Bibliothèques
 

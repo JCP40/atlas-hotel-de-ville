@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { h, info, estNonPublie, NON_PUBLIE } from './util.js';
+import { h, info } from './util.js';
 import { chargerJSON } from './donnees.js';
 import { centroide, pointDansPolygone } from './geo.js';
 
@@ -747,7 +747,7 @@ export function creerToits(app) {
       const enCours = c && f.corps?.includes(c.id);
       return h('li', { style: enCours ? { fontWeight: '600' } : {} },
         `${f.nom} : ${f.source}, ${f.auteur}, ${f.licence}, prise le ${f.date_prise.split('-').reverse().join('/')} ; confiance ${f.confiance}. `,
-        estNonPublie(f.lien || f.photo) ? `photo d'origine (PSMV) : ${NON_PUBLIE}` : f.lien ? h('a', { href: f.lien, target: '_blank', rel: 'noopener' }, 'photo d\'origine') : f.photo);
+        f.lien ? h('a', { href: f.lien, target: '_blank', rel: 'noopener' }, 'photo d\'origine') : f.photo);
     }));
     return h('details', { open: !!(c && facades.facades.some((f) => f.corps?.includes(c.id))) },
       h('summary', {}, `Photos de façade (${facades.facades.length}, ${facades.facades.map((f) => f.rue).filter((v, i, a) => v && a.indexOf(v) === i).join(', ')})`),
