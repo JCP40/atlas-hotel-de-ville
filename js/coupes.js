@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { h, allerVers } from './util.js';
+import { h, allerVers, lireLS, ecrireLS } from './util.js';
 import { COULEURS, visibiliteBatiment } from './maquette.js';
 import { polygonesLocaux, centroide } from './geo.js';
 import { chargerJSON, enregistrerDonnees, telecharger } from './donnees.js';
@@ -14,7 +14,7 @@ import { chargerJSON, enregistrerDonnees, telecharger } from './donnees.js';
 // - Poché : sections calculées analytiquement sur les volumes extrudés de app.batiEffectif() (bâti existant
 //   non démoli + volumes du projet) et bande de sol le long du plan ; recalculé sur l'événement « bati ».
 //   Un bâtiment à toits détaillés (Hôtel de Ville, js/toits.js) fournit empreinte.hauteurEn(x, z) : le poché 3D suit
-//   ses pans ; le dessin 2D garde un rectangle jusqu'au faîtage.
+//   ses pans ; le dessin 2D les suit en rendu détaillé (rectangle jusqu'au faîtage en rendu Simple).
 // - Dessin de coupe 2D (coupes linéaires) : profil du terrain, sections pochées, élévations en arrière-plan,
 //   cotes, échelle graphique, sens de la vue ; export SVG et DXF R12 (mètres : X le long de la coupe, Y altitude).
 // - Liste nommée enregistrée dans data/coupes.json (enregistrerDonnees, sinon téléchargement), relue au démarrage.
@@ -23,15 +23,50 @@ import { chargerJSON, enregistrerDonnees, telecharger } from './donnees.js';
 // - Vue de face : caméra orthographique parallèle au plan de coupe (élévation), retour à la vue précédente.
 // - Dessin en couleurs (poché, sol, bâti, projet, élévations teintées) avec les photos de façade (data/facades/)
 //   des façades vues en élévation ; l'export SVG embarque les images.
+// - Rendu du dessin (05/11/2026, bloc « Dessin de coupe ») : bâti existant Simple (rectangles jusqu'à la hauteur unique),
+//   Détaillé (teintes), Détaillé avec photos (ancien « En couleurs »), Détaillé blanc (sections et silhouettes suivant les
+//   pans des ensembles de js/toits.js) ; projet en noir (défaut) ou dans ses couleurs d'origine. Les imports 3D
+//   (js/imports.js), simples ou complexes, sont coupés selon leur maillage (contours fermés pochés, traits sinon).
 // ------------------------------------------------------------------
 
 const BORNES_ZONE = { a: [5, 800, 120], b: [5, 800, 80], rot: [-180, 180, 0], hmax: [2, 150, 25] };
 const PROF_DESSIN = 60; // profondeur des élévations du dessin 2D quand la coupe n'a pas de plan arrière (m)
 const EPS = 0.06; // décalage du poché vers la partie gardée (évite qu'il soit lui-même coupé)
 const ENCRE = { bati: '#2f3b45', projet: '#5e9384', sol: '#cbbd9c', solTrait: '#6b4f26', coupe: '#c8372d', trait: '#5b6770', papier: '#ffffff' };
-const CALQUES = { COUPE_SOL: 34, COUPE_BATI: 250, COUPE_PROJET: 3, ELEVATION: 8, COTES: 1, PLIS: 30 };
+const CALQUES = { COUPE_SOL: 34, COUPE_BATI: 250, COUPE_BATI_DETAIL: 250, COUPE_PROJET: 7, ELEVATION: 8, ELEVATION_PROJET: 7, FACADES: 30, COTES: 1, PLIS: 30 };
 // dessin en couleurs : poché, sol, élévations teintées (le reste reprend ENCRE)
 const TEINTES = { bati: '#9e3b2c', projet: '#3f8f74', sol: '#c9a77c', solTrait: '#6b4f26', elevation: '#e6d9bd', elevationTrait: '#8a7f6a', elevationProjet: '#bfe0d2', ciel: '#f6f8fa' };
+// dessin « Détaillé blanc » : élévations blanches cernées, poché gris, projet en noir
+const BLANC = { bati: '#a3a9ae', batiTrait: '#2f3b45', elevation: '#ffffff', elevationTrait: '#5b6770', sol: '#ddd6c6', solTrait: '#6b4f26' };
+const NOIR = '#151515';
+// rendu du bâti existant dans le dessin 2D (mêmes valeurs que app.toits.representation())
+const RENDUS = [['simple', 'Simple'], ['detaille', 'Détaillé (teintes)'], ['photos', 'Détaillé avec photos'], ['blanc', 'Détaillé blanc']];
+const PROJETS = [['noir', 'Noir (par défaut)'], ['origine', 'Couleurs d\'origine']];
+const CLE_RENDU = 'atlas-hdv-coupes-rendu';
+
+// Couleur AutoCAD (ACI 1-255) la plus proche d'une couleur #rrggbb ; noir et blanc → 7 (noir sur fond blanc)
+const TABLE_ACI = (() => {
+  const t = [];
+  const base = [[1, 255, 0, 0], [2, 255, 255, 0], [3, 0, 255, 0], [4, 0, 255, 255], [5, 0, 0, 255], [6, 255, 0, 255], [8, 128, 128, 128], [9, 192, 192, 192],
+    [250, 51, 51, 51], [251, 80, 80, 80], [252, 105, 105, 105], [253, 130, 130, 130], [254, 190, 190, 190]];
+  for (const [i, r, g, b] of base) t.push([i, r, g, b]);
+  const valeurs = [1, 1, 0.65, 0.65, 0.5, 0.5, 0.3, 0.3, 0.15, 0.15];
+  for (let i = 10; i < 250; i++) {
+    const teinte = ((Math.floor(i / 10) - 1) * 15) / 60, v = valeurs[i % 10] * 255, sat = i % 2 ? 0.5 : 1;
+    const f = (n) => { const k = (n + teinte) % 6; return v * (1 - sat * Math.max(0, Math.min(k, 4 - k, 1))); };
+    t.push([i, f(5), f(3), f(1)]);
+  }
+  return t;
+})();
+function aciProche(hex) {
+  const v = parseInt(String(hex).replace('#', '').slice(0, 6), 16);
+  if (!Number.isFinite(v)) return 7;
+  const r = v >> 16, g = (v >> 8) & 255, b = v & 255;
+  if (Math.max(r, g, b) - Math.min(r, g, b) < 24 && (r + g + b < 120 || r + g + b > 720)) return 7;
+  let best = 7, bd = Infinity;
+  for (const [i, r2, g2, b2] of TABLE_ACI) { const d = 2 * (r - r2) ** 2 + 4 * (g - g2) ** 2 + 3 * (b - b2) ** 2; if (d < bd) { bd = d; best = i; } }
+  return best;
+}
 
 const couleurCSS = (nom, defaut) => {
   try { return getComputedStyle(document.documentElement).getPropertyValue(nom).trim() || defaut; } catch { return defaut; }
@@ -187,7 +222,14 @@ function segmentsCoupe(c) {
 const segmentActif = (c, segs) => segs[Math.max(0, Math.min(segs.length - 1, c.segment || 0))];
 
 export function creerCoupes(app) {
-  const etat = { actif: null, image: null, poche: true, trace: null, points: [], pret: false, signatureRelief: '', couleurs: true, face: null };
+  // rendu du dessin 2D : null = comme la maquette (app.toits.representation()) tant que l'utilisateur n'a pas choisi
+  const memo = (() => { try { return JSON.parse(lireLS(CLE_RENDU) || 'null') || {}; } catch { return {}; } })();
+  const etat = {
+    actif: null, image: null, poche: true, trace: null, points: [], pret: false, signatureRelief: '', face: null,
+    rendu: RENDUS.some(([v]) => v === memo.rendu) ? memo.rendu : null, projetCouleur: memo.projet === 'origine' ? 'origine' : 'noir',
+  };
+  // compatibilité : ancien réglage « En couleurs » (tout rendu sauf Détaillé blanc)
+  Object.defineProperty(etat, 'couleurs', { get: () => renduActif() !== 'blanc', enumerable: false });
   const liste = []; // coupes (prédéfinies puis libres)
   const ui = {};
 
@@ -287,6 +329,7 @@ export function creerCoupes(app) {
   function pocherPlan(sortie, O, u, n, t0, t1, yMax = Infinity) {
     const P = (t, y) => [O.x + u.x * t + n.x * EPS, y, O.z + u.z * t + n.z * EPS];
     for (const e of batiVisible()) {
+      if (e.importe) continue; // imports 3D : section du maillage, plus bas
       const iv = intervalles(O, u, e.polys, t0, t1);
       if (!iv.length) continue;
       const lev = dz(e.cx, e.cz);
@@ -308,6 +351,14 @@ export function creerCoupes(app) {
           if (ya <= y0 && yb <= y0) continue;
           quad(cible, Q(ta, y0), Q(tb, y0), Q(tb, Math.max(yb, y0)), Q(ta, Math.max(ya, y0)));
         }
+      }
+    }
+    // imports 3D (simples ou complexes) : contours fermés de la section du maillage, triangulés
+    for (const it of importsVisibles()) {
+      let T;
+      try { T = trianglesImport(it); } catch { continue; }
+      for (const { e, trous } of regrouper(sectionMaillage(T, O, u, n, t0, t1))) {
+        for (const tri of trianguler(e, trous)) for (const [t, y] of tri) sortie.projet.push(...P(t, Math.min(y, yMax - EPS)));
       }
     }
     // bande de sol (3 m sous le terrain affiché)
@@ -500,6 +551,8 @@ export function creerCoupes(app) {
   app.on('bati', rafraichir);
   app.on('etat', rafraichir);
   app.on('topographie', () => majDessin());
+  // représentation de la maquette changée : le dessin la suit tant qu'aucun rendu n'a été choisi pour la coupe
+  app.on('facades', () => { if (!etat.rendu) { majChoix(); majDessinDiffere(); } });
   setInterval(() => { if (etat.actif && signatureRelief() !== etat.signatureRelief) majPlan(); }, 1000);
   app.on('couches', () => { groupe.visible = app.couches.axes; });
 
@@ -750,9 +803,257 @@ export function creerCoupes(app) {
   }
 
   // ------------------------------------------------------------
-  // Modèle du dessin 2D d'une coupe linéaire (mètres, altitudes NGF si le relief est chargé)
+  // Rendu du dessin 2D (05/11/2026) : bâti existant Simple / Détaillé / Détaillé avec photos / Détaillé blanc,
+  // réglable indépendamment de la maquette (valeur initiale : app.toits.representation()) ; projet en noir
+  // (défaut) ou dans ses couleurs d'origine (volume : sa couleur ; import 3D : matériaux du fichier).
+  // Choix mémorisé dans localStorage « atlas-hdv-coupes-rendu » ({ rendu, projet }).
   // ------------------------------------------------------------
-  function modele(c) {
+  function renduActif() {
+    const r = etat.rendu || app.toits?.representation?.() || 'photos';
+    return RENDUS.some(([v]) => v === r) ? r : 'photos';
+  }
+  const detailDisponible = () => !!app.toits?.ensembles?.length && typeof app.toits.geometries === 'function';
+  function memoriserRendu() { ecrireLS(CLE_RENDU, JSON.stringify({ rendu: etat.rendu, projet: etat.projetCouleur })); }
+  function choisirRendu(r) {
+    if (!RENDUS.some(([v]) => v === r)) return;
+    etat.rendu = r;
+    memoriserRendu();
+    majChoix();
+    majDessin();
+  }
+  function choisirProjet(p) {
+    etat.projetCouleur = p === 'origine' ? 'origine' : 'noir';
+    memoriserRendu();
+    majChoix();
+    majDessin();
+  }
+
+  // Hauteur des toits détaillés : index en grille (2 m) des pans de app.toits.geometries(corps), mis en cache par corps.
+  // Même résultat que empreinte.hauteurEn (js/toits.js, fonctionHauteur), mais disponible aussi quand la maquette est
+  // en représentation Simple, et assez rapide pour les silhouettes des élévations.
+  const cacheHauteur = new Map();
+  function hauteurCorps(corps) {
+    const cle = corps.map((c) => c.id).join('|');
+    if (cacheHauteur.has(cle)) return cacheHauteur.get(cle);
+    const CEL = 2;
+    const tris = [];
+    for (const src of app.toits.geometries(corps)) {
+      let g = src;
+      if (g.index) g = g.toNonIndexed();
+      if (!g.getAttribute('normal')) g.computeVertexNormals();
+      const p = g.getAttribute('position').array, nn = g.getAttribute('normal').array;
+      for (let i = 0; i + 8 < p.length; i += 9) if (nn[i + 1] > 0.05) tris.push(Array.from(p.slice(i, i + 9)));
+      if (g !== src) g.dispose();
+      src.dispose();
+    }
+    const cellules = new Map();
+    tris.forEach((t, k) => {
+      const i0 = Math.floor(Math.min(t[0], t[3], t[6]) / CEL), i1 = Math.floor(Math.max(t[0], t[3], t[6]) / CEL);
+      const j0 = Math.floor(Math.min(t[2], t[5], t[8]) / CEL), j1 = Math.floor(Math.max(t[2], t[5], t[8]) / CEL);
+      for (let i = i0; i <= i1; i++) for (let j = j0; j <= j1; j++) {
+        const c = `${i},${j}`;
+        if (!cellules.has(c)) cellules.set(c, []);
+        cellules.get(c).push(k);
+      }
+    });
+    const fn = (x, z) => {
+      const l = cellules.get(`${Math.floor(x / CEL)},${Math.floor(z / CEL)}`);
+      if (!l) return null;
+      let best = null;
+      for (const k of l) {
+        const [x1, y1, z1, x2, y2, z2, x3, y3, z3] = tris[k];
+        const d = (z2 - z3) * (x1 - x3) + (x3 - x2) * (z1 - z3);
+        if (Math.abs(d) < 1e-9) continue;
+        const l1 = ((z2 - z3) * (x - x3) + (x3 - x2) * (z - z3)) / d;
+        const l2 = ((z3 - z1) * (x - x3) + (x1 - x3) * (z - z3)) / d;
+        const l3 = 1 - l1 - l2;
+        if (l1 < -1e-6 || l2 < -1e-6 || l3 < -1e-6) continue;
+        const y = l1 * y1 + l2 * y2 + l3 * y3;
+        if (best === null || y > best) best = y;
+      }
+      return best;
+    };
+    cacheHauteur.set(cle, fn);
+    return fn;
+  }
+  // Maquette en représentation Simple : corps détaillés affectés aux bâtiments comme le ferait js/toits.js (assigner),
+  // le temps de l'appel seulement (le mode de la maquette n'est pas changé : pas de reconstruction du bâti)
+  function corpsParBatiment(bati) {
+    const res = new Map();
+    const t = app.toits;
+    if (!detailDisponible() || !t.etat) return res;
+    const lots = bati.filter((e) => !e.projet).map((e) => ({ polys: e.polys, e }));
+    const avant = t.etat.mode;
+    try {
+      t.etat.mode = 'detaille';
+      for (const [lot, corps] of t.assigner(lots)) res.set(lot.e, corps);
+    } catch { /* toitures indisponibles : bâti simple */ } finally { t.etat.mode = avant; }
+    return res;
+  }
+
+  // ------------------------------------------------------------
+  // Imports 3D (js/imports.js) : section exacte du maillage par le plan (simples et complexes)
+  // ------------------------------------------------------------
+  const cleImport = (it) => `P${Math.hypot(it.x, it.z) <= app.config.rayonPlateau ? 'I' : 'E'}`;
+  function importsVisibles() {
+    if (app.projet?.visible === false) return [];
+    return (app.imports?.liste || []).filter((it) => it.vis && it.objet && !it.erreur && visibiliteBatiment(app, cleImport(it)));
+  }
+  const couleurMat = (m) => (m?.color?.isColor ? `#${m.color.getHexString()}` : '#808080');
+  // triangles en coordonnées de la scène (9 flottants par triangle) + index de couleur ; cache par matrice de placement
+  const cacheTri = new WeakMap();
+  function trianglesImport(it) {
+    it.objet.updateMatrixWorld(true);
+    const sig = `${it.objet.matrixWorld.elements.map((v) => v.toFixed(3)).join(',')}|${it.retourne ? 1 : 0}|${JSON.stringify(it.axes || null)}`;
+    const ancien = cacheTri.get(it);
+    if (ancien?.sig === sig) return ancien;
+    const pos = [], mats = [], palette = [], compte = [], indexCouleur = new Map();
+    const v = new THREE.Vector3();
+    it.objet.traverse((m) => {
+      if (!m.isMesh || !m.geometry?.getAttribute('position')) return;
+      for (let q = m; q && q !== it.objet; q = q.parent) if (q.visible === false) return;
+      const p = m.geometry.getAttribute('position'), idx = m.geometry.index;
+      const nb = idx ? idx.count : p.count;
+      const groupes = Array.isArray(m.material) && m.geometry.groups.length ? m.geometry.groups : [{ start: 0, count: nb, materialIndex: 0 }];
+      for (const gr of groupes) {
+        const mat = Array.isArray(m.material) ? m.material[gr.materialIndex] : m.material;
+        const hex = couleurMat(mat);
+        if (!indexCouleur.has(hex)) { indexCouleur.set(hex, palette.length); palette.push(hex); compte.push(0); }
+        const ci = indexCouleur.get(hex);
+        const fin = Math.min(nb, gr.start + gr.count);
+        for (let i = gr.start; i + 2 < fin; i += 3) {
+          for (let s = 0; s < 3; s++) { v.fromBufferAttribute(p, idx ? idx.getX(i + s) : i + s).applyMatrix4(m.matrixWorld); pos.push(v.x, v.y, v.z); }
+          mats.push(ci); compte[ci]++;
+        }
+      }
+    });
+    const r = { sig, pos: new Float32Array(pos), mats: Uint16Array.from(mats), palette, n: mats.length, dominante: compte.length ? palette[compte.indexOf(Math.max(...compte))] : '#808080' };
+    cacheTri.set(it, r);
+    return r;
+  }
+  // contours de la section du maillage par le plan vertical (O, u, n), limités à t ∈ [t0, t1] : [{ pts: [[t, y]], ferme, couleur, profondeur }]
+  function sectionMaillage(T, O, u, n, t0, t1) {
+    const P = T.pos, segs = [];
+    const coupe = (a, da, b, db) => {
+      // ordre fixe des extrémités : une arête partagée donne exactement le même point dans ses deux triangles
+      if (a[0] > b[0] || (a[0] === b[0] && (a[1] > b[1] || (a[1] === b[1] && a[2] > b[2])))) { [a, b] = [b, a]; [da, db] = [db, da]; }
+      const k = da / (da - db);
+      const x = a[0] + (b[0] - a[0]) * k, y = a[1] + (b[1] - a[1]) * k, z = a[2] + (b[2] - a[2]) * k;
+      return [(x - O.x) * u.x + (z - O.z) * u.z, y];
+    };
+    const V = [[0, 0, 0], [0, 0, 0], [0, 0, 0]], d = [0, 0, 0];
+    for (let i = 0; i < T.n; i++) {
+      const o = i * 9;
+      let pos = 0, neg = 0;
+      for (let s = 0; s < 3; s++) {
+        const x = P[o + 3 * s], y = P[o + 3 * s + 1], z = P[o + 3 * s + 2];
+        V[s] = [x, y, z];
+        const ds = (x - O.x) * n.x + (z - O.z) * n.z;
+        d[s] = ds === 0 ? 1e-9 : ds;
+        if (d[s] > 0) pos++; else neg++;
+      }
+      if (!pos || !neg) continue;
+      const q = [];
+      for (let e = 0; e < 3; e++) { const f = (e + 1) % 3; if ((d[e] > 0) !== (d[f] > 0)) q.push(coupe(V[e], d[e], V[f], d[f])); }
+      if (q.length !== 2) continue;
+      let [[ta, ya], [tb, yb]] = q;
+      if (Math.max(ta, tb) < t0 || Math.min(ta, tb) > t1) continue;
+      if (ta < t0 || ta > t1 || tb < t0 || tb > t1) {
+        const lerp = (t) => (tb === ta ? ya : ya + ((yb - ya) * (t - ta)) / (tb - ta));
+        const ca = Math.min(t1, Math.max(t0, ta)), cb = Math.min(t1, Math.max(t0, tb));
+        [ta, ya, tb, yb] = [ca, lerp(ca), cb, lerp(cb)];
+      }
+      segs.push([ta, ya, tb, yb, T.mats[i]]);
+    }
+    return chainer(segs, T.palette);
+  }
+  function dansAnneau(x, y, pts) {
+    let dedans = false;
+    for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+      const [xi, yi] = pts[i], [xj, yj] = pts[j];
+      if ((yi > y) !== (yj > y) && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) dedans = !dedans;
+    }
+    return dedans;
+  }
+  // segments raboutés en contours (fermés si la boucle se referme) ; profondeur d'imbrication (impair = trou)
+  function chainer(segs, palette) {
+    const cle = (t, y) => `${Math.round(t * 1e4)}|${Math.round(y * 1e4)}`;
+    const adj = new Map(), S = [];
+    for (const s of segs) {
+      const k0 = cle(s[0], s[1]), k1 = cle(s[2], s[3]);
+      if (k0 === k1) continue;
+      const j = S.length;
+      S.push({ s, k0, k1 });
+      for (const k of [k0, k1]) { if (!adj.has(k)) adj.set(k, []); adj.get(k).push(j); }
+    }
+    const vu = new Uint8Array(S.length);
+    const suivre = (k, pts, mats, avant) => {
+      for (;;) {
+        const j = (adj.get(k) || []).find((x) => !vu[x]);
+        if (j === undefined) return k;
+        vu[j] = 1;
+        const { s, k0, k1 } = S[j];
+        const [nk, p] = k0 === k ? [k1, [s[2], s[3]]] : [k0, [s[0], s[1]]];
+        if (avant) pts.unshift(p); else pts.push(p);
+        mats.push(s[4]);
+        k = nk;
+      }
+    };
+    const res = [];
+    for (let i = 0; i < S.length; i++) {
+      if (vu[i]) continue;
+      vu[i] = 1;
+      const { s, k0, k1 } = S[i];
+      const pts = [[s[0], s[1]], [s[2], s[3]]], mats = [s[4]];
+      const ferme = suivre(k1, pts, mats, false) === k0;
+      if (ferme) pts.pop(); else suivre(k0, pts, mats, true);
+      const nb = new Map();
+      for (const m of mats) nb.set(m, (nb.get(m) || 0) + 1);
+      let best = mats[0], bn = 0;
+      for (const [m, c] of nb) if (c > bn) { best = m; bn = c; }
+      if (pts.length >= (ferme ? 3 : 2)) res.push({ pts, ferme, couleur: palette[best] || '#808080', profondeur: 0 });
+    }
+    const fermes = res.filter((c) => c.ferme);
+    for (const c of fermes) {
+      const [[xa, ya], [xb, yb]] = c.pts;
+      const xm = (xa + xb) / 2, ym = (ya + yb) / 2;
+      c.profondeur = fermes.filter((o) => o !== c && dansAnneau(xm, ym, o.pts)).length;
+    }
+    return res;
+  }
+  // contours extérieurs (profondeur paire) avec leurs trous directs
+  function regrouper(contours) {
+    const fermes = contours.filter((c) => c.ferme);
+    return fermes.filter((c) => c.profondeur % 2 === 0).map((e) => ({
+      e, trous: fermes.filter((t) => t.profondeur === e.profondeur + 1 && dansAnneau((t.pts[0][0] + t.pts[1][0]) / 2, (t.pts[0][1] + t.pts[1][1]) / 2, e.pts)),
+    }));
+  }
+  function trianguler(e, trous) {
+    const v = (r) => r.map(([a, b]) => new THREE.Vector2(a, b));
+    const cV = v(e.pts), tV = trous.map((t) => v(t.pts));
+    const tous = [...cV, ...tV.flat()];
+    try { return THREE.ShapeUtils.triangulateShape(cV, tV).map((tr) => tr.map((i) => [tous[i].x, tous[i].y])); } catch { return []; }
+  }
+
+  // photos de façade : disponibilité vérifiée une fois par image (les JPEG sont déposés à la main dans data/facades/)
+  const etatImages = new Map(); // href -> 'attente' | 'ok' | 'absente'
+  function verifierImage(href) {
+    if (etatImages.has(href)) return etatImages.get(href);
+    etatImages.set(href, 'attente');
+    const im = new Image();
+    im.onload = () => { etatImages.set(href, 'ok'); majDessinDiffere(); };
+    im.onerror = () => { etatImages.set(href, 'absente'); majDessinDiffere(); };
+    im.src = href;
+    return 'attente';
+  }
+
+  // ------------------------------------------------------------
+  // Modèle du dessin 2D d'une coupe linéaire (mètres, altitudes NGF si le relief est chargé)
+  // opts : { rendu (simple|detaille|photos|blanc, défaut : choix du panneau), projet (noir|origine) }
+  // ------------------------------------------------------------
+  function modele(c, opts = {}) {
+    const rendu = RENDUS.some(([v]) => v === opts.rendu) ? opts.rendu : renduActif();
+    const projetCouleur = (opts.projet ?? etat.projetCouleur) === 'origine' ? 'origine' : 'noir';
     const segs = segmentsCoupe(c);
     const L = segs.reduce((acc, g) => acc + g.L, 0);
     const topo = app.topo?.disponible ? app.topo : null;
@@ -765,8 +1066,23 @@ export function creerCoupes(app) {
     const sens = r.x * segs[0].u.x + r.z * segs[0].u.z > 0 ? 1 : -1;
     const profil = [], sections = [], elevations = [], facades = [], plis = [];
     const D = c.profondeur > 0 ? c.profondeur : PROF_DESSIN;
-    const bati = batiVisible();
-    const listeFacades = (app.toits?.ensembles || []).flatMap((ens) => (ens.facades?.facades || []).map((f) => ({ f, href: `data/facades/${ens.id}/${f.image}` })));
+    // imports 3D : sections tirées du maillage (ci-dessous), pas de l'emprise extrudée du bâti effectif
+    const bati = batiVisible().filter((e) => !e.importe);
+    const imports = importsVisibles();
+    // bâti détaillé : fonction hauteur des corps (toits.js), que la maquette soit en Simple ou en Détaillé
+    const detail = rendu !== 'simple' && detailDisponible();
+    const corpsSimple = detail && !app.toits.detaille ? corpsParBatiment(bati) : null;
+    const hauteurDe = new Map();
+    if (detail) {
+      for (const e of bati) {
+        if (e.projet) continue;
+        const corps = e.detail?.corps || corpsSimple?.get(e);
+        if (corps?.length) { try { hauteurDe.set(e, hauteurCorps(corps)); } catch { /* corps illisible : rectangle */ } }
+      }
+    }
+    const couleurVolume = (e) => (e.forme ? e.forme.couleur || app.projet?.etat?.couleurDefaut || null : null);
+    const listeFacades = rendu !== 'photos' ? [] : (app.toits?.ensembles || []).flatMap((ens) => (ens.facades?.facades || []).map((f) => ({ f, href: `data/facades/${ens.id}/${f.image}` })));
+    let importsCoupes = 0, importsOuverts = 0;
     for (const sg of segs) {
       const { O, u, n: ns, cum } = sg;
       const Ls = sg.L;
@@ -777,9 +1093,29 @@ export function creerCoupes(app) {
       for (const e of bati) {
         const g = alt(e.cx, e.cz);
         const z0 = g + (e.base || 0), z1 = g + e.hauteur;
+        const fh = hauteurDe.get(e) || null;
         const iv = intervalles(O, u, e.polys, 0, Ls);
+        const projet = !!e.projet, couleur = projet ? couleurVolume(e) : null, nom = e.nom || null;
         if (iv.length) {
-          for (const [a2, b2] of iv) sections.push({ s0: Math.min(S(a2), S(b2)), s1: Math.max(S(a2), S(b2)), z0, z1, sol: g, h: e.hauteur, projet: !!e.projet, nom: e.nom || null });
+          for (const [a2, b2] of iv) {
+            if (!fh) { sections.push({ s0: Math.min(S(a2), S(b2)), s1: Math.max(S(a2), S(b2)), z0, z1, sol: g, h: e.hauteur, projet, couleur, nom }); continue; }
+            // toits détaillés : la section suit les pans (pas de 0,5 m), interrompue dans les cours
+            const pas = Math.max(1, Math.ceil(Math.abs(b2 - a2) / 0.5));
+            const runs = [];
+            let run = [];
+            for (let i = 0; i <= pas; i++) {
+              const t = a2 + ((b2 - a2) * i) / pas;
+              const hh = fh(O.x + u.x * t, O.z + u.z * t);
+              if (hh == null || hh <= (e.base || 0) + 0.05) { if (run.length > 1) runs.push(run); run = []; continue; }
+              run.push([S(t), g + hh]);
+            }
+            if (run.length > 1) runs.push(run);
+            for (const rr of runs) {
+              rr.sort((p, q) => p[0] - q[0]);
+              const zt = Math.max(...rr.map((p) => p[1]));
+              sections.push({ s0: rr[0][0], s1: rr[rr.length - 1][0], z0, z1: zt, sol: g, h: zt - g, projet, couleur, nom, toit: rr, detail: true });
+            }
+          }
           continue;
         }
         // élévation : volume situé derrière le plan, à moins de D mètres
@@ -791,7 +1127,58 @@ export function creerCoupes(app) {
         if (dMax <= 0 || dMin > D) continue;
         const a2 = Math.max(tMin, 0), b2 = Math.min(tMax, Ls);
         if (b2 - a2 < 0.3) continue;
-        elevations.push({ s0: Math.min(S(a2), S(b2)), s1: Math.max(S(a2), S(b2)), z0, z1, d: Math.max(dMin, 0), projet: !!e.projet });
+        const el = { s0: Math.min(S(a2), S(b2)), s1: Math.max(S(a2), S(b2)), z0, z1, d: Math.max(dMin, 0), projet, couleur };
+        if (fh) {
+          // silhouette : point le plus haut des pans sur chaque ligne de visée (pas de 1 m le long, 1,5 m en profondeur)
+          const dA = Math.max(dMin, 0), dB = Math.min(dMax, D);
+          const nt = Math.max(2, Math.ceil(b2 - a2)), nd = Math.max(2, Math.ceil((dB - dA) / 1.5));
+          const sil = [];
+          let zm = z0;
+          for (let i = 0; i <= nt; i++) {
+            const t = a2 + ((b2 - a2) * i) / nt;
+            let hm = null;
+            for (let j = 0; j <= nd; j++) {
+              const dd = dA + ((dB - dA) * j) / nd;
+              const hh = fh(O.x + u.x * t + ns.x * dd, O.z + u.z * t + ns.z * dd);
+              if (hh != null && (hm == null || hh > hm)) hm = hh;
+            }
+            const zz = hm == null ? z0 : g + hm;
+            sil.push([S(t), zz]);
+            zm = Math.max(zm, zz);
+          }
+          if (zm <= z0 + 0.1) continue;
+          sil.sort((p, q) => p[0] - q[0]);
+          el.z1 = zm; el.silhouette = sil; el.detail = true;
+        }
+        elevations.push(el);
+      }
+      // imports 3D : section du maillage (contours fermés pochés, traits pour un maillage ouvert), sinon élévation de l'emprise
+      for (const it of imports) {
+        let T;
+        try { T = trianglesImport(it); } catch { continue; }
+        if (!T.n) continue;
+        const dzI = app.relief?.actif ? app.relief.dz(it.x, it.z) : 0;
+        const gI = alt(it.x, it.z), off = gI - dzI;
+        const contours = sectionMaillage(T, O, u, ns, 0, Ls);
+        if (contours.length) {
+          const cs = contours.map((k) => ({ ...k, pts: k.pts.map(([t, y]) => [S(t), y + off]) }));
+          let s0 = Infinity, s1 = -Infinity, z0 = Infinity, z1 = -Infinity;
+          for (const k of cs) for (const [s, z] of k.pts) { s0 = Math.min(s0, s); s1 = Math.max(s1, s); z0 = Math.min(z0, z); z1 = Math.max(z1, z); }
+          sections.push({ s0, s1, z0, z1, sol: gI, h: z1 - gI, projet: true, importe: true, couleur: T.dominante, nom: `Import ${it.nom}`, contours: cs });
+          importsCoupes++;
+          if (cs.some((k) => !k.ferme)) importsOuverts++;
+          continue;
+        }
+        if (!it.emprise) continue;
+        let dMin = Infinity, dMax = -Infinity, tMin = Infinity, tMax = -Infinity;
+        for (const [x, z] of it.emprise) {
+          const d = (x - O.x) * ns.x + (z - O.z) * ns.z, t = (x - O.x) * u.x + (z - O.z) * u.z;
+          dMin = Math.min(dMin, d); dMax = Math.max(dMax, d); tMin = Math.min(tMin, t); tMax = Math.max(tMax, t);
+        }
+        if (dMax <= 0 || dMin > D) continue;
+        const a2 = Math.max(tMin, 0), b2 = Math.min(tMax, Ls);
+        if (b2 - a2 < 0.3) continue;
+        elevations.push({ s0: Math.min(S(a2), S(b2)), s1: Math.max(S(a2), S(b2)), z0: it.base + off, z1: it.hauteurMax + off, d: Math.max(dMin, 0), projet: true, importe: true, couleur: T.dominante });
       }
       // photos de façade (data/facades/) tournées vers l'observateur, derrière le plan, à moins de D mètres
       for (const { f, href } of listeFacades) {
@@ -803,7 +1190,8 @@ export function creerCoupes(app) {
         const t0 = (f.gauche[0] - O.x) * u.x + (f.gauche[1] - O.z) * u.z, t1 = (f.droite[0] - O.x) * u.x + (f.droite[1] - O.z) * u.z;
         if (Math.max(t0, t1) < 0 || Math.min(t0, t1) > Ls) continue;
         const g = alt((f.gauche[0] + f.droite[0]) / 2, (f.gauche[1] + f.droite[1]) / 2);
-        facades.push({ sG: S(t0), sD: S(t1), z0: g, z1: g + f.hauteur_m, d: Math.max((d0 + d1) / 2, 0), href, id: f.id });
+        verifierImage(href);
+        facades.push({ sG: S(t0), sD: S(t1), z0: g, z1: g + f.hauteur_m, d: Math.max((d0 + d1) / 2, 0), href, id: f.id, image: f.image });
       }
     }
     profil.sort((a2, b2) => a2[0] - b2[0]);
@@ -812,11 +1200,14 @@ export function creerCoupes(app) {
     const zSol = Math.min(...profil.map((p2) => p2[1]));
     // cotes : les volumes coupés les plus hauts (un par bâtiment, largeur d'au moins 3 m)
     const parBat = new Map();
-    for (const x of sections) { const k = `${x.z0}|${x.z1}|${x.projet}`; const p2 = parBat.get(k); if (!p2 || x.s1 - x.s0 > p2.s1 - p2.s0) parBat.set(k, x); }
+    for (const x of sections) { const k = `${x.nom || ''}|${x.sol}|${x.projet}`; const p2 = parBat.get(k); if (!p2 || x.z1 > p2.z1 || (x.z1 === p2.z1 && x.s1 - x.s0 > p2.s1 - p2.s0)) parBat.set(k, x); }
     const cotes = [...parBat.values()].filter((x) => x.s1 - x.s0 >= 3).sort((p2, q) => q.h - p2.h).slice(0, 8);
     const azimut = ((Math.atan2(n.x, -n.z) * 180) / Math.PI + 360) % 360;
+    const absentes = [...new Set(facades.filter((f) => etatImages.get(f.href) === 'absente').map((f) => f.href))];
     return {
       id: c.id, nom: c.nom, L, sens, profil, sections, elevations, facades, plis, cotes, D, azimut, n,
+      rendu, projetCouleur, detail, detailsCoupes: sections.filter((x) => x.detail).length, absentes,
+      imports: { visibles: imports.length, complexes: imports.filter((it) => !it.simple).length, coupes: importsCoupes, ouverts: importsOuverts },
       polyligne: c.type === 'polyligne', segments: segs.length,
       zMin: Math.floor(zSol) - 4, zMax: Math.ceil(Math.max(...zs, zSol + 10)) + 6, ngf: !!topo,
       gauche: sens > 0 ? c.id : `${c.id}′`, droite: sens > 0 ? `${c.id}′` : c.id,
@@ -828,40 +1219,61 @@ export function creerCoupes(app) {
   const vers = (az) => { const d = direction(az); return /^[eo]/.test(d) ? `vers l'${d}` : `vers le ${d}`; };
   function pasEchelle(L) { return [2, 5, 10, 20, 25, 50, 100, 200].find((p) => p * 4 >= L / 5) || 200; }
 
+  // couleurs du dessin selon le rendu du bâti existant
+  function couleursRendu(rendu) {
+    if (rendu === 'blanc') return { bati: BLANC.bati, batiTrait: BLANC.batiTrait, sol: BLANC.sol, solTrait: BLANC.solTrait, fond: ENCRE.papier, elevation: BLANC.elevation, elevationTrait: BLANC.elevationTrait, teinte: false };
+    return { bati: TEINTES.bati, batiTrait: null, sol: TEINTES.sol, solTrait: TEINTES.solTrait, fond: TEINTES.ciel, elevation: TEINTES.elevation, elevationTrait: TEINTES.elevationTrait, teinte: true };
+  }
+  const couleurProjet = (M, x) => (M.projetCouleur === 'origine' ? x?.couleur || NOIR : NOIR);
+  // teinte éclaircie (k = 0 : la couleur, 1 : blanc)
+  const melange = (hex, k) => { const v = parseInt(String(hex).slice(1, 7), 16) || 0; const m = (c2) => Math.round(c2 + (255 - c2) * k); return `rgb(${m(v >> 16)},${m((v >> 8) & 255)},${m(v & 255)})`; };
+
   // SVG autonome (couleurs explicites, pour l'export comme pour le panneau)
   // grand : largeur adaptée pour que la hauteur dessinée fasse au moins 380 px (agrandissement, export)
-  // opts : { couleurs (défaut etat.couleurs), images (href -> data: URI pour l'export) }
+  // opts : { images (href -> data: URI pour l'export) } ; rendu et couleurs du projet : M.rendu, M.projetCouleur
   function svgCoupe(M, grand = false, opts = {}) {
-    const couleurs = opts.couleurs ?? etat.couleurs;
     const images = opts.images || null;
-    const C = couleurs
-      ? { bati: TEINTES.bati, projet: TEINTES.projet, sol: TEINTES.sol, solTrait: TEINTES.solTrait, fond: TEINTES.ciel }
-      : { bati: ENCRE.bati, projet: ENCRE.projet, sol: ENCRE.sol, solTrait: ENCRE.solTrait, fond: ENCRE.papier };
-    // teinte d'une élévation : plus claire avec la distance au plan
-    const melange = (hex, k) => { const v = parseInt(hex.slice(1), 16); const m = (c2) => Math.round(c2 + (255 - c2) * k); return `rgb(${m(v >> 16)},${m((v >> 8) & 255)},${m(v & 255)})`; };
+    const C = couleursRendu(M.rendu);
+    const photos = M.rendu === 'photos';
     const ml = 64, mr = 24, mt = 54, mb = 74;
     const W = grand ? Math.round(Math.max(1000, Math.min(3000, ml + mr + (M.L * 380) / (M.zMax - M.zMin)))) : 1000;
     const k = Math.min((W - ml - mr) / M.L, 700 / (M.zMax - M.zMin));
     const H = Math.round(mt + mb + (M.zMax - M.zMin) * k);
     const X = (s) => (ml + s * k).toFixed(1), Y = (z) => (mt + (M.zMax - z) * k).toFixed(1);
+    const chemin = (pts, ferme = true) => `M${pts.map(([s, z]) => `${X(s)},${Y(z)}`).join(' L')}${ferme ? ' Z' : ''}`;
     const police = 'font-family="Plex Cond, Arial Narrow, Roboto Condensed, sans-serif"';
+    const libRendu = (RENDUS.find(([v]) => v === M.rendu) || [, M.rendu])[1];
     const o = [];
     o.push(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="Coupe ${echapper(M.id)}">`);
     o.push(`<rect width="${W}" height="${H}" fill="${ENCRE.papier}"/>`);
-    if (couleurs) o.push(`<rect x="${ml}" y="${mt}" width="${(M.L * k).toFixed(1)}" height="${((M.zMax - M.zMin) * k).toFixed(1)}" fill="${C.fond}"/>`);
+    if (C.teinte) o.push(`<rect x="${ml}" y="${mt}" width="${(M.L * k).toFixed(1)}" height="${((M.zMax - M.zMin) * k).toFixed(1)}" fill="${C.fond}"/>`);
     o.push(`<g ${police} font-size="13" fill="${ENCRE.bati}"><text x="${ml}" y="22" font-size="17" font-weight="600">Coupe ${echapper(M.gauche)}–${echapper(M.droite)} · ${echapper(M.nom)}${M.polyligne ? ` (polyligne, ${M.segments} segments déroulés)` : ''}</text>`);
-    o.push(`<text x="${ml}" y="40" fill="${ENCRE.trait}">Altitudes ${M.ngf ? 'NGF' : 'relatives (relief non chargé)'} en mètres, hauteurs vraies · élévations jusqu'à ${Math.round(M.D)} m derrière le plan${couleurs && M.facades.length ? ' · photos de façade' : ''}</text></g>`);
+    o.push(`<text x="${ml}" y="40" fill="${ENCRE.trait}">Altitudes ${M.ngf ? 'NGF' : 'relatives (relief non chargé)'} en mètres, hauteurs vraies · élévations jusqu'à ${Math.round(M.D)} m derrière le plan · bâti : ${echapper(libRendu)} · projet : ${M.projetCouleur === 'origine' ? 'couleurs d\'origine' : 'noir'}</text></g>`);
     // élévations et photos de façade (du plus loin au plus proche), découpées au cadre du dessin
     const idCadre = `cadre-${String(M.id).replace(/[^\w-]/g, '')}-${W}-${H}`;
     o.push(`<defs><clipPath id="${idCadre}"><rect x="${ml}" y="0" width="${(M.L * k).toFixed(1)}" height="${H}"/></clipPath></defs>`);
     o.push(`<g stroke-width="0.7" clip-path="url(#${idCadre})">`);
-    const vues = [...M.elevations.map((e) => ({ ...e, type: 'elev' })), ...(couleurs ? M.facades.map((f) => ({ ...f, type: 'photo' })) : [])].sort((p, q) => q.d - p.d);
+    const vues = [...M.elevations.map((e) => ({ ...e, type: 'elev' })), ...(photos ? M.facades.map((f) => ({ ...f, type: 'photo' })) : [])].sort((p, q) => q.d - p.d);
     for (const e of vues) {
       if (e.type === 'elev') {
-        const fill = couleurs ? melange(e.projet ? TEINTES.elevationProjet : TEINTES.elevation, Math.min(0.75, e.d / (M.D * 1.3))) : ENCRE.papier;
-        o.push(`<rect x="${X(e.s0)}" y="${Y(e.z1)}" width="${((e.s1 - e.s0) * k).toFixed(1)}" height="${((e.z1 - e.z0) * k).toFixed(1)}" fill="${fill}" stroke="${e.projet ? ENCRE.projet : couleurs ? TEINTES.elevationTrait : ENCRE.trait}"/>`);
+        let fill, stroke;
+        if (e.projet) {
+          const cp = couleurProjet(M, e);
+          fill = melange(cp, Math.min(0.85, 0.55 + (0.3 * e.d) / M.D)); stroke = cp;
+        } else {
+          fill = C.teinte ? melange(C.elevation, Math.min(0.75, e.d / (M.D * 1.3))) : C.elevation; stroke = C.elevationTrait;
+        }
+        if (e.silhouette) o.push(`<path d="${chemin([[e.s0, e.z0], ...e.silhouette, [e.s1, e.z0]])}" fill="${fill}" stroke="${stroke}"/>`);
+        else o.push(`<rect x="${X(e.s0)}" y="${Y(e.z1)}" width="${((e.s1 - e.s0) * k).toFixed(1)}" height="${((e.z1 - e.z0) * k).toFixed(1)}" fill="${fill}" stroke="${stroke}"/>`);
       } else {
         const s0 = Math.min(e.sG, e.sD), w = Math.abs(e.sD - e.sG) * k, hgt = (e.z1 - e.z0) * k;
+        const etatImg = etatImages.get(e.href);
+        if (etatImg === 'absente' && !images?.get(e.href)) {
+          // photo non déposée : cadre vide, jamais d'image cassée
+          o.push(`<g><rect x="${X(s0)}" y="${Y(e.z1)}" width="${w.toFixed(1)}" height="${hgt.toFixed(1)}" fill="none" stroke="${C.elevationTrait}" stroke-dasharray="4 3"><title>Façade ${echapper(e.id)} : photo absente (${echapper(e.href)})</title></rect>`
+            + `<text ${police} x="${(+X(s0) + w / 2).toFixed(1)}" y="${(+Y(e.z1) + hgt / 2).toFixed(1)}" text-anchor="middle" font-size="9" fill="${C.elevationTrait}">photo absente</text></g>`);
+          continue;
+        }
         const href = images?.get(e.href) || e.href;
         const miroir = e.sG > e.sD ? ` transform="translate(${(2 * +X(s0) + w).toFixed(1)} 0) scale(-1 1)"` : '';
         o.push(`<image href="${echapper(href)}" x="${X(s0)}" y="${Y(e.z1)}" width="${w.toFixed(1)}" height="${hgt.toFixed(1)}" preserveAspectRatio="none" opacity="${(1 - Math.min(0.4, e.d / (M.D * 2))).toFixed(2)}"${miroir}><title>Façade ${echapper(e.id)}</title></image>`);
@@ -872,8 +1284,24 @@ export function creerCoupes(app) {
     const bas = M.zMin;
     o.push(`<path d="M${X(M.profil[0][0])},${Y(bas)} ${M.profil.map(([s, z]) => `L${X(s)},${Y(z)}`).join(' ')} L${X(M.profil[M.profil.length - 1][0])},${Y(bas)} Z" fill="${C.sol}" stroke="none"/>`);
     o.push(`<path d="M${M.profil.map(([s, z]) => `${X(s)},${Y(z)}`).join(' L')}" fill="none" stroke="${C.solTrait}" stroke-width="1.6"/>`);
-    // sections pochées
-    for (const x of M.sections) o.push(`<rect x="${X(x.s0)}" y="${Y(x.z1)}" width="${((x.s1 - x.s0) * k).toFixed(1)}" height="${((x.z1 - x.z0) * k).toFixed(1)}" fill="${x.projet ? C.projet : C.bati}"/>`);
+    // sections pochées : rectangle (Simple), pans des toits détaillés, contours du maillage des imports 3D
+    const traitBati = C.batiTrait ? ` stroke="${C.batiTrait}" stroke-width="0.8"` : '';
+    // couleurs d'origine : contour sombre (un matériau blanc reste lisible sur le fond)
+    const traitProjet = M.projetCouleur === 'origine' ? '#3a3a3a' : null;
+    for (const x of M.sections) {
+      if (x.contours) {
+        const cp = (q) => couleurProjet(M, q);
+        for (const { e, trous } of regrouper(x.contours).sort((p, q) => p.e.profondeur - q.e.profondeur)) {
+          o.push(`<path d="${[e, ...trous].map((r) => chemin(r.pts)).join(' ')}" fill="${cp(e)}" fill-rule="evenodd" stroke="${traitProjet || cp(e)}" stroke-width="0.6"/>`);
+        }
+        for (const q of x.contours.filter((q2) => !q2.ferme)) o.push(`<path d="${chemin(q.pts, false)}" fill="none" stroke="${cp(q)}" stroke-width="1.6"/>`);
+        continue;
+      }
+      const fill = x.projet ? couleurProjet(M, x) : C.bati;
+      const trait = x.projet ? (traitProjet ? ` stroke="${traitProjet}" stroke-width="0.6"` : '') : traitBati;
+      if (x.toit) o.push(`<path d="${chemin([[x.s0, x.z0], ...x.toit, [x.s1, x.z0]])}" fill="${fill}"${trait}/>`);
+      else o.push(`<rect x="${X(x.s0)}" y="${Y(x.z1)}" width="${((x.s1 - x.s0) * k).toFixed(1)}" height="${((x.z1 - x.z0) * k).toFixed(1)}" fill="${fill}"${trait}/>`);
+    }
     // plis de la polyligne (sommets intérieurs), numérotés
     for (const pl of M.plis) {
       o.push(`<g ${police}><line x1="${X(pl.s)}" y1="${Y(M.zMax)}" x2="${X(pl.s)}" y2="${Y(M.zMin)}" stroke="${ENCRE.coupe}" stroke-width="0.7" stroke-dasharray="2 4"/><text x="${X(pl.s)}" y="${(+Y(M.zMax) - 4).toFixed(1)}" text-anchor="middle" font-size="10" fill="${ENCRE.coupe}">${echapper(pl.label)}</text></g>`);
@@ -915,25 +1343,35 @@ export function creerCoupes(app) {
     o.push(`<circle cx="${ox}" cy="${oy}" r="13" fill="none" stroke="${ENCRE.trait}" stroke-width="0.7"/><text x="${ox}" y="${oy - 16}" text-anchor="middle" font-size="9">N</text>`);
     o.push(`<line x1="${ox}" y1="${oy}" x2="${(ox + +fx).toFixed(1)}" y2="${(oy + +fy).toFixed(1)}" stroke="${ENCRE.coupe}" stroke-width="2"/><circle cx="${(ox + +fx).toFixed(1)}" cy="${(oy + +fy).toFixed(1)}" r="2.5" fill="${ENCRE.coupe}"/>`);
     o.push(`<text x="${ox + 20}" y="${oy + 4}">regard ${vers(M.azimut)} (${Math.round(M.azimut)}°)</text></g>`);
-    // légende
-    const lg = [[C.bati, 'bâti coupé'], [C.projet, 'projet'], [C.sol, 'sol']];
+    // légende (projet en couleurs d'origine : pastille de la première couleur rencontrée)
+    const exProjet = M.sections.find((x) => x.projet) || M.elevations.find((x) => x.projet);
+    const lg = [[C.bati, 'bâti coupé'], [couleurProjet(M, exProjet), M.projetCouleur === 'origine' ? 'projet (couleurs d\'origine)' : 'projet'], [C.sol, 'sol']];
     o.push(`<g ${police} font-size="10" fill="${ENCRE.bati}">`);
-    lg.forEach(([coul, t], i) => o.push(`<rect x="${ox - 250 + i * 72}" y="${ye - 10}" width="10" height="10" fill="${coul}"/><text x="${ox - 236 + i * 72}" y="${ye - 1}">${t}</text>`));
+    const xl = [ox - 320, ox - 250, ox - 58];
+    lg.forEach(([coul, t], i) => o.push(`<rect x="${xl[i]}" y="${ye - 10}" width="10" height="10" fill="${coul}"${(C.batiTrait && i === 0) || (traitProjet && i === 1) ? ` stroke="${i ? traitProjet : C.batiTrait}" stroke-width="0.6"` : ''}/><text x="${xl[i] + 14}" y="${ye - 1}">${t}</text>`));
     o.push('</g></svg>');
     return o.join('');
   }
 
   // DXF R12 : X = abscisse le long de la coupe, Y = altitude, en mètres
+  // Calques : COUPE_SOL, COUPE_BATI (rectangles, rendu Simple), COUPE_BATI_DETAIL (sections suivant les pans), COUPE_PROJET
+  // (volumes et sections du maillage des imports), ELEVATION, ELEVATION_PROJET, FACADES (rendu photos : cadres + nom de
+  // l'image ; les images ne passent pas en DXF), COTES, PLIS. Couleurs ACI : projet noir = 7 (noir sur fond blanc),
+  // couleurs d'origine = ACI la plus proche par entité ; bâti coupé brun-rouge (teintes) ou gris 8 (Détaillé blanc).
   function dxfCoupe(M) {
     const out = [];
     const g = (code, val) => out.push(String(code), String(val));
     const t = (s) => String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^\x20-\x7e]/g, '?');
     const f = (v) => v.toFixed(3);
     const E = [];
-    const poly = (calque, pts, ferme = false) => E.push({ type: 'poly', calque, pts, ferme });
-    const solide = (calque, p1, p2, p3, p4) => E.push({ type: 'solid', calque, pts: [p1, p2, p3, p4] });
+    const poly = (calque, pts, ferme = false, couleur) => E.push({ type: 'poly', calque, pts, ferme, couleur });
+    const solide = (calque, p1, p2, p3, p4, couleur) => E.push({ type: 'solid', calque, pts: [p1, p2, p3, p4], couleur });
     const texte = (calque, x, y, txt, hauteur = 1.2, centre = true) => E.push({ type: 'texte', calque, x, y, texte: txt, hauteur, centre });
     const ligne = (calque, a, b) => E.push({ type: 'ligne', calque, pts: [a, b] });
+    const aciBati = M.rendu === 'blanc' ? 8 : aciProche(TEINTES.bati);
+    const calques = { ...CALQUES, COUPE_BATI: aciBati, COUPE_BATI_DETAIL: aciBati, COUPE_PROJET: 7, ELEVATION_PROJET: 7 };
+    // couleur d'entité (couleurs d'origine du projet seulement ; sinon « du calque »)
+    const aciProjet = (x) => (M.projetCouleur === 'origine' && x?.couleur ? aciProche(x.couleur) : undefined);
     // sol : profil, contour et remplissage (trapèzes)
     const bas = M.zMin;
     poly('COUPE_SOL', M.profil);
@@ -943,11 +1381,39 @@ export function creerCoupes(app) {
       solide('COUPE_SOL', [s0, bas], [s1, bas], [s0, z0], [s1, z1]);
     }
     for (const x of M.sections) {
-      const c = x.projet ? 'COUPE_PROJET' : 'COUPE_BATI';
-      poly(c, [[x.s0, x.z0], [x.s1, x.z0], [x.s1, x.z1], [x.s0, x.z1]], true);
-      solide(c, [x.s0, x.z0], [x.s1, x.z0], [x.s0, x.z1], [x.s1, x.z1]);
+      if (x.contours) {
+        for (const q of x.contours) poly('COUPE_PROJET', q.pts, q.ferme, aciProjet(q));
+        for (const { e, trous } of regrouper(x.contours)) {
+          for (const [a, b, c] of trianguler(e, trous)) solide('COUPE_PROJET', a, b, c, c, aciProjet(e));
+        }
+        continue;
+      }
+      const cq = x.projet ? 'COUPE_PROJET' : x.toit ? 'COUPE_BATI_DETAIL' : 'COUPE_BATI';
+      const coul = x.projet ? aciProjet(x) : undefined;
+      if (x.toit) {
+        poly(cq, [[x.s0, x.z0], ...x.toit, [x.s1, x.z0]], true, coul);
+        for (let i = 0; i + 1 < x.toit.length; i++) {
+          const [s0, z0] = x.toit[i], [s1, z1] = x.toit[i + 1];
+          solide(cq, [s0, x.z0], [s1, x.z0], [s0, z0], [s1, z1], coul);
+        }
+        continue;
+      }
+      poly(cq, [[x.s0, x.z0], [x.s1, x.z0], [x.s1, x.z1], [x.s0, x.z1]], true, coul);
+      solide(cq, [x.s0, x.z0], [x.s1, x.z0], [x.s0, x.z1], [x.s1, x.z1], coul);
     }
-    for (const e of M.elevations) poly('ELEVATION', [[e.s0, e.z0], [e.s1, e.z0], [e.s1, e.z1], [e.s0, e.z1]], true);
+    for (const e of M.elevations) {
+      const cq = e.projet ? 'ELEVATION_PROJET' : 'ELEVATION';
+      const pts = e.silhouette ? [[e.s0, e.z0], ...e.silhouette, [e.s1, e.z0]] : [[e.s0, e.z0], [e.s1, e.z0], [e.s1, e.z1], [e.s0, e.z1]];
+      poly(cq, pts, true, e.projet ? aciProjet(e) : undefined);
+    }
+    // photos de façade : cadre et nom du fichier (l'image elle-même reste dans le SVG)
+    if (M.rendu === 'photos') {
+      for (const fa of M.facades) {
+        const s0 = Math.min(fa.sG, fa.sD), s1 = Math.max(fa.sG, fa.sD);
+        poly('FACADES', [[s0, fa.z0], [s1, fa.z0], [s1, fa.z1], [s0, fa.z1]], true);
+        texte('FACADES', (s0 + s1) / 2, fa.z0 + 1, `${fa.image || fa.id}${M.absentes.includes(fa.href) ? ' (absente)' : ''}`, 0.8);
+      }
+    }
     for (const pl of M.plis || []) { ligne('PLIS', [pl.s, M.zMin], [pl.s, M.zMax]); texte('PLIS', pl.s, M.zMax + 1.5, `pli ${pl.label}`, 1.2); }
     for (const x of M.cotes) {
       const s = (x.s0 + x.s1) / 2;
@@ -961,7 +1427,7 @@ export function creerCoupes(app) {
     texte('COTES', sb, zb - 2.5, `TN ${fmt(zb)}`, 1.2);
     texte('COTES', 0, M.zMin - 4, M.gauche, 3);
     texte('COTES', M.L, M.zMin - 4, M.droite, 3);
-    texte('COTES', 0, M.zMax + 4, `Coupe ${M.gauche}-${M.droite} : ${M.nom} (regard ${Math.round(M.azimut)} deg depuis le nord)`, 2.5, false);
+    texte('COTES', 0, M.zMax + 4, `Coupe ${M.gauche}-${M.droite} : ${M.nom} (regard ${Math.round(M.azimut)} deg depuis le nord ; bati ${M.rendu}, projet ${M.projetCouleur})`, 2.5, false);
     // échelle graphique
     const p = pasEchelle(M.L), ye = M.zMin - 9;
     for (let i = 0; i < 4; i++) {
@@ -972,6 +1438,7 @@ export function creerCoupes(app) {
 
     let xmin = Infinity, ymin = Infinity, xmax = -Infinity, ymax = -Infinity;
     for (const e of E) for (const [x, y] of e.pts || [[e.x, e.y]]) { xmin = Math.min(xmin, x); ymin = Math.min(ymin, y); xmax = Math.max(xmax, x); ymax = Math.max(ymax, y); }
+    const utilises = Object.keys(calques).filter((nom) => E.some((e) => e.calque === nom));
     g(999, t(`Atlas HDV - coupe ${M.id} - unites : metres - X le long de la coupe depuis ${M.gauche}, Y altitude ${M.ngf ? 'NGF' : 'relative'}`));
     g(0, 'SECTION'); g(2, 'HEADER');
     g(9, '$ACADVER'); g(1, 'AC1009');
@@ -982,18 +1449,19 @@ export function creerCoupes(app) {
     g(0, 'TABLE'); g(2, 'LTYPE'); g(70, 1);
     g(0, 'LTYPE'); g(2, 'CONTINUOUS'); g(70, 0); g(3, 'Solid line'); g(72, 65); g(73, 0); g(40, '0.0');
     g(0, 'ENDTAB');
-    g(0, 'TABLE'); g(2, 'LAYER'); g(70, Object.keys(CALQUES).length);
-    for (const [nom, coul] of Object.entries(CALQUES)) { g(0, 'LAYER'); g(2, nom); g(70, 0); g(62, coul); g(6, 'CONTINUOUS'); }
+    g(0, 'TABLE'); g(2, 'LAYER'); g(70, utilises.length);
+    for (const nom of utilises) { g(0, 'LAYER'); g(2, nom); g(70, 0); g(62, calques[nom]); g(6, 'CONTINUOUS'); }
     g(0, 'ENDTAB');
     g(0, 'ENDSEC');
     g(0, 'SECTION'); g(2, 'ENTITIES');
+    const couleur = (e) => { if (e.couleur != null) g(62, e.couleur); };
     for (const e of E) {
       if (e.type === 'poly') {
-        g(0, 'POLYLINE'); g(8, e.calque); g(66, 1); g(70, e.ferme ? 1 : 0); g(10, 0); g(20, 0); g(30, 0);
+        g(0, 'POLYLINE'); g(8, e.calque); couleur(e); g(66, 1); g(70, e.ferme ? 1 : 0); g(10, 0); g(20, 0); g(30, 0);
         for (const [x, y] of e.pts) { g(0, 'VERTEX'); g(8, e.calque); g(10, f(x)); g(20, f(y)); g(30, 0); }
         g(0, 'SEQEND'); g(8, e.calque);
       } else if (e.type === 'solid') {
-        g(0, 'SOLID'); g(8, e.calque);
+        g(0, 'SOLID'); g(8, e.calque); couleur(e);
         e.pts.forEach(([x, y], i) => { g(10 + i, f(x)); g(20 + i, f(y)); g(30 + i, 0); });
       } else if (e.type === 'ligne') {
         g(0, 'LINE'); g(8, e.calque); g(10, f(e.pts[0][0])); g(20, f(e.pts[0][1])); g(30, 0); g(11, f(e.pts[1][0])); g(21, f(e.pts[1][1])); g(31, 0);
@@ -1009,17 +1477,19 @@ export function creerCoupes(app) {
 
   // coupe linéaire ou polyligne (les seules qui ont un dessin 2D)
   const coupeLigne = (id) => { const c = trouver(id ?? etat.actif); return c?.type === 'ligne' || c?.type === 'polyligne' ? c : null; };
-  // images des façades embarquées dans le SVG exporté (data: URI), sinon le fichier perdrait ses photos
+  // images des façades embarquées dans le SVG exporté (data: URI), sinon le fichier perdrait ses photos ;
+  // une image introuvable est marquée absente (cadre vide dans le dessin)
   async function imagesEmbarquees(M) {
     const res = new Map();
-    if (!etat.couleurs) return res;
+    if (M.rendu !== 'photos') return res;
     for (const href of new Set(M.facades.map((f) => f.href))) {
       try {
         const r2 = await fetch(href);
-        if (!r2.ok) continue;
+        if (!r2.ok) { etatImages.set(href, 'absente'); continue; }
         const blob = await r2.blob();
         res.set(href, await new Promise((ok, ko) => { const fr = new FileReader(); fr.onload = () => ok(fr.result); fr.onerror = ko; fr.readAsDataURL(blob); }));
-      } catch { /* image absente : la façade reste en teinte */ }
+        etatImages.set(href, 'ok');
+      } catch { etatImages.set(href, 'absente'); }
     }
     return res;
   }
@@ -1027,10 +1497,13 @@ export function creerCoupes(app) {
     const c = coupeLigne(id);
     if (!c) { app.signaler('Choisissez une coupe linéaire ou une polyligne.'); return null; }
     majCouleurs();
-    const M = modele(c);
-    const svg = svgCoupe(M, true, { images: await imagesEmbarquees(M) });
+    let M = modele(c);
+    const images = await imagesEmbarquees(M);
+    M = modele(c); // statut des photos à jour
+    const svg = svgCoupe(M, true, { images });
     telecharger(`atlas-hdv-coupe-${c.id}-${horodatage()}.svg`, `<?xml version="1.0" encoding="UTF-8"?>\n${svg}`, 'image/svg+xml');
-    app.signaler(`Coupe ${c.id} exportée en SVG.`);
+    app.signaler(`Coupe ${c.id} exportée en SVG${M.absentes.length ? ` (${M.absentes.length} photo${M.absentes.length > 1 ? 's' : ''} de façade absente${M.absentes.length > 1 ? 's' : ''} : cadre vide)` : ''}.`);
+    majDessin();
     return svg;
   }
   function exporterDXF(id) {
@@ -1039,7 +1512,7 @@ export function creerCoupes(app) {
     const M = modele(c);
     const dxf = dxfCoupe(M);
     telecharger(`atlas-hdv-coupe-${c.id}-${horodatage()}.dxf`, dxf, 'application/dxf');
-    app.signaler(`Coupe ${c.id} exportée en DXF (${M.sections.length} sections, ${M.elevations.length} élévations).`);
+    app.signaler(`Coupe ${c.id} exportée en DXF (${M.sections.length} sections, ${M.elevations.length} élévations${M.rendu === 'photos' && M.facades.length ? `, ${M.facades.length} cadres de façade sur FACADES` : ''}).`);
     return dxf;
   }
 
@@ -1241,13 +1714,49 @@ export function creerCoupes(app) {
     if (ui.dessin?.isConnected) {
       ui.blocDessin.hidden = !etat.actif;
       ui.dessin.innerHTML = pret ? svg : '';
-      ui.noteDessin.textContent = pret ? `Sections du bâti effectif (existant non démoli et projet), élévations jusqu'à ${Math.round(c.profondeur > 0 ? c.profondeur : PROF_DESSIN)} m derrière le plan${etat.couleurs ? ', photos de façade quand elles existent' : ''}. Export pour Rhino : DXF en mètres, calques COUPE_SOL, COUPE_BATI, COUPE_PROJET, ELEVATION, COTES, PLIS (polyligne) ; le SVG garde les couleurs et embarque les photos.`
+      ui.noteDessin.textContent = pret ? `Sections du bâti effectif (existant non démoli et projet), élévations jusqu'à ${Math.round(c.profondeur > 0 ? c.profondeur : PROF_DESSIN)} m derrière le plan. Export pour Rhino : DXF en mètres, calques COUPE_SOL, COUPE_BATI (Simple), COUPE_BATI_DETAIL (pans des toits détaillés), COUPE_PROJET (volumes et maillage des imports 3D), ELEVATION, ELEVATION_PROJET, FACADES (cadres et noms des photos : les images ne passent pas en DXF), COTES, PLIS (polyligne) ; le SVG garde les couleurs et embarque les photos.`
         : 'Le dessin 2D est fait pour les coupes linéaires et les polylignes.';
       ui.boutonsDessin.hidden = !pret;
+      ui.choixDessin.hidden = !pret;
+      ui.etatRendu.replaceChildren(...(pret ? messagesRendu(M) : []));
     }
     if (ui.dialogue?.open) {
       if (pret) ui.grand.innerHTML = svgCoupe(M, true); else ui.dialogue.close();
     }
+  }
+
+  // états du rendu (photos absentes, toitures, imports 3D) : lignes affichées sous les choix, jamais d'erreur
+  function messagesRendu(M) {
+    const l = [];
+    if (M.rendu !== 'simple' && !M.detail) l.push('Toitures détaillées non chargées (data/toits/) : le bâti est dessiné en volumes simples.');
+    if (M.rendu === 'photos') {
+      if (M.absentes.length) l.push(`${M.absentes.length} photo${M.absentes.length > 1 ? 's' : ''} de façade absente${M.absentes.length > 1 ? 's' : ''} (JPEG à déposer à la main dans ${[...new Set(M.absentes.map((x) => x.replace(/[^/]+$/, '')))].join(', ')}) : cadre vide en pointillé.`);
+      else if (!M.facades.length) l.push('Aucune façade photographiée face à ce plan de coupe (moins de 60 m derrière le plan).');
+    }
+    if (M.imports.visibles) {
+      l.push(`Imports 3D : ${M.imports.coupes ? `${M.imports.coupes} coupé${M.imports.coupes > 1 ? 's' : ''} selon leur maillage` : 'aucun traversé par le plan (élévation de l\'emprise)'}${M.imports.complexes ? `, dont des modèles complexes (${M.imports.complexes})` : ''}.`
+        + (M.imports.ouverts ? ' Maillage non fermé : traits sans poché pour les contours ouverts.' : ''));
+    }
+    return l.map((t) => h('span', { class: 'ligne-etat-rendu' }, t));
+  }
+  // sélecteurs « Bâti existant » et « Projet » (panneau et fenêtre Agrandir, gardés synchrones)
+  ui.selects = [];
+  function choixRendu() {
+    const r = h('select', { class: 'choix-rendu-bati', 'aria-label': 'Bâti existant dans le dessin', onchange: (e) => choisirRendu(e.target.value) },
+      ...RENDUS.map(([v, l2]) => h('option', { value: v }, l2)));
+    const p = h('select', { class: 'choix-rendu-projet', 'aria-label': 'Couleur du projet dans le dessin', onchange: (e) => choisirProjet(e.target.value) },
+      ...PROJETS.map(([v, l2]) => h('option', { value: v }, l2)));
+    ui.selects.push([r, p]);
+    const bloc = h('div', { class: 'choix-rendu-coupe' },
+      h('label', {}, h('span', {}, 'Bâti existant'), r),
+      h('label', {}, h('span', {}, 'Projet'), p));
+    majChoix();
+    return bloc;
+  }
+  function majChoix() {
+    // sélecteurs d'un panneau refermé : retirés (un sélecteur pas encore inséré est gardé)
+    ui.selects = (ui.selects || []).filter(([r]) => { if (r.isConnected) r.dataset.vu = '1'; return r.isConnected || !r.dataset.vu; });
+    for (const [r, p] of ui.selects) { r.value = renduActif(); p.value = etat.projetCouleur; r.title = etat.rendu ? '' : 'Comme la maquette (onglet Bâtiments > Bâti) tant qu\'aucun choix n\'est fait ici'; }
   }
 
   function agrandir() {
@@ -1257,7 +1766,7 @@ export function creerCoupes(app) {
       ui.grand = h('div', { class: 'contenu' });
       ui.titreDialogue = h('strong', {});
       ui.dialogue = h('dialog', { class: 'dialogue-coupe', 'aria-label': 'Dessin de coupe' },
-        h('header', {}, ui.titreDialogue,
+        h('header', {}, ui.titreDialogue, choixRendu(),
           h('div', { class: 'actions' },
             h('button', { type: 'button', class: 'bouton', onclick: () => exporterSVG() }, 'SVG'),
             h('button', { type: 'button', class: 'bouton', onclick: () => exporterDXF() }, 'DXF'),
@@ -1281,12 +1790,13 @@ export function creerCoupes(app) {
     ui.terminerPoly = h('button', { type: 'button', class: 'bouton principal', hidden: true, onclick: finirPolyligne }, 'Terminer la polyligne');
     ui.dessin = h('div', { class: 'dessin-coupe' });
     ui.noteDessin = h('p', { class: 'note' });
+    ui.choixDessin = choixRendu();
+    ui.etatRendu = h('p', { class: 'note etat-rendu-coupe', role: 'status' });
     ui.boutonsDessin = h('div', { class: 'actions' },
-      h('label', { class: 'case' }, h('input', { type: 'checkbox', checked: etat.couleurs, class: 'case-couleurs', onchange: (e) => { etat.couleurs = e.target.checked; majDessin(); } }), 'En couleurs (avec photos de façade)'),
       h('button', { type: 'button', class: 'bouton', onclick: agrandir }, 'Agrandir'),
       h('button', { type: 'button', class: 'bouton', onclick: () => exporterSVG() }, 'Exporter en SVG'),
       h('button', { type: 'button', class: 'bouton', onclick: () => exporterDXF() }, 'Exporter en DXF'));
-    ui.blocDessin = h('div', { class: 'bloc-dessin-coupe', hidden: true }, h('h3', {}, 'Dessin de coupe'), ui.dessin, ui.boutonsDessin, ui.noteDessin);
+    ui.blocDessin = h('div', { class: 'bloc-dessin-coupe', hidden: true }, h('h3', {}, 'Dessin de coupe'), ui.choixDessin, ui.etatRendu, ui.dessin, ui.boutonsDessin, ui.noteDessin);
     conteneur.append(
       h('p', { class: 'note' }, 'A et B sont les coupes de rendu. Tracez une coupe (deux clics au sol), une polyligne qui suit une rue (clics successifs, double-clic pour finir) ou une zone (trois clics : un côté puis la largeur) ; cliquez une coupe de la liste pour trancher la maquette. « Vue de face » place une caméra orthographique face au plan de coupe.'),
       ui.liste,
@@ -1306,8 +1816,9 @@ export function creerCoupes(app) {
     const sel = h('select', { 'aria-label': 'Coupe à exporter' }, ...dessinables().map((c) => h('option', { value: c.id, selected: c.id === etat.actif }, `${c.id} : ${c.nom}${c.type === 'polyligne' ? ' (polyligne)' : ''}`)));
     return h('div', {},
       h('h3', {}, 'Coupe pour Rhino'),
-      h('p', { class: 'note' }, 'Dessin 2D d\'une coupe linéaire ou d\'une polyligne déroulée : DXF en mètres (X le long de la coupe, Y altitude NGF), calques COUPE_SOL, COUPE_BATI, COUPE_PROJET, ELEVATION, COTES, PLIS ; ou SVG en couleurs avec les photos de façade.'),
+      h('p', { class: 'note' }, 'Dessin 2D d\'une coupe linéaire ou d\'une polyligne déroulée : DXF en mètres (X le long de la coupe, Y altitude NGF), calques COUPE_SOL, COUPE_BATI, COUPE_BATI_DETAIL, COUPE_PROJET, ELEVATION, ELEVATION_PROJET, FACADES, COTES, PLIS ; ou SVG avec les photos de façade. Bâti existant (Simple, Détaillé, avec photos, blanc) et projet (noir ou couleurs d\'origine) : choix ci-dessous, partagés avec Coupes > Dessin de coupe.'),
       h('label', { class: 'champ-export-coupe' }, sel),
+      choixRendu(),
       h('div', { class: 'actions' },
         h('button', { type: 'button', class: 'bouton principal', onclick: () => exporterDXF(sel.value) }, 'Exporter la coupe DXF'),
         h('button', { type: 'button', class: 'bouton', onclick: () => exporterSVG(sel.value) }, 'SVG')));
@@ -1320,9 +1831,10 @@ export function creerCoupes(app) {
   return {
     get axes() { return lignes(); },
     liste, etat, activer, desactiver, construirePanneau, blocExport, charger, enregistrer, serialiser, lire, supprimer, renommer,
-    modele: (id) => { const c = coupeLigne(id); return c ? modele(c) : null; },
-    svg: (id, grand = true) => { const c = coupeLigne(id); return c ? svgCoupe(modele(c), grand) : null; },
-    dxf: (id) => { const c = coupeLigne(id); return c ? dxfCoupe(modele(c)) : null; },
+    modele: (id, opts) => { const c = coupeLigne(id); return c ? modele(c, opts) : null; },
+    svg: (id, grand = true, opts) => { const c = coupeLigne(id); return c ? svgCoupe(modele(c, opts), grand) : null; },
+    dxf: (id, opts) => { const c = coupeLigne(id); return c ? dxfCoupe(modele(c, opts)) : null; },
+    renduActif, choisirRendu, choisirProjet, RENDUS: RENDUS.map(([v]) => v),
     exporterSVG, exporterDXF, commencerTrace, finirTrace, finirPolyligne, vueFace, quitterVueFace, editerPoint,
     get vueDeFace() { return !!etat.face; },
   };
