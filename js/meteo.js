@@ -1,6 +1,7 @@
 import { chargerJSON } from './donnees.js';
 import { lireCache, ecrireCache } from './cache.js';
 import { lireEPW, adapterEPW, distanceKm } from './epw.js';
+import { heuresDepuisCSV, heuresDepuisEPW, analyser, roseCondition, csvExtremes as csvExtremesDe } from './meteo-extremes.js';
 
 // Source météo unique de l'atlas : data/meteo/meteo.json (outils/meteo/analyse.py), complété par
 // data/meteo/meteo_horaire.json (outils/meteo/horaire.py), tous deux tirés des mesures horaires de Météo-France
@@ -29,6 +30,8 @@ export const FICHIER_HORAIRE = 'data/meteo/meteo_horaire.json';
 export const FICHIER_ANNEES = 'data/meteo/meteo_annees.json';
 export const FICHIER_EXTREMES = 'data/meteo/extremes.json';
 export const EPW_NANTES = 'data/meteo/FRA_PL_Nantes.Atlantique.AP.072220_TMYx.2011-2025.epw';
+// mesures horaires brutes (outils/meteo/filtre.py, ≈ 7 Mo) : lues seulement pour les conditions extrêmes (extremesDetail)
+export const FICHIER_HORAIRE_BRUT = 'data/meteo/meteofrance_44020001_horaire.csv';
 const CLE_SOURCE = 'atlas-hdv-meteo-source'; // localStorage : base | epw-nantes | epw-perso
 const CLE_EPW_PERSO = 'meteo-epw-perso'; // IndexedDB (js/cache.js) : { nom, texte }
 export const HEURES_MIN = 100; // en dessous, une case (saison × température) est peu représentative
@@ -151,6 +154,7 @@ export const libelleTemperature = (t) => TEMPERATURES.find(([v]) => v === t)?.[1
 
 // Rose d'une case saison × température : secteurs développés en objets
 export function rose(n = 16, saison = 'annee', temperature = 'all') {
+  if (n === 12 && situationVent !== 'habituel') return { ...roseSituation(situationVent, saison), temperatureIgnoree: false };
   // année choisie : rose de l'année en 12 secteurs, toutes températures (tranches trop maigres sur un an)
   const da = n === 12 ? donneesAnnee() : null;
   const r = da ? da.rose12?.[saison] : donnees?.rose?.[String(n)]?.[saison]?.[temperature];
@@ -190,6 +194,79 @@ export function valeurHoraire(v, mois, jour, heure) {
   if (v === 'neb') return null;
   const x = donneesHoraires?.moyennes?.[mois]?.[heure]?.[v];
   return Number.isFinite(x) ? x : null;
+}
+
+// ------------------------------------------------------------------
+// Conditions extrêmes (10/11/2026, js/meteo-extremes.js) : chaleur, canicule, gel, plus grand froid, vent fort, rafales…
+// Météo de base : mesures horaires brutes (FICHIER_HORAIRE_BRUT, lues une fois, à la première demande), années de meteo.json
+// (2016-2025), année choisie (definirAnnee) respectée ; EPW actif : ses heures (pas de rafales). Résultat gardé par source et année.
+// extremesDetail() → promesse de l'analyse (null si les mesures manquent) ; extremesCourant() : analyse déjà calculée ou null ;
+// roseSituation(id, saison) : rose (format de rose()) des heures de la condition ; csvExtremes() : CSV des roses par condition.
+// ------------------------------------------------------------------
+let heuresBase = null; // promesse des heures Météo-France
+let erreurExtremes = null;
+const cleExtremes = () => (epw ? `epw|${epw.type}|${epw.nom}` : `base|${anneeActive ?? ''}`);
+const analysesExtremes = new Map();
+export async function extremesDetail() {
+  await chargerMeteo();
+  const cle = cleExtremes();
+  if (analysesExtremes.has(cle)) return analysesExtremes.get(cle);
+  let H;
+  if (epw) H = epw.heuresExtremes ??= heuresDepuisEPW(epw.lecture);
+  else {
+    const p = donnees?.periode?.stats?.split('/').map((x) => +x.slice(0, 4)) ?? [2016, 2025];
+    heuresBase ??= fetch(FICHIER_HORAIRE_BRUT).then((r) => (r.ok ? r.text() : null)).then((t) => (t ? heuresDepuisCSV(t, { debut: p[0], fin: p[1] }) : null))
+      .catch((e) => { console.warn('Mesures horaires illisibles :', e.message); return null; });
+    H = await heuresBase;
+    if (cle !== cleExtremes()) return extremesDetail(); // source ou année changée pendant la lecture
+  }
+  erreurExtremes = H ? null : `Mesures horaires absentes : déposer ${FICHIER_HORAIRE_BRUT.split('/').pop()} (outils/meteo/filtre.py) dans data/meteo/.`;
+  const R = H ? analyser(H, { annee: epw ? null : anneeActive }) : null;
+  if (R) analysesExtremes.set(cle, R);
+  return R;
+}
+export const extremesCourant = () => analysesExtremes.get(cleExtremes()) ?? null;
+// Heures de la source active pour les statistiques du climat (11/11/2026, js/climat-stats.js) : mêmes heures que extremesDetail
+// (CSV Météo-France 2016-2025 lu une fois, ou EPW), avec l'année choisie ; null si les mesures manquent.
+// → { H, annee (null = toute la période), periode (texte), epw (bool), typique (année type), cle (source|année, pour un cache) }
+export async function heuresClimat() {
+  await chargerMeteo();
+  const cle = cleExtremes();
+  let H;
+  if (epw) H = epw.heuresExtremes ??= heuresDepuisEPW(epw.lecture);
+  else {
+    const p = donnees?.periode?.stats?.split('/').map((x) => +x.slice(0, 4)) ?? [2016, 2025];
+    heuresBase ??= fetch(FICHIER_HORAIRE_BRUT).then((r) => (r.ok ? r.text() : null)).then((t) => (t ? heuresDepuisCSV(t, { debut: p[0], fin: p[1] }) : null))
+      .catch((e) => { console.warn('Mesures horaires illisibles :', e.message); return null; });
+    H = await heuresBase;
+    if (cle !== cleExtremes()) return heuresClimat();
+  }
+  if (!H) { erreurExtremes = `Mesures horaires absentes : déposer ${FICHIER_HORAIRE_BRUT.split('/').pop()} (outils/meteo/filtre.py) dans data/meteo/.`; return null; }
+  return { H, annee: epw ? null : anneeActive, periode: periodeExtremes(), epw: !!epw, typique: !!epw?.lecture?.typique, cle };
+}
+export const erreurExtremesDetail = () => erreurExtremes;
+export function roseSituation(id, saison = 'annee') {
+  const R = extremesCourant();
+  const r = R && roseCondition(R, id, saison);
+  if (!r) return { N: 0, peuRepresentatif: true, secteurs: [], situation: id };
+  return { ...r, situation: id, annee: R.annee != null ? String(R.annee) : null };
+}
+// Situation de l'outil Vent (10/11/2026, js/vent-situation.js) : 'habituel' (défaut) ou id d'une condition (canicule, plus-froid…).
+// Tant qu'une situation est choisie, rose(12, saison) renvoie la rose des heures de la situation dans la saison (toutes températures) :
+// rose cliquable, tableau des saisons, 4 saisons, rose posée sur la maquette et planche suivent sans autre changement.
+let situationVent = 'habituel';
+export const situation = () => situationVent;
+export function definirSituation(id) { situationVent = id && id !== 'habituel' ? String(id) : 'habituel'; return situationVent; }
+// Période des conditions extrêmes, en clair (« 2016-2025 », « année 2022 », « année type EPW »)
+export function periodeExtremes() {
+  if (epw) return libellePeriode();
+  if (anneeActive) return `année ${anneeActive}`;
+  const p = donnees?.periode?.stats?.split('/').map((x) => x.slice(0, 4)) ?? [];
+  return p.length ? `${p[0]}-${p[1]}` : '';
+}
+export function csvExtremes() {
+  const R = extremesCourant();
+  return R ? csvExtremesDe(R, `${mention({ court: true, annee: true })} Conditions extrêmes, ${periodeExtremes()}.`) : null;
 }
 
 // Dépassements bruts : { N, J[secteur][seuil] } en % de toutes les heures, seuils EXC.seuils
