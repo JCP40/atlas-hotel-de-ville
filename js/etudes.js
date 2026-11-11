@@ -31,8 +31,10 @@ export function creerEtudes(app, regle) {
     { id: 'chaleur', titre: 'Chaleur', outil: 'chaleur', sous: 'température de surface, journée chaude, 15 h',
       async ouvrir() { await app.chaleur.charger(); vuePlan(); app.chaleur.prereglage('chaude'); },
       pret: () => !app.chaleur.etat.calcul && !!app.chaleur.etat.calque },
-    { id: 'confort', titre: 'Confort', outil: 'confort', sous: 'température ressentie, après-midi chaud',
-      async ouvrir() { vuePlan(); await attendre(50); bouton('Confort thermique')?.click(); },
+    // Confort : export par défaut = température ressentie ; si la carte UTCI est affichée (07/11/2026), elle est gardée et exportée
+    { id: 'confort', titre: 'Confort', outil: 'confort',
+      get sous() { return app.confort?.etat.calque && app.confort.etat.info?.utci ? `UTCI, ${app.confort.etat.resUTCI?.q.libelle ?? ''}`.replace(/, $/, '') : 'température ressentie, après-midi chaud'; },
+      async ouvrir() { vuePlan(); await attendre(50); if (app.confort?.etat.calque && app.confort.etat.info?.utci) return; bouton('Confort thermique')?.click(); },
       pret: () => !!app.confort.etat.calque },
     { id: 'bruit', titre: 'Bruit', outil: 'bruit', sous: 'carte du bruit (Lden)',
       async ouvrir() { if (!app.couches.bruit) { app.couches.bruit = true; app.emettre('couches'); } vuePlan(); } },

@@ -4,8 +4,11 @@ import { pointDansPolygone, polygonesLocaux, lignesLocales } from './geo.js';
 import { chargerJSON, enregistrerDonnees } from './donnees.js';
 import { visibiliteBatiment, feuillage, transmissionCaduc } from './maquette.js';
 import { chargerMeteo, horaire, journeesTypes, sourceEPW, libellePeriode } from './meteo.js';
-import { preparerPoints, calculerSVF, positionsSoleil, calculerMasques, simulerJournee, temperatureA, temperatureReference, REFERENCE, PAS_INSTANTANE, NB_INSTANTANES } from './chaleur-modele.js';
+import { debut, fin } from './profil.js';
+import { actif as gpuActif, noterCPU } from './gpu.js';
+import { preparerPoints, calculerSVF, positionsSoleil, calculerMasques, simulerJournee, calculEnFond, grillePourFond, temperatureA, temperatureReference, REFERENCE, PAS_INSTANTANE, NB_INSTANTANES } from './chaleur-modele.js';
 import { creerPointsChauds } from './chaleur-points.js';
+import { textureGrille, caseLissage, hauteResolution, zoneDetaillee, representants, etendre, blocResolution, suivreNote, noterDuree } from './lissage.js';
 
 // Outil Chaleur (onglet Ambiance) : matériaux de surface, albédo, échauffement et points chauds au sol.
 // ESTIMATION PÉDAGOGIQUE, pas une simulation certifiée (hypothèses et limites dans les boutons « i »).
@@ -49,7 +52,7 @@ export function creerChaleur(app) {
   };
   const ui = {};
   const rayon = () => Math.min(app.config.rayonConfort || app.config.rayonPlateau, 300);
-  const note = (t) => { if (ui.etat) ui.etat.textContent = t; };
+  const note = (t) => { if (ui.etat) ui.etat.textContent = t; suivreNote(t); };
   const fmt = (v, d = 0) => v.toFixed(d).replace('.', ',');
   const r7 = (v) => Math.round(v * 1e7) / 1e7;
 
@@ -141,7 +144,8 @@ export function creerChaleur(app) {
   function construireGrille({ corrections = correctionsActives(), bati = null } = {}) {
     corrections = ordonner(corrections);
     const r = rayon();
-    const pas = r <= 150 ? 2 : 3;
+    const hr = hauteResolution(); // haute résolution : mailles de 1 m, points de calcul par blocs hors de la zone détaillée (js/lissage.js)
+    const pas = hr ? 1 : r <= 150 ? 2 : 3;
     const n = Math.ceil((2 * r) / pas), x0 = -r, z0 = -r, N = n * n;
     const cls = new Uint8Array(N).fill(HORS), zone = new Int32Array(N).fill(-1), arbre = new Uint8Array(N), bat = new Int32Array(N).fill(-1);
     const zones = [{ type: 'ortho', nom: 'Sol non décrit par OSM (classé d\'après l\'orthophoto)' }];
@@ -261,7 +265,9 @@ export function creerChaleur(app) {
       batiments.push({ e, toit: t.id, source: t.source, bdtopo: t.bdtopo, cellules: [] });
       for (const poly of e.polys) pourPolygone(poly, (k) => { cls[k] = BATI; bat[k] = b; batiments[b].cellules.push(k); });
     }
-    return { r, pas, n, x0, z0, cls, zone, zones, arbre, bat, batiments };
+    // rep : maille de calcul de chaque maille du sol (haute résolution seulement ; sans rep, chaque maille est calculée)
+    const rep = hr ? representants({ nx: n, nz: n, x0, z0, pas, garder: (k) => cls[k] < BATI }) : null;
+    return { r, pas, n, x0, z0, cls, zone, zones, arbre, bat, batiments, rep, zoneDetaillee: hr ? zoneDetaillee() : 0 };
   }
 
   function grille() {
@@ -328,18 +334,12 @@ export function creerChaleur(app) {
 
   const couleurClasse = (c, mode) => (mode === 'albedo' ? rampeAlbedo(c.albedo) : mode === 'echauffement' ? rampeEchauffement(c.tref) : c.rgb);
 
-  function poserTexture(G, couleurDe) {
+  // continu = { valeur(k), couleur(v) } : carte continue, lissée si « Lisser la carte » (js/lissage.js) ; sinon couleurDe(k) maille par maille
+  function poserTexture(G, couleurDe, continu = null) {
     effacerCalque();
+    etat.pose = [G, couleurDe, continu]; // redessin au changement de « Lisser la carte »
     const { n, x0, z0, pas } = G;
-    const px = new Uint8Array(n * n * 4);
-    for (let k = 0; k < n * n; k++) {
-      const c = couleurDe(k);
-      if (c) px.set([c[0], c[1], c[2], 225], k * 4);
-    }
-    const tex = new THREE.DataTexture(px, n, n, THREE.RGBAFormat);
-    tex.colorSpace = THREE.SRGBColorSpace;
-    tex.magFilter = THREE.NearestFilter;
-    tex.needsUpdate = true;
+    const tex = textureGrille({ nx: n, nz: n, alpha: 225, couleurBrute: couleurDe, ...(continu || {}) });
     const geo = new THREE.PlaneGeometry(n * pas, n * pas).rotateX(-Math.PI / 2);
     const uv = geo.getAttribute('uv');
     for (let i = 0; i < uv.count; i++) uv.setY(i, 1 - uv.getY(i));
@@ -393,7 +393,11 @@ export function creerChaleur(app) {
     if (etat.affichage === 'temperature') { if (etat.temp) afficherTemperature(); else lancerCalcul(); return; }
     const G = grille();
     const mode = etat.affichage;
-    poserTexture(G, (k) => couleurCellule(G, k, mode));
+    // albédo et échauffement : valeur de la classe, lissable ; matériaux : catégories, jamais lissées
+    const continu = mode === 'albedo' || mode === 'echauffement' ? {
+      valeur: (k) => { const c = G.cls[k]; return c === HORS || c === BATI ? NaN : mode === 'albedo' ? etat.classes[c].albedo : etat.classes[c].tref; },
+      couleur: mode === 'albedo' ? rampeAlbedo : rampeEchauffement } : null;
+    poserTexture(G, (k) => couleurCellule(G, k, mode), continu);
     if (ui.toits?.checked) colorierToits(G, (b) => couleurClasse(classe(G.batiments[b].toit), mode));
     else effacerToits();
     majLegende(G);
@@ -709,13 +713,16 @@ export function creerChaleur(app) {
   let minuterieCalcul = 0;
   function planifierCalcul() { clearTimeout(minuterieCalcul); minuterieCalcul = setTimeout(() => lancerCalcul(), 600); }
   async function lancerCalcul() {
+    fin('Chaleur : demandes de calcul', debut(), { enCours: !!etat.calcul });
     if (etat.calcul) { etat.relancer = true; return; }
     etat.calcul = true;
     points?.effacer();
     ui.boutonsTemp?.forEach((b) => { b.disabled = true; });
     try {
-      do { etat.relancer = false; await calculerTemperature(); } while (etat.relancer);
+      do { etat.relancer = false; const t0 = debut(); await calculerTemperature(); fin('Chaleur : calcul complet', t0); } while (etat.relancer);
+      const t1 = debut();
       afficherTemperature();
+      fin('Chaleur : affichage', t1);
       note('');
     } catch (e) { note(`Calcul impossible : ${e.message}`); console.warn(e); } finally {
       etat.calcul = false;
@@ -723,28 +730,84 @@ export function creerChaleur(app) {
     }
   }
   async function calculerTemperature({ grilleMat = null, garder = true } = {}) {
+    const tDebut = performance.now();
     await chargerMeteo();
     const d = jourSoleil();
     const heures = heuresMeteo(etat.meteo, d);
     if (!heures) throw new Error('météo horaire absente (data/meteo/meteo_horaire.json)');
+    let t0 = debut();
     const G = grilleMat || grille();
+    fin('Chaleur : calcul complet / grille des matériaux', t0); t0 = debut();
     const S = app.soleil;
     const g = S.grilleHauteurs({ x0: -G.r, z0: -G.r, x1: G.r, z1: G.r });
-    const P = preparerPoints(G, etat.classes, { HORS, BATI });
+    fin('Chaleur : calcul complet / grille des hauteurs', t0); t0 = debut();
+    // haute résolution : un point de calcul par bloc (G.rep) ; les autres mailles du sol sont écartées ici (copie de cls), leur valeur
+    // est recopiée de celle du bloc (idx, valeursTemperature)
+    const P = preparerPoints(G.rep ? { ...G, cls: G.cls.map((c, k) => (c < BATI && G.rep[k] !== k ? HORS : c)) } : G, etat.classes, { HORS, BATI });
+    fin('Chaleur : calcul complet / preparerPoints', t0, { points: P.n, sol: P.nSol });
     // vent local : champ 2D de l'outil Vent s'il a été calculé, sinon vitesse réduite selon l'ouverture au ciel
     const V = app.vent?.etat, sv = V?.solveur, out = [0, 0];
     const champ = sv?.etat?.direction != null && V.vitesse > 0;
-    await calculerSVF(P, g, S.hauteurEn, note);
-    for (let i = 0; i < P.n; i++) P.fv[i] = champ && sv.echantillon(P.x[i], -P.z[i], out) ? Math.min(1.6, Math.hypot(out[0], out[1]) / V.vitesse) : 0.35 + 0.65 * P.svf[i];
     const { lat, lon } = app.config.soleil;
     const positions = positionsSoleil({ annee: d.annee, mois: d.mois, jour: d.jour, lat, lon });
-    const M = await calculerMasques(P, g, S.hauteurEn, positions, note);
-    note('Bilan d\'énergie de la journée…'); await new Promise((r) => setTimeout(r, 0));
     // feuillage des caducs au jour calculé (même règle que l'affichage et la grille des hauteurs de Soleil)
     const f = feuillage({ mois: d.mois, jour: d.jour });
-    const R = simulerJournee(P, etat.classes, heures, positions, M, { tauCaduc: transmissionCaduc(f), caducsDansGrille: (app.arbres?.f ?? f) >= 0.5 });
+    const options = { tauCaduc: transmissionCaduc(f), caducsDansGrille: (app.arbres?.f ?? f) >= 0.5 };
+    const fvCiel = () => { for (let i = 0; i < P.n; i++) P.fv[i] = 0.35 + 0.65 * P.svf[i]; };
+    // vent du champ de l'outil Vent : ne dépend pas de l'ouverture au ciel (mailles hors du champ : rempli après)
+    const horsChamp = [];
+    if (champ) for (let i = 0; i < P.n; i++) { if (sv.echantillon(P.x[i], -P.z[i], out)) P.fv[i] = Math.min(1.6, Math.hypot(out[0], out[1]) / V.vitesse); else horsChamp.push(i); }
+    const fvReste = () => { if (!champ) fvCiel(); else for (const i of horsChamp) P.fv[i] = 0.35 + 0.65 * P.svf[i]; };
+    // carte graphique (WebGPU) : ouverture au ciel et ombres sur le fil principal (rapides) ; sinon tout le calcul en arrière-plan
+    const surGPU = await gpuActif();
+    let M = null, R = null;
+    if (surGPU) {
+      t0 = debut();
+      const modeSVF = await calculerSVF(P, g, S.hauteurEn, note);
+      fvReste();
+      fin('Chaleur : calcul complet / calculerSVF', t0, { mode: modeSVF }); t0 = debut();
+      M = await calculerMasques(P, g, S.hauteurEn, positions, note);
+      fin('Chaleur : calcul complet / calculerMasques', t0);
+    }
+    // 08/11/2026 : calcul dans un Web Worker (js/chaleur-worker.js) : l'interface reste fluide et le calcul n'attend plus
+    // une image de la maquette à chaque pause ; mêmes fonctions (chaleur-modele.js), mêmes résultats
+    t0 = debut();
+    const classes = etat.classes.map(({ id, type, albedo, transmission, emissivite, effusivite, evaporation }) => ({ id, type, albedo, transmission, emissivite, effusivite, evaporation }));
+    const tache = calculEnFond('journee', { P, g: grillePourFond(g), positions, classes, heures, options, svf: !surGPU, fvCiel: surGPU ? false : champ ? Int32Array.from(horsChamp) : true, M }, [],
+      (p) => note(`${p.etape} : ${Math.round(p.u * 100)} %`));
+    if (tache) {
+      try {
+        const r = await tache;
+        if (!surGPU) {
+          P.svf.set(r.svf);
+          P.fv.set(r.fv); // vent : champ de l'outil Vent, sinon 0,35 + 0,65 SVF (calculé par le worker après l'ouverture au ciel)
+          noterCPU('ouverture au ciel', r.ms.svf);
+        }
+        M = r.M; R = r.R;
+        fin('Chaleur : calcul complet / arrière-plan', t0, r.ms);
+        if (r.ms.svf != null) fin('Chaleur : calcul complet / dont ouverture au ciel (worker)', debut() - r.ms.svf);
+        if (r.ms.masques != null) fin('Chaleur : calcul complet / dont ombres (worker)', debut() - r.ms.masques);
+        fin('Chaleur : calcul complet / dont simulerJournee (worker)', debut() - r.ms.journee);
+      } catch (e) { if (!e.indisponible) throw e; }
+    }
+    if (!R) { // sans worker : fil principal, comme avant
+      if (!surGPU) {
+        t0 = debut();
+        const modeSVF = await calculerSVF(P, g, S.hauteurEn, note);
+        fvReste();
+        fin('Chaleur : calcul complet / calculerSVF', t0, { mode: modeSVF }); t0 = debut();
+        M = await calculerMasques(P, g, S.hauteurEn, positions, note);
+        fin('Chaleur : calcul complet / calculerMasques', t0);
+      }
+      note('Bilan d\'énergie de la journée…'); await new Promise((r) => setTimeout(r, 0));
+      t0 = debut();
+      R = simulerJournee(P, etat.classes, heures, positions, M, options);
+      fin('Chaleur : calcul complet / simulerJournee', t0, { points: P.n });
+    }
     const idx = new Int32Array(G.n * G.n).fill(-1);
     for (let i = 0; i < P.nSol; i++) idx[P.k[i]] = i;
+    if (G.rep) for (let k = 0; k < idx.length; k++) { const q = G.rep[k]; if (q >= 0 && q !== k) idx[k] = idx[q]; } // blocs hors zone détaillée
+    noterDuree('chaleur', performance.now() - tDebut, P.n);
     const res = { G, P, R, M, positions, heures, d, feuillage: f, source: etat.meteo, champ, idx, cle: d.cle, ta: (t) => heures[Math.min(23, Math.round(t))]?.ta };
     if (garder) etat.temp = res;
     return res;
@@ -760,6 +823,7 @@ export function creerChaleur(app) {
       if (i < P.nSol) sol[P.k[i]] = v; else { toits[P.bat[i]] += v; nb[P.bat[i]]++; }
     }
     for (let b = 0; b < toits.length; b++) toits[b] = nb[b] ? toits[b] / nb[b] : NaN;
+    etendre(sol, G.rep); // haute résolution : valeur du point de calcul du bloc
     return { sol, toits };
   }
   // part d'ombre d'une maille de 9 h à 19 h (points chauds en mode « maximum de la journée »)
@@ -779,7 +843,7 @@ export function creerChaleur(app) {
     const t = app.soleil.etat.heure, mode = etat.vueTemp;
     const V = valeursTemperature(res, t, mode);
     etat.valeursT = V;
-    poserTexture(res.G, (k) => (Number.isFinite(V.sol[k]) ? couleurT(V.sol[k]) : null));
+    poserTexture(res.G, (k) => (Number.isFinite(V.sol[k]) ? couleurT(V.sol[k]) : null), { valeur: (k) => V.sol[k], couleur: couleurT });
     if (ui.toits?.checked) colorierToits(res.G, (b) => (Number.isFinite(V.toits[b]) ? couleurT(V.toits[b]) : null)); else effacerToits();
     majLegendeTemperature(res, V, t, mode);
   }
@@ -896,7 +960,7 @@ export function creerChaleur(app) {
   function afficherEcart(E) {
     etat.affichage = 'ecart';
     majChoix();
-    poserTexture(E.G, (k) => (Number.isFinite(E.D[k]) ? couleurEcart(E.D[k]) : null));
+    poserTexture(E.G, (k) => (Number.isFinite(E.D[k]) ? couleurEcart(E.D[k]) : null), { valeur: (k) => E.D[k], couleur: couleurEcart });
     effacerToits();
     if (ui.legende) ui.legende.replaceChildren(h('p', { class: 'resultat' }, 'Carte : écart de température de surface projet − existant (voir « Comparer » plus bas).'));
   }
@@ -1000,6 +1064,8 @@ export function creerChaleur(app) {
       h('div', { class: 'titre-info' }, h('h3', {}, 'Matériaux et albédo'), infoMateriaux()),
       choixAffichage,
       h('label', { class: 'case' }, ui.toits, ' Colorer les toitures'),
+      caseLissage(app),
+      blocResolution(app, { outil: 'chaleur', rayon }),
       ui.legende,
       ui.pointeur,
       h('div', { class: 'actions' }, h('button', { type: 'button', class: 'bouton discret', onclick: effacerTout }, 'Effacer la carte')),
@@ -1033,6 +1099,8 @@ export function creerChaleur(app) {
 
   app.on('outil', (id) => { if (id !== 'chaleur') { arreterCapture(); } });
   app.on('phase', () => majCorrections());
+  app.on('resolution', () => { if (etat.grille || etat.temp) invalider(); });
+  app.on('lissage', () => { if (etat.calque && etat.pose) poserTexture(...etat.pose); });
   app.on('bati', () => { if (etat.grille && !etat.suspendu) invalider(); });
   app.on('arbres', () => { if (etat.grille) invalider(); }); // arbres relevés ajoutés ou supprimés (outil Relevé)
   // source météo changée (base / EPW) : section Température refaite (journées types), journée recalculée si affichée

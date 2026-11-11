@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { h, info, allerVers } from './util.js';
 import { telecharger } from './donnees.js';
+import { dessinerTexture } from './lissage.js';
 import { versLambert93 } from './export.js';
 
 // Outil Chaleur, lot 3 : points chauds et frais, comparaison existant / projet et variantes de matériaux, exports.
@@ -209,7 +210,7 @@ export function creerPointsChauds(app, api) {
   function exporterPNG() {
     const tex = api.etat.calque?.material?.map;
     if (!tex) { app.signaler('Aucune carte affichée.'); return; }
-    const { data, width: n } = tex.image;
+    const n = tex.userData?.nx ?? tex.image.width; // mailles (la texture lissée a plusieurs pixels par maille)
     const echelle = Math.max(2, Math.floor(900 / n));
     const albedo = api.degradeActif?.();
     const marge = albedo ? 210 : 150;
@@ -217,11 +218,7 @@ export function creerPointsChauds(app, api) {
     c.width = n * echelle; c.height = n * echelle + marge;
     const ctx = c.getContext('2d');
     ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, c.width, c.height);
-    const img = new ImageData(new Uint8ClampedArray(data.buffer.slice(0)), n, n);
-    const tmp = document.createElement('canvas'); tmp.width = n; tmp.height = n;
-    tmp.getContext('2d').putImageData(img, 0, 0);
-    ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(tmp, 0, 0, n * echelle, n * echelle);
+    dessinerTexture(ctx, tex, 0, 0, n * echelle, n * echelle);
     // étiquettes des zones
     const G = api.etat.temp?.G || etat.zones?.G;
     if (etat.zones && G) {

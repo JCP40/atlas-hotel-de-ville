@@ -1,5 +1,6 @@
 import { getPosition } from '../lib/suncalc.js';
 import { dateParis } from './geo.js';
+import { ouvertureCiel, ombres, noterCPU } from './gpu.js';
 
 // Outil Chaleur, lot 2 : température de surface estimée (calcul pur, sans DOM ni Three.js).
 // ESTIMATION PÉDAGOGIQUE. Bilan d'énergie de surface par point (maille du sol de 2 m, quelques points par toit) :
@@ -45,25 +46,88 @@ export function preparerPoints(G, classes, { HORS, BATI, maxParToit = 24 }) {
 const hauteurMax = (g) => { if (g.hMax == null) { let m = 0; for (let i = 0; i < g.H.length; i++) if (g.H[i] > m) m = g.H[i]; g.hMax = m; } return g.hMax; };
 
 // Ouverture au ciel (facteur de vue du ciel) : 24 directions, horizon jusqu'à 120 m dans la grille des hauteurs (Soleil)
+// Carte graphique (js/gpu.js) si WebGPU est actif, sinon calcul ci-dessous sur le processeur (mêmes règles) ; renvoie 'gpu' ou 'cpu'
 export async function calculerSVF(P, g, hauteurEn, note = () => {}) {
+  const r = await ouvertureCiel(g, P, { N: 24, pas: 2, dMax: 120, note });
+  if (r) { for (let i = 0; i < P.n; i++) P.svf[i] = Math.max(0.02, r[i]); return 'gpu'; }
+  const t0 = performance.now();
+  await svfProcesseur(P, g, { note, pause: pauseUI });
+  noterCPU('ouverture au ciel', performance.now() - t0);
+  return 'cpu';
+}
+
+// Ouverture au ciel sur le processeur (calcul pur, aussi utilisé par js/chaleur-worker.js) : 24 directions précalculées,
+// pas de 2 m jusqu'à 120 m, arrêt quand plus rien ne peut dépasser l'horizon trouvé ; lecture de la grille en ligne
+// (même arrondi que app.soleil.hauteurEn : résultats identiques à l'ancienne boucle) ; P.svf rempli (plancher 0,02).
+// pause (facultative) : rendue au navigateur au plus toutes les 100 ms (une image passe à chaque pause).
+export async function svfProcesseur(P, g, { note = () => {}, pause = null, progres = null } = {}) {
   const N = 24, Hm = hauteurMax(g);
-  const dirs = Array.from({ length: N }, (_, q) => [Math.sin((q / N) * 2 * Math.PI), -Math.cos((q / N) * 2 * Math.PI)]);
+  const DX = new Float64Array(N), DZ = new Float64Array(N);
+  for (let q = 0; q < N; q++) { DX[q] = Math.sin((q / N) * 2 * Math.PI); DZ[q] = -Math.cos((q / N) * 2 * Math.PI); }
+  const { H, w, h, x0: gx0, z0: gz0 } = g;
+  let tPause = performance.now();
   for (let i = 0; i < P.n; i++) {
     let s = 0;
-    const x = P.x[i], z = P.z[i], y0 = P.y0[i];
-    for (const [sx, sz] of dirs) {
+    const x = P.x[i], z = P.z[i], y0 = P.y0[i], hm = Hm - y0;
+    for (let q = 0; q < N; q++) {
+      const sx = DX[q], sz = DZ[q];
       let t = 0;
       for (let d = 2; d <= 120; d += 2) {
-        if ((Hm - y0) / d <= t) break; // plus rien ne peut dépasser l'horizon trouvé
-        const v = (hauteurEn(g, x + sx * d, z + sz * d) - y0) / d; if (v > t) t = v;
+        if (hm / d <= t) break; // plus rien ne peut dépasser l'horizon trouvé
+        const ii = Math.floor(x + sx * d - gx0), jj = Math.floor(z + sz * d - gz0);
+        const hh = ii < 0 || jj < 0 || ii >= w || jj >= h ? 0 : H[jj * w + ii];
+        const v = (hh - y0) / d; if (v > t) t = v;
       }
       const b = Math.atan(t);
       s += Math.sin(b) ** 2;
     }
     P.svf[i] = Math.max(0.02, 1 - s / N);
-    if (i % 5000 === 4999) { note(`Ouverture au ciel : ${Math.round((100 * i) / P.n)} %`); await pauseUI(); }
+    if (progres && (i & 511) === 511) progres(i / P.n);
+    if (pause && (i & 511) === 511 && performance.now() - tPause > 100) { note(`Ouverture au ciel : ${Math.round((100 * i) / P.n)} %`); await pause(); tPause = performance.now(); }
   }
 }
+
+// ------------------------------------------------------------------
+// Calcul en arrière-plan (js/chaleur-worker.js, 08/11/2026) : un Web Worker module gardé pour la session.
+// calculEnFond(op, donnees, transferts, surProgres) → promesse du résultat ; null si le navigateur ne le permet pas
+// (worker module refusé, page ouverte comme fichier) ou si le réglage localStorage atlas-hdv-calcul-fond vaut '0' :
+// l'appelant fait alors le calcul sur le fil principal (mêmes fonctions, mêmes résultats).
+// ------------------------------------------------------------------
+let fond = null, idFond = 0;
+const enAttente = new Map();
+function travailleur() {
+  if (fond !== null) return fond;
+  fond = false;
+  try {
+    if (typeof Worker === 'undefined' || typeof window === 'undefined') return fond;
+    try { if (localStorage.getItem('atlas-hdv-calcul-fond') === '0') return fond; } catch { /* stockage indisponible : réglage par défaut */ }
+    const w = new Worker(new URL('./chaleur-worker.js', import.meta.url), { type: 'module' });
+    w.onmessage = ({ data }) => {
+      const a = enAttente.get(data.id);
+      if (!a) return;
+      if (data.progres) { a.surProgres?.(data.progres); return; }
+      enAttente.delete(data.id);
+      if (data.erreur) a.rejeter(new Error(data.erreur)); else a.resoudre(data.resultat);
+    };
+    // worker introuvable ou module refusé : abandon, les calculs en attente repassent sur le fil principal
+    w.onerror = (e) => { e.preventDefault?.(); console.warn('Calcul en arrière-plan indisponible :', e.message || e); fond = false; w.terminate(); for (const a of enAttente.values()) a.rejeter(Object.assign(new Error('worker indisponible'), { indisponible: true })); enAttente.clear(); };
+    fond = w;
+  } catch (e) { console.warn('Calcul en arrière-plan indisponible :', e.message); fond = false; }
+  return fond;
+}
+export function calculEnFond(op, donnees, transferts = [], surProgres = null) {
+  const w = travailleur();
+  if (!w) return null;
+  const id = ++idFond;
+  return new Promise((resoudre, rejeter) => {
+    enAttente.set(id, { resoudre, rejeter, surProgres });
+    try { w.postMessage({ id, op, ...donnees }, transferts); } catch (e) { enAttente.delete(id); rejeter(Object.assign(e, { indisponible: true })); }
+  });
+}
+// worker créé dès l'ouverture de Confort ou de Chaleur (son chargement, quelques modules, se fait pendant la lecture du panneau)
+export const prechaufferFond = () => { travailleur(); };
+// copie de la grille des hauteurs pour le worker (le tableau d'origine reste utilisable, la carte graphique le garde en cache)
+export const grillePourFond = (g) => ({ x0: g.x0, z0: g.z0, w: g.w, h: g.h, H: g.H, hMax: g.hMax });
 
 // Positions du soleil toutes les 30 min du jour donné
 export function positionsSoleil({ annee, mois, jour, lat, lon }) {
@@ -75,26 +139,45 @@ export function positionsSoleil({ annee, mois, jour, lat, lon }) {
 }
 
 // Ensoleillement de chaque point à chaque instantané (marche le long du rayon dans la grille des hauteurs)
+// (carte graphique si WebGPU est actif : mêmes marches, une invocation par point et par instantané)
 export async function calculerMasques(P, g, hauteurEn, positions, note = () => {}) {
+  const Hm = hauteurMax(g);
+  const leves = [];
+  positions.forEach((p, s) => { if (p.alt > 0.02) leves.push(s); });
+  const MG = await ombres(g, P, leves.map((s) => positions[s]), { d0: 1.5, pas: 1.5, dLim: 450, plafond: Hm, note });
+  if (MG) { const M = new Uint8Array(NB_INSTANTANES * P.n); leves.forEach((s, k) => M.set(MG.subarray(k * P.n, (k + 1) * P.n), s * P.n)); return M; }
+  const t0 = performance.now();
+  const M = await masquesProcesseur(P, g, positions, { note, pause: pauseUI });
+  noterCPU('ombres', performance.now() - t0);
+  return M;
+}
+
+// Masques d'ombre sur le processeur (calcul pur, aussi utilisé par js/chaleur-worker.js) : marche de 1,5 m en 1,5 m vers le
+// soleil jusqu'à 450 m, arrêt au-dessus du plus haut obstacle ; lecture de la grille en ligne (résultats identiques).
+export async function masquesProcesseur(P, g, positions, { note = () => {}, pause = null, progres = null } = {}) {
   const M = new Uint8Array(NB_INSTANTANES * P.n);
   const Hm = hauteurMax(g);
-  let fait = 0;
+  const { H, w, h, x0: gx0, z0: gz0 } = g;
   const actifs = positions.filter((p) => p.alt > 0.02).length;
+  let fait = 0, tPause = performance.now();
   for (let s = 0; s < NB_INSTANTANES; s++) {
     const p = positions[s];
     if (p.alt <= 0.02) continue;
-    const base = s * P.n;
+    const base = s * P.n, sx = p.sx, sz = p.sz, tanAlt = p.tanAlt;
     for (let i = 0; i < P.n; i++) {
       const x = P.x[i], z = P.z[i], y0 = P.y0[i];
       let soleil = 1;
       for (let d = 1.5; d < 450; d += 1.5) {
-        const rayon = y0 + d * p.tanAlt;
+        const rayon = y0 + d * tanAlt;
         if (rayon > Hm) break; // au-dessus du plus haut obstacle
-        if (hauteurEn(g, x + p.sx * d, z + p.sz * d) > rayon) { soleil = 0; break; }
+        const ii = Math.floor(x + sx * d - gx0), jj = Math.floor(z + sz * d - gz0);
+        if (ii >= 0 && jj >= 0 && ii < w && jj < h && H[jj * w + ii] > rayon) { soleil = 0; break; }
       }
       M[base + i] = soleil;
     }
-    if (++fait % 8 === 0) { note(`Ombres : ${Math.round((100 * fait) / actifs)} %`); await pauseUI(); } // peu de pauses : chaque pause laisse passer une image
+    fait++;
+    if (progres) progres(fait / actifs);
+    if (pause && performance.now() - tPause > 100) { note(`Ombres : ${Math.round((100 * fait) / actifs)} %`); await pause(); tPause = performance.now(); }
   }
   return M;
 }
@@ -118,7 +201,7 @@ export function meteoA(heures, t) {
 // Arbres (P.arbre) : 1 = sous un persistant, lumière directe filtrée à 12 % ; 2 = sous un caduc seulement, transmission tauCaduc
 // (12 % en feuilles à 65 % sans feuilles, js/maquette.js) ; si les caducs ne sont pas dans la grille des hauteurs (feuillage < 0,5),
 // leur ombre n'est pas dans M : elle est appliquée ici (soleil × tauCaduc).
-export function simulerJournee(P, classes, heures, positions, M, { dt = 300, tauCaduc = 0.12, caducsDansGrille = true } = {}) {
+export function simulerJournee(P, classes, heures, positions, M, { dt = 300, tauCaduc = 0.12, caducsDansGrille = true, progres = null } = {}) {
   const n = P.n;
   const Tm = heures.filter(Boolean).reduce((a, h) => a + h.ta, 0) / heures.filter(Boolean).length;
   // nébulosité moyenne du jour (part de diffus) pour le ciel nocturne
@@ -128,6 +211,17 @@ export function simulerJournee(P, classes, heures, positions, M, { dt = 300, tau
     abs: Math.max(0, 1 - c.albedo - (c.transmission || 0)), eps: c.emissivite, mu: c.effusivite, evap: c.evaporation || 0,
     sol: c.type === 'sol', eau: c.id === 'eau', vegetal: (c.evaporation || 0) > 0.2,
   }));
+  // constantes de chaque point, lues une fois (08/11/2026 : boucle interne sans objet ni recherche de propriété ; mêmes formules)
+  const ABS = new Float64Array(n), EPS = new Float64Array(n), EVAP = new Float64Array(n), COEF = new Float64Array(n), TD = new Float64Array(n), FU = new Float64Array(n);
+  const ARB = new Uint8Array(n);
+  for (let i = 0; i < n; i++) {
+    const pr = props[P.cls[i]];
+    ABS[i] = pr.abs; EPS[i] = pr.eps; EVAP[i] = pr.evap; COEF[i] = C1 / pr.mu;
+    TD[i] = Tm + 273.15 + (pr.vegetal || pr.eau ? 0 : 2);
+    FU[i] = P.bat[i] >= 0 ? 0.8 : 0.5 * P.fv[i];
+    ARB[i] = i < P.nSol ? P.arbre[i] : 0;
+  }
+  const SVF = P.svf;
   const Ts = new Float32Array(n);
   for (let i = 0; i < n; i++) Ts[i] = Tm + 273.15;
   const T = new Float32Array(NB_INSTANTANES * n);
@@ -141,6 +235,7 @@ export function simulerJournee(P, classes, heures, positions, M, { dt = 300, tau
         for (let i = 0; i < n; i++) T[s * n + i] = Ts[i] - 273.15;
       }
       if (step === pasParJour) break;
+      if (progres && step % 24 === 0) progres((jourSimule * pasParJour + step) / (2 * pasParJour));
       const m = meteoA(heures, t + dt / 7200); // milieu du pas
       const TaK = m.ta + 273.15;
       const e = (m.hr / 100) * 6.105 * Math.exp((17.27 * m.ta) / (237.7 + m.ta));
@@ -152,33 +247,35 @@ export function simulerJournee(P, classes, heures, positions, M, { dt = 300, tau
       const sf = (t + dt / 7200) / PAS_INSTANTANE, s0 = Math.min(NB_INSTANTANES - 1, Math.floor(sf)), s1 = Math.min(NB_INSTANTANES - 1, s0 + 1), w = sf - Math.floor(sf);
       const p0 = positions[s0], p1 = positions[s1];
       const sinAlt = p0.sinAlt + (p1.sinAlt - p0.sinAlt) * w;
+      const dniS = m.dni * sinAlt, dhi = m.dhi, refl = 0.25 * m.ghi, v = m.v, b0 = s0 * n, b1 = s1 * n;
+      const enJour = jourSimule === 1, tFin = t + dt / 3600;
       for (let i = 0; i < n; i++) {
-        const pr = props[P.cls[i]];
-        const svf = P.svf[i];
-        let soleil = M[s0 * n + i] * (1 - w) + M[s1 * n + i] * w;
-        if (P.arbre[i] && i < P.nSol) { // lumière filtrée par le houppier
-          if (P.arbre[i] === 1) soleil = Math.max(soleil, 0.12);
+        const svf = SVF[i];
+        let soleil = M[b0 + i] * (1 - w) + M[b1 + i] * w;
+        const ar = ARB[i];
+        if (ar) { // lumière filtrée par le houppier
+          if (ar === 1) soleil = Math.max(soleil, 0.12);
           else soleil = caducsDansGrille ? Math.max(soleil, tauCaduc) : soleil * tauCaduc;
         }
-        const K = m.dni * sinAlt * soleil + m.dhi * svf + 0.25 * m.ghi * (1 - svf) * 0.5;
+        const K = dniS * soleil + dhi * svf + refl * (1 - svf) * 0.5;
         const Ld = svf * Lciel + (1 - svf) * Lmur;
-        const u = Math.max(0.3, m.v * (P.bat[i] >= 0 ? 0.8 : 0.5 * P.fv[i]));
+        const u = Math.max(0.3, v * FU[i]);
         const hc = 5.7 + 3.8 * u;
-        const Td = Tm + 273.15 + (pr.vegetal || pr.eau ? 0 : 2);
-        const coef = C1 / pr.mu;
+        const Td = TD[i], coef = COEF[i], eps = EPS[i], abs = ABS[i], evap = EVAP[i];
         // sous-pas si le matériau a très peu d'inertie (zinc, verrière)
-        const raideur = coef * (4 * pr.eps * SIGMA * Ts[i] ** 3 + hc) + OMEGA;
+        const T0 = Ts[i];
+        const raideur = coef * (4 * eps * SIGMA * T0 ** 3 + hc) + OMEGA;
         const nsub = Math.max(1, Math.ceil((dt * raideur) / 0.5));
         const h = dt / nsub;
-        let Tk = Ts[i];
+        let Tk = T0;
         for (let q = 0; q < nsub; q++) {
-          const Rn = pr.abs * K + pr.eps * (Ld - SIGMA * Tk ** 4);
-          const LE = pr.evap * Math.max(Rn, 0);
+          const Rn = abs * K + eps * (Ld - SIGMA * Tk ** 4);
+          const LE = evap * Math.max(Rn, 0);
           const G = Rn - hc * (Tk - TaK) - LE;
           Tk += h * (coef * G - OMEGA * (Tk - Td));
         }
         Ts[i] = Tk;
-        if (jourSimule === 1 && Tk - 273.15 > Tmax[i]) { Tmax[i] = Tk - 273.15; hMax[i] = t + dt / 3600; }
+        if (enJour && Tk - 273.15 > Tmax[i]) { Tmax[i] = Tk - 273.15; hMax[i] = tFin; }
       }
     }
   }

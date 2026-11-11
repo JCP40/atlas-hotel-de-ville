@@ -138,3 +138,14 @@
 .etiquette.etiquette-diagramme { font-size: 10.5px; padding: 0 3px; background: rgba(255, 255, 255, 0.78); border-color: #b9c1c7; color: #3d4750; }
 .etiquette.etiquette-diagramme.fort { font-weight: 700; color: #1d232a; }
 .etiquette.etiquette-diagramme.heure { background: rgba(255, 236, 196, 0.85); border-color: #f5a300; color: #7a4d00; }
+/* Confort : carte UTCI (07/11/2026) — bascule classes / continu, bandeau d'estimation, barre de progression discrète */
+.segment-utci { display: flex; margin: 6px 0; border: 1px solid var(--trait); border-radius: 2px; background: var(--calque); padding: 2px; }
+.segment-utci button { flex: 1; appearance: none; border: 0; background: none; cursor: pointer; padding: 4px 6px; min-height: 28px; font: inherit; font-size: 13px; color: var(--ardoise-doux); border-radius: 2px; }
+.segment-utci button[aria-pressed='true'] { background: var(--ardoise); color: var(--calque-plein); }
+.confort-bandeau { margin: 4px 0 6px; padding: 5px 8px; border-left: 3px solid #c0392b; background: #fbeee9; font-size: 12.5px; line-height: 1.35; color: var(--ardoise); }
+.confort-bandeau strong { color: #a5281b; text-transform: uppercase; letter-spacing: 0.03em; font-size: 11.5px; }
+.moment-utci { margin: 2px 0 6px; }
+.progres-utci { display: flex; align-items: center; gap: 8px; min-height: 0; margin: 2px 0; }
+.progres-utci progress { flex: 0 0 120px; height: 6px; accent-color: var(--ardoise); }
+.progres-utci progress[hidden] { display: none; }
+.progres-confort-texte { font-size: 12px; color: var(--ardoise-doux); }
