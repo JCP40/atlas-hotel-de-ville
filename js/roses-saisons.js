@@ -1,5 +1,7 @@
 import { h } from './util.js';
-import { chargerMeteo, rose, mention } from './meteo.js';
+import { chargerMeteo, rose, mention, roseSituation, extremesDetail, periodeExtremes } from './meteo.js';
+import { condition } from './meteo-extremes.js';
+import { creerVentSituation } from './vent-situation.js';
 
 // Les 4 roses des vents des saisons (22/10/2026) : hiver, printemps, été, automne, 12 secteurs de 30°, MÊME échelle de fréquence
 // pour les quatre, source météo active (base Météo-France ou EPW, js/meteo.js ; année choisie dans Climat si elle existe).
@@ -13,10 +15,13 @@ export const SAISONS4 = [['hiver', 'Hiver'], ['printemps', 'Printemps'], ['ete',
 export const NOMS12 = ['N', 'NNE', 'ENE', 'E', 'ESE', 'SSE', 'S', 'SSO', 'OSO', 'O', 'ONO', 'NNO'];
 const virgule = (v, d = 1) => v.toFixed(d).replace('.', ',');
 
-export function donneesRoses() {
+// situation (10/11/2026, js/vent.js) : 'habituel' ou null = roses de la période ; sinon heures de la condition extrême dans chaque saison
+// (extremesDetail() doit avoir été lue ; au moins 10 h de vent par saison, « échantillon faible » sous 100 h)
+export function donneesRoses(situation = null) {
+  const situ = situation && situation !== 'habituel' ? situation : null;
   const saisons = SAISONS4.map(([cle, lib]) => {
-    const r = rose(12, cle, 'all');
-    const ok = !!(r && r.N >= 100 && r.secteurs?.length);
+    const r = situ ? roseSituation(situ, cle) : rose(12, cle, 'all');
+    const ok = !!(r && r.N >= (situ ? 10 : 100) && r.secteurs?.length && r.secteurs.some((x) => x.f > 0));
     const dom = ok ? r.secteurs.slice().sort((a, b) => b.f - a.f)[0] : null;
     const fort = ok ? r.secteurs.reduce((a, s) => a + (s.f * (s.p5 ?? 0)) / 100, 0) : 0; // % de toutes les heures au-dessus de 5 m/s
     return { cle, lib, r, ok, dom, fort };
@@ -24,7 +29,8 @@ export function donneesRoses() {
   const maxF = Math.max(10, ...saisons.filter((s) => s.ok).flatMap((s) => s.r.secteurs.map((x) => x.f)));
   const axe = Math.ceil(maxF / 5) * 5;
   const ventee = saisons.filter((s) => s.ok).sort((a, b) => b.fort - a.fort)[0]?.cle || null;
-  return { saisons, axe, ventee, source: mention({ court: true, annee: true }) };
+  const c = situ ? condition(situ) : null;
+  return { saisons, axe, ventee, situation: situ, source: `${c ? `Situation « ${c.libelle} » (${c.def}, ${periodeExtremes()}) : heures de la situation dans chaque saison ; statistique observée, pas une prévision. ` : ''}${mention({ court: true, annee: true }).replace(/\.$/, '')}` };
 }
 
 // une rose : centre (cx, cy), rayon R (même unité que la police p) ; texte dessous
@@ -68,6 +74,7 @@ export function svgRose(s, axe, { cx, cy, R, p, actif = false, titre = true, cou
 export function creerRosesSaisons(app) {
   const ui = {};
   function choisirSaison(cle) {
+    if (app.vent?.etat?.situation && app.vent.etat.situation !== 'habituel') return; // situation : la période n'est pas utilisée
     const sel = [...document.querySelectorAll('#panneau-outil select')].find((x) => [...x.options].some((o) => o.value === 'hiver'));
     if (!sel) return;
     sel.value = cle;
@@ -80,15 +87,18 @@ export function creerRosesSaisons(app) {
     ui.grille.hidden = !V?.quatreSaisons;
     if (!V?.quatreSaisons) return;
     await chargerMeteo();
-    const D = donneesRoses();
+    if (V.situation && V.situation !== 'habituel') await extremesDetail();
+    if (!ui.grille?.isConnected) return;
+    const D = donneesRoses(V.situation);
     ui.grille.replaceChildren(...D.saisons.map((s) => {
       const actif = s.cle === D.ventee;
-      const fig = h('button', { type: 'button', class: `rose-saison${actif ? ' ventee' : ''}${V.saison === s.cle ? ' choisie' : ''}`, title: `${s.lib} : choisir cette saison`, onclick: () => choisirSaison(s.cle) });
+      const faible = D.situation && s.ok && s.r.N < 100 ? ` (échantillon faible : ${s.r.N} h)` : '';
+      const fig = h('button', { type: 'button', class: `rose-saison${actif ? ' ventee' : ''}${!D.situation && V.saison === s.cle ? ' choisie' : ''}`, title: D.situation ? `${s.lib} : ${s.r?.N ?? 0} h de la situation${faible}` : `${s.lib} : choisir cette saison`, onclick: () => choisirSaison(s.cle) });
       fig.innerHTML = `<svg viewBox="0 0 100 124" role="img" aria-label="Rose des vents, ${s.lib}">${svgRose(s, D.axe, { cx: 50, cy: 50, R: 36, p: 8.5, actif: false })}</svg>`;
       if (actif) fig.append(h('span', { class: 'rose-saison-marque' }, 'la plus ventée'));
       return fig;
     }));
-    ui.note.textContent = `Même échelle pour les quatre roses (cercles tous les ${D.axe > 25 ? 10 : 5} %, jusqu'à ${D.axe} % des heures) ; partie foncée : heures au-dessus de 5 m/s ; flèche rouge : secteur dominant. Saison la plus ventée : celle qui a le plus d'heures au-dessus de 5 m/s. ${D.source}.`;
+    ui.note.textContent = `${D.situation ? 'Roses de la situation choisie, saison par saison (« mesures insuffisantes » : moins de 10 h). ' : ''}Même échelle pour les quatre roses (cercles tous les ${D.axe > 25 ? 10 : 5} %, jusqu'à ${D.axe} % des heures) ; partie foncée : heures au-dessus de 5 m/s ; flèche rouge : secteur dominant. Saison la plus ventée : celle qui a le plus d'heures au-dessus de 5 m/s. ${D.source}.`;
   }
   function inserer() {
     const conteneur = document.querySelector('#panneau-outil .panneau-vent');
@@ -106,5 +116,7 @@ export function creerRosesSaisons(app) {
   for (const ev of ['meteoSource', 'meteoAnnee']) app.on(ev, () => setTimeout(dessiner, 50));
   // la saison choisie dans la rose du panneau est surlignée
   document.addEventListener('change', (e) => { if (e.target.closest?.('.panneau-vent') && !e.target.closest('.roses-saisons')) setTimeout(dessiner, 0); });
+  // sélecteur « Situation » de l'outil Vent (10/11/2026, js/vent-situation.js), créé ici pour ne pas modifier js/app.js
+  app.ventSituation = creerVentSituation(app);
   return { donneesRoses, svgRose, dessiner };
 }

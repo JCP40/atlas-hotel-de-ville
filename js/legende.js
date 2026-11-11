@@ -12,7 +12,7 @@ import { formaterHeure } from './geo.js';
 // - réseaux souterrains cochés (gaz, BT, HTA en tirets, postes) et jeux Open Data affichés ; flux bus / tram ;
 // - légendes de couleurs des analyses d'Ambiance affichées, fournies par les outils eux-mêmes (pas de copie) :
 //   app.chaleur.legendeAuto() (matériaux, échauffement, albédo, température, écart), app.confort.legendeAuto(),
-//   app.soleil.legendeAuto() (heures de soleil), et ici le Vent (classes CLASSES_CONFORT de vent-calcul.js, particules)
+//   app.soleil.legendeAuto() (heures de soleil), et ici le Vent (carte de chaleur : app.vent.legendeCarte() ; classes CLASSES_CONFORT, particules)
 //   et le Bruit (classes portées par les meshes du groupe « bruit »).
 // decrire() rend une liste de sections { id, titre, items: [{ libelle, couleur, forme: aplat|trait|tirets|cercle|carre|contour }],
 // degrade?: { stops: [[u, [r, g, b]]], graduations: [{ u, texte }], gauche?, droite? }, note? } ; elle sert aussi à la planche
@@ -97,13 +97,20 @@ export function creerLegende(app) {
   function sectionsVent() {
     const V = app.vent?.etat;
     if (!V || !app.vent.actif) return [];
-    const L = [{
-      id: 'vent-particules', titre: `Vent : ${V.direction}°, ${String(V.vitesse).replace('.', ',')} m/s (vitesse locale des particules)`,
+    // carte de chaleur du vent (07/11/2026) : dégradé fourni par js/vent.js (mode Vitesse : échelle continue bleu foncé → rouge
+    // en m/s, carte et particules ; mode Rapport : « turbo »)
+    const carte = app.vent.legendeCarte?.();
+    const L = carte ? [carte] : [];
+    // hauteur du vent visualisé (07/11/2026) : précisée hors 1,5 m (titre de la carte : js/vent.js)
+    const aH = V.hauteur != null && V.hauteur !== 1.5 ? ` à ${String(V.hauteur).replace('.', ',')} m au-dessus du sol` : '';
+    // particules colorées en m/s (mode Vitesse) : déjà décrites par la section ci-dessus
+    if (V.affichage !== 'carte' && V.carteValeur === 'rapport') L.push({
+      id: 'vent-particules', titre: `Vent${aH} : ${V.direction}°, ${String(V.vitesse).replace('.', ',')} m/s${aH ? ' à 10 m' : ''} (vitesse locale des particules)`,
       degrade: { stops: [[0, [6, 82, 209]], [0.3, [5, 209, 107]], [0.55, [142, 209, 5]], [1, [209, 75, 5]]], graduations: [{ u: 0, texte: 'abrité' }, { u: 1, texte: 'accéléré (×2,5)' }] },
-    }];
+    });
     if (V.confort && V.P) {
       const lib = { annee: 'année', hiver: 'hiver', printemps: 'printemps', ete: 'été', automne: 'automne' }[V.saison] || V.saison;
-      L.push({ id: 'vent-confort', titre: `Confort au vent (seuil ${V.seuil} m/s, ${lib})`, items: CLASSES_CONFORT.map((c) => ({ libelle: `${c.t} : ${c.l}`, couleur: rgb(c.c), forme: 'aplat' })) });
+      L.push({ id: 'vent-confort', titre: `Confort au vent (seuil ${V.seuil} m/s, ${lib}${aH ? `, vent${aH} ; critère défini pour le piéton à 1,5 m` : ''})`, items: CLASSES_CONFORT.map((c) => ({ libelle: `${c.t} : ${c.l}`, couleur: rgb(c.c), forme: 'aplat' })) });
     }
     return L;
   }

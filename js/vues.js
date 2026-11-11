@@ -172,6 +172,7 @@ export function creerVues(app) {
     let quoi = bouton?.textContent.trim() || { '3d': 'Vue 3D', axo: 'Axonométrie', plan: 'Plan', face: 'Élévation', pieton: 'Vue piéton' }[projection()] || 'Vue';
     if (etat.outil === 'chaleur' && app.chaleur?.etat.calque) quoi += ` ${CARTES_CHALEUR[app.chaleur.etat.affichage] || ''}`.trimEnd();
     if (etat.outil === 'vent' && SAISONS_VENT[app.vent?.etat.saison]) quoi += ` ${SAISONS_VENT[app.vent.etat.saison]}`;
+    if (etat.outil === 'vent' && app.vent?.etat.hauteur != null && app.vent.etat.hauteur !== 1.5) quoi += ` à ${String(app.vent.etat.hauteur).replace('.', ',')} m`;
     let nom = quand ? `${quoi} – ${quand}` : quoi;
     if (etat.liste.some((v) => v.nom === nom)) { let k = 2; while (etat.liste.some((v) => v.nom === `${nom} (${k})`)) k++; nom = `${nom} (${k})`; }
     return nom;
@@ -183,8 +184,11 @@ export function creerVues(app) {
     const V = app.vent?.etat;
     if (V) {
       r.vent = {};
-      for (const k of ['direction', 'vitesse', 'saison', 'temperature', 'modeVitesse', 'confort', 'seuil', 'roseMaquette', 'quatreSaisons']) if (V[k] != null) r.vent[k] = V[k];
+      for (const k of ['direction', 'vitesse', 'saison', 'temperature', 'modeVitesse', 'suitPeriode', 'situation', 'confort', 'seuil', 'roseMaquette', 'quatreSaisons',
+        'affichage', 'carteValeur', 'echelleAuto', 'opaciteCarte', 'lisser', 'sillageAnime', 'animMode', 'animVitesse',
+        'emprise', 'hauteResolution', 'centreEmprise', 'hauteur']) if (V[k] != null) r.vent[k] = V[k];
     }
+    if (app.confort?.reglages) r.confort = app.confort.reglages(); // carte UTCI (07/11/2026) : réglages et carte affichée
     if (app.diagrammeSolaire) r.diagrammeSolaire = app.diagrammeSolaire.reglages();
     if (app.reseaux?.souterrains?.length) r.reseaux = Object.fromEntries(app.reseaux.souterrains.map((x) => [x.id, !!x.visible]));
     return r;
@@ -198,7 +202,21 @@ export function creerVues(app) {
       C.toitsColores = !!r.chaleur.toits;
     }
     const V = app.vent?.etat;
-    if (r.vent && V) Object.assign(V, r.vent);
+    // vue enregistrée avant la carte de chaleur du vent (07/11/2026) : particules seules ; l'animation n'est jamais rappelée
+    // emprise de la carte (07/11/2026) : une vue plus ancienne garde l'emprise courante ; sans centre enregistré : centre de l'atlas
+    if (r.vent && V) {
+      app.vent.arreterAnimation?.();
+      const { emprise, hauteResolution, centreEmprise, hauteur, ...reste } = r.vent;
+      // direction suivant la période (07/11/2026) : une vue plus ancienne garde SA direction (réglage manuel)
+      // situation (10/11/2026) : une vue plus ancienne revient à la période habituelle
+      Object.assign(V, { affichage: 'particules', suitPeriode: false, situation: 'habituel' }, reste);
+      if (hauteResolution != null) V.hauteResolution = !!hauteResolution;
+      if (emprise != null) app.vent.definirEmprise?.(emprise, centreEmprise ?? null);
+      // hauteur du vent visualisé (07/11/2026) : vue plus ancienne → 1,5 m (piéton)
+      app.vent.definirHauteur?.(hauteur ?? 1.5);
+    }
+    // Confort : réglages de la carte UTCI ; si la vue l'affichait, elle est recalculée à l'ouverture de l'outil
+    if (app.confort?.regler) app.confort.regler(r.confort || { carte: null });
     // diagramme solaire : une vue enregistrée avant lui le masque
     app.diagrammeSolaire?.regler(r.diagrammeSolaire || { visible: false });
     if (r.reseaux) for (const x of app.reseaux?.souterrains || []) if (x.id in r.reseaux) { x.visible = !!r.reseaux[x.id]; if (x.objet) x.objet.visible = x.visible; }

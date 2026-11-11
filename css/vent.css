@@ -68,3 +68,27 @@
 .panneau-vent .titre-action { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
 .panneau-vent .titre-action > h3 { margin-right: auto; }
 .panneau-vent .titre-action .titre-info { flex: 1; }
+
+/* Carte de chaleur du vent et animation (07/11/2026) */
+.panneau-vent .vent-bandeau { margin: 4px 0 6px; padding: 5px 8px; border-left: 3px solid #c0392b; background: #fbeee9; font-size: 12.5px; line-height: 1.35; color: var(--ardoise); }
+.panneau-vent .vent-bandeau strong { color: #a5281b; text-transform: uppercase; letter-spacing: 0.03em; font-size: 11.5px; }
+.panneau-vent .bloc-carte-vent { margin: 4px 0 8px; padding-left: 8px; border-left: 2px solid var(--trait); }
+.panneau-vent .bloc-carte-vent .ligne-valeur input { flex: 1; min-width: 0; margin-left: 8px; }
+.panneau-vent .anim-vent { min-height: 1.4em; font-variant-numeric: tabular-nums; color: var(--ardoise); }
+/* Emprise de la carte et haute résolution (07/11/2026) */
+.panneau-vent .emprise-vent { margin: 6px 0; }
+.panneau-vent .emprise-vent input[type=range] { width: 100%; }
+.panneau-vent .emprise-vent .case:has(input:disabled) { opacity: 0.6; }
+.panneau-vent .perf-vent { color: var(--ardoise); font-size: 0.85em; }
+.panneau-vent .perf-vent .bouton { margin-left: 4px; }
+/* Direction suivant la période (07/11/2026) */
+.panneau-vent .case-periode-vent { margin-top: 2px; }
+.panneau-vent .texte-periode-vent { margin: 2px 0 6px; padding: 3px 8px; border-left: 3px solid var(--ardoise); font-size: 12.5px; line-height: 1.35; }
+.panneau-vent .texte-periode-vent.manuel { border-left-color: #b97800; background: #fff6e3; }
+/* Hauteur du vent visualisé (07/11/2026) : boutons 1,5 / 5 / 10 / 25 / 50 m et hauteur libre (1-100 m) */
+.panneau-vent .hauteur-vent { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.panneau-vent .hauteur-vent .segment-vent { flex: 1 1 220px; }
+.panneau-vent .hauteur-vent .segment-vent button { padding: 4px 2px; white-space: nowrap; }
+.panneau-vent .hauteur-libre { display: flex; align-items: center; gap: 4px; font-size: 12.5px; color: var(--ardoise-doux); }
+.panneau-vent .hauteur-libre input { width: 4.2em; padding: 3px 4px; font: inherit; font-size: 13px; }
+.panneau-vent .note-hauteur-vent { margin: 2px 0 6px; padding: 3px 8px; border-left: 3px solid #2f4f6f; font-size: 12.5px; line-height: 1.35; min-height: 1.4em; }

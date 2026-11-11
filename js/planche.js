@@ -533,7 +533,8 @@ export function creerPlanche(app) {
   function calquesAnalyse() {
     const L = [];
     app.scene.traverseVisible((o) => {
-      if (!o.isMesh || o.geometry?.type !== 'PlaneGeometry' || !o.material?.map?.isDataTexture || !o.material.map.image?.data) return;
+      // userData.planAnalyse { width, height } : plan redécoupé par le relief (carte de chaleur du vent, 07/11/2026)
+      if (!o.isMesh || (o.geometry?.type !== 'PlaneGeometry' && !o.userData.planAnalyse) || !o.material?.map?.isDataTexture || !o.material.map.image?.data) return;
       L.push(o);
     });
     return L;
@@ -546,7 +547,7 @@ export function creerPlanche(app) {
       const c = document.createElement('canvas'); c.width = width; c.height = height;
       c.getContext('2d').putImageData(new ImageData(new Uint8ClampedArray(data.buffer.slice(data.byteOffset, data.byteOffset + width * height * 4)), width, height), 0, 0);
       m.getWorldPosition(v);
-      const { width: gw, height: gh } = m.geometry.parameters;
+      const { width: gw, height: gh } = m.userData.planAnalyse ?? m.geometry.parameters;
       o.push(`<image id="analyse-${xml(m.name || 'carte')}" x="${f2(Lm.cx + (v.x - gw / 2) * Lm.k)}" y="${f2(Lm.cy + (v.z - gh / 2) * Lm.k)}" width="${f2(gw * Lm.k)}" height="${f2(gh * Lm.k)}" preserveAspectRatio="none" style="image-rendering:pixelated" href="${c.toDataURL('image/png')}"/>`);
     }
     return o.join('');

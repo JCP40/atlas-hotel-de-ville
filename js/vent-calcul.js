@@ -1,4 +1,4 @@
-// Calcul simplifié du vent autour du bâti (2D, à hauteur de piéton), sans Three.js.
+// Calcul simplifié du vent autour du bâti (2D, à hauteur de piéton ; autres hauteurs : profil vertical, voir plus bas), sans Three.js.
 // Repris de la page « Vent autour de l'Hôtel de Ville de Nantes » : ce n'est pas un calcul de mécanique des fluides,
 // mais un écoulement potentiel qui contourne les bâtiments, plafonné, avec un sillage estimé sous le vent.
 // - grille de N × N cellules de H mètres, centrée sur le centre du projet (±336 m) ;
@@ -11,6 +11,7 @@
 export const N = 192; // cellules par côté
 export const H = 3.5; // taille d'une cellule (m)
 export const HALF = (N * H) / 2; // demi-emprise (m)
+const N0 = N, H0 = H, HALF0 = HALF;
 
 export const versCalcul = ([x, z]) => [x, -z];
 export const versAtlas = ([x, y]) => [x, -y];
@@ -84,19 +85,85 @@ function preparerArretes(b) {
 }
 
 // ------------------------------------------------------------------
+// Hauteur du vent visualisé (07/11/2026) : profil vertical et bâti « vu » à la hauteur z
+// ------------------------------------------------------------------
+// Estimation PÉDAGOGIQUE : le calcul reste un écoulement 2D (un plan horizontal à la hauteur z), corrigé par un profil vertical.
+// - Référence : le vent du panneau (vent libre de référence, 10 m). À 1,5 m (défaut, piéton), tout est inchangé : même bâti
+//   (base ≤ 2,5 m), mêmes hauteurs, aucun mélange, facteur 1 (non-régression : carte identique à la version précédente).
+// - Profil (EN 1991-1-4, § 4.3.2, catégorie de terrain IV, zone urbaine dense) : vm(z) = kr · ln(max(z, zmin) / z0) · vb,
+//   z0 = 1 m, zmin = 10 m ; rapporté à 10 m : facteurProfil(z) = ln(max(z, 10) / 1) / ln(10 / 1)
+//   → 1 jusqu'à 10 m (sous zmin, l'Eurocode garde la valeur de zmin : sous la canopée, c'est le bâti qui commande),
+//   1,40 à 25 m, 1,70 à 50 m, 2,00 à 100 m (une loi en puissance d'exposant 0,25 donnerait 1,26, 1,50, 1,78).
+// - Bâti à la hauteur z (filtrerHauteur) : seuls les volumes plus hauts que z et dont la base est sous z + 1 m font obstacle
+//   (à 1,5 m : base ≤ 2,5 m, comme avant) ; leur hauteur est ramenée à la part qui dépasse z (h − (z − 1,5)) : le sillage du
+//   calcul (6 h) et le sillage animé (3 h + 4 W, h ≥ 4 m) raccourcissent ou disparaissent quand z approche le sommet.
+// - Près du sommet des obstacles (poidsMelange) : vent = fz · [w · champ du solveur + (1 − w) · vent libre], ζ = z / H̄,
+//   H̄ = hauteur moyenne (réelle) des obstacles retenus à la hauteur z dans un carré de ±35 m :
+//   w = 1 − 0,85 · S((ζ − 0,5) / 0,5), S = lissage cubique : w = 1 si les obstacles voisins font plus de 2 z (le vent les
+//   contourne), 0,15 quand z atteint leur sommet (l'air passe surtout par-dessus : contournement et sillage atténués).
+//   Les bâtiments plus bas que z sont déjà retirés de la grille. Ce n'est pas un calcul 3D : pour cela, il faut une simulation CFD.
+export const HAUTEUR_PIETON = 1.5;
+export const PROFIL = { z0: 1, zmin: 10, zref: 10, norme: 'EN 1991-1-4, terrain IV' };
+export const facteurProfil = (z) => (z <= PROFIL.zmin ? 1 : Math.log(Math.max(z, PROFIL.zmin) / PROFIL.z0) / Math.log(PROFIL.zref / PROFIL.z0));
+export const MELANGE = { rayon: 35, zetaDebut: 0.5, zetaFin: 1, residu: 0.15 };
+
+// empreintes retenues pour le calcul à la hauteur z (mêmes objets à 1,5 m ; copies à hauteur réduite sinon)
+export function filtrerHauteur(empreintes, z = HAUTEUR_PIETON) {
+  if (z === HAUTEUR_PIETON) return empreintes.filter((e) => (e.base ?? 0) <= 2.5);
+  const reduction = Math.max(0, z - HAUTEUR_PIETON);
+  return empreintes.filter((e) => (e.base ?? 0) <= z + 1 && (e.hauteur ?? 0) > z)
+    .map((e) => ({ ...e, hauteur: e.hauteur - reduction }));
+}
+
+// poids du champ du solveur (1) face au vent libre (0) par cellule, à la hauteur z ; grille : grille du bâti à la hauteur z
+// (hauteurs réduites de z − 1,5 m par filtrerHauteur : hauteur réelle = hgt + z − 1,5)
+export function poidsMelange(grille, z) {
+  const W = new Float32Array(N * N).fill(1);
+  if (z <= HAUTEUR_PIETON) return W;
+  const { solid, hgt } = grille, M = MELANGE, reduction = z - HAUTEUR_PIETON;
+  const n1 = N + 1, S = new Float64Array(n1 * n1), C = new Float64Array(n1 * n1);
+  for (let j = 0; j < N; j++) {
+    let s = 0, c = 0;
+    for (let i = 0; i < N; i++) {
+      const k = j * N + i;
+      if (solid[k]) { s += hgt[k] + reduction; c++; }
+      S[(j + 1) * n1 + i + 1] = S[j * n1 + i + 1] + s;
+      C[(j + 1) * n1 + i + 1] = C[j * n1 + i + 1] + c;
+    }
+  }
+  const r = Math.round(M.rayon / H);
+  for (let j = 0; j < N; j++) {
+    const j0 = Math.max(0, j - r), j1 = Math.min(N, j + r + 1);
+    for (let i = 0; i < N; i++) {
+      const i0 = Math.max(0, i - r), i1 = Math.min(N, i + r + 1);
+      const c = C[j1 * n1 + i1] - C[j0 * n1 + i1] - C[j1 * n1 + i0] + C[j0 * n1 + i0];
+      const s = S[j1 * n1 + i1] - S[j0 * n1 + i1] - S[j1 * n1 + i0] + S[j0 * n1 + i0];
+      if (!c) continue; // aucun obstacle proche : le solveur donne déjà le vent libre
+      const zeta = z / (s / c);
+      const t = Math.max(0, Math.min(1, (zeta - M.zetaDebut) / (M.zetaFin - M.zetaDebut)));
+      W[j * N + i] = 1 - (1 - M.residu) * t * t * (3 - 2 * t);
+    }
+  }
+  return W;
+}
+
+// ------------------------------------------------------------------
 // Grille du bâti (partagée entre plusieurs solveurs)
 // ------------------------------------------------------------------
 
-export function creerGrille(batiments) {
+// options (07/11/2026, sillage fin) : grille de n × n cellules de h mètres dont le coin sud-ouest est en (x0, y0) ;
+// par défaut la grille du calcul (N, H, ±HALF). Sert aussi à la grille fine (1,75 m) de la carte en haute résolution.
+export function creerGrille(batiments, { n: N = N0, h: H = H0, x0 = -HALF0, y0 = -HALF0 } = {}) {
   const solid = new Uint8Array(N * N);
   const hgt = new Float32Array(N * N);
   const dt = new Float32Array(N * N); // distance au bâtiment le plus proche (m)
 
   // rastérisation d'un polygone à trous (règle pair-impair)
-  function remplir(rings, h) {
+  const ids = new Int32Array(N * N).fill(-1); // bâtiment le plus haut de chaque cellule (sillage animé)
+  function remplir(rings, h, id) {
     let minY = Infinity, maxY = -Infinity;
     const gr = rings.map((ring) => ring.map((p) => {
-      const gx = (p[0] + HALF) / H, gy = (p[1] + HALF) / H;
+      const gx = (p[0] - x0) / H, gy = (p[1] - y0) / H;
       minY = Math.min(minY, gy); maxY = Math.max(maxY, gy);
       return [gx, gy];
     }));
@@ -115,12 +182,12 @@ export function creerGrille(batiments) {
         for (let i = i0; i <= i1; i++) {
           const k = j * N + i;
           solid[k] = 1;
-          if (h > hgt[k]) hgt[k] = h;
+          if (h > hgt[k] || ids[k] < 0) { hgt[k] = Math.max(h, hgt[k]); ids[k] = id; }
         }
       }
     }
   }
-  for (const b of batiments) remplir(b.r, b.h);
+  batiments.forEach((b, id) => remplir(b.r, b.h, id));
 
   // transformée de distance (chanfrein 1 / √2), en mètres
   const INF = 1e6, d1 = 1, d2 = Math.SQRT2;
@@ -146,11 +213,11 @@ export function creerGrille(batiments) {
   for (let k = 0; k < N * N; k++) dt[k] *= H;
 
   const indice = (x, y) => {
-    const i = Math.floor((x + HALF) / H), j = Math.floor((y + HALF) / H);
+    const i = Math.floor((x - x0) / H), j = Math.floor((y - y0) / H);
     return i < 0 || j < 0 || i >= N || j >= N ? -1 : j * N + i;
   };
   return {
-    solid, hgt, dt, batiments, indice,
+    solid, hgt, dt, ids, batiments, indice, n: N, h: H, x0, y0,
     estPlein(x, y) { const k = indice(x, y); return k < 0 || solid[k] === 1; },
     hauteur(x, y) { const k = indice(x, y); return k < 0 ? 1e3 : (solid[k] ? hgt[k] : 0); },
   };
@@ -160,8 +227,11 @@ export function creerGrille(batiments) {
 // Solveur : champ de vent pour une direction (d'où vient le vent, degrés depuis le nord) et une vitesse (m/s)
 // ------------------------------------------------------------------
 
+// fenetre (07/11/2026) : { i0, i1, j0, j1 } (bornes comprises) : le calcul se limite à ce carré de cellules
+// (emprise réduite de la carte dynamique), bords traités comme ceux de la grille ; hors fenêtre : vent libre.
 export function creerSolveur(grille) {
   const { solid, hgt } = grille;
+  const N = grille.n ?? N0, H = grille.h ?? H0;
   const U = new Float32Array(N * N); // composante est
   const V = new Float32Array(N * N); // composante nord
   const D = new Float32Array(N * N);
@@ -169,16 +239,19 @@ export function creerSolveur(grille) {
   const PB = new Float32Array(N * N);
   const etat = { direction: null, vitesse: null };
 
-  function resoudre(direction, vitesse) {
+  // calcul découpé en lots d'itérations (générateur) : la bibliothèque des directions se calcule sans bloquer l'affichage
+  function* etapes(direction, vitesse, lot = 350, { fenetre = null, iterations = 350 } = {}) {
     const th = (direction * Math.PI) / 180;
     const u0 = -vitesse * Math.sin(th), v0 = -vitesse * Math.cos(th);
     const n = N * N;
+    const I0 = fenetre ? Math.max(0, fenetre.i0) : 0, I1 = fenetre ? Math.min(N - 1, fenetre.i1) : N - 1;
+    const J0 = fenetre ? Math.max(0, fenetre.j0) : 0, J1 = fenetre ? Math.min(N - 1, fenetre.j1) : N - 1;
     for (let k = 0; k < n; k++) {
       if (solid[k]) { U[k] = 0; V[k] = 0; } else { U[k] = u0; V[k] = v0; }
     }
     // divergence du champ uniforme tronqué par les bâtiments
-    for (let j = 1; j < N - 1; j++) {
-      for (let i = 1; i < N - 1; i++) {
+    for (let j = J0 + 1; j < J1; j++) {
+      for (let i = I0 + 1; i < I1; i++) {
         const k = j * N + i;
         D[k] = solid[k] ? 0 : (U[k + 1] - U[k - 1] + V[k + N] - V[k - N]) / (2 * H);
       }
@@ -186,9 +259,9 @@ export function creerSolveur(grille) {
     PA.fill(0); PB.fill(0);
     let a = PA, b = PB;
     const hh = H * H;
-    for (let it = 0; it < 350; it++) {
-      for (let j = 1; j < N - 1; j++) {
-        for (let i = 1; i < N - 1; i++) {
+    for (let it = 0; it < iterations; it++) {
+      for (let j = J0 + 1; j < J1; j++) {
+        for (let i = I0 + 1; i < I1; i++) {
           const k = j * N + i;
           if (solid[k]) { b[k] = a[k]; continue; }
           const pl = solid[k - 1] ? a[k] : a[k - 1];
@@ -198,14 +271,15 @@ export function creerSolveur(grille) {
           b[k] = (pl + pr + pd + pu - D[k] * hh) * 0.25;
         }
       }
-      for (let i = 0; i < N; i++) { b[i] = b[i + N]; b[(N - 1) * N + i] = b[(N - 2) * N + i]; }
-      for (let j = 0; j < N; j++) { b[j * N] = b[j * N + 1]; b[j * N + N - 1] = b[j * N + N - 2]; }
+      for (let i = I0; i <= I1; i++) { b[J0 * N + i] = b[(J0 + 1) * N + i]; b[J1 * N + i] = b[(J1 - 1) * N + i]; }
+      for (let j = J0; j <= J1; j++) { b[j * N + I0] = b[j * N + I0 + 1]; b[j * N + I1] = b[j * N + I1 - 1]; }
       const t = a; a = b; b = t;
+      if ((it + 1) % lot === 0 && it < iterations - 1) yield it + 1;
     }
     // projection : on retire le gradient de pression, vitesse plafonnée à 2,5 fois le vent libre
     const cap = vitesse * 2.5;
-    for (let j = 1; j < N - 1; j++) {
-      for (let i = 1; i < N - 1; i++) {
+    for (let j = J0 + 1; j < J1; j++) {
+      for (let i = I0 + 1; i < I1; i++) {
         const k = j * N + i;
         if (solid[k]) continue;
         const pl = solid[k - 1] ? a[k] : a[k - 1];
@@ -222,8 +296,8 @@ export function creerSolveur(grille) {
     const sp = Math.hypot(u0, v0) || 1;
     const ux = -u0 / sp, uy = -v0 / sp; // direction amont
     const pas = Math.ceil(90 / H);
-    for (let j = 1; j < N - 1; j++) {
-      for (let i = 1; i < N - 1; i++) {
+    for (let j = J0 + 1; j < J1; j++) {
+      for (let i = I0 + 1; i < I1; i++) {
         const k = j * N + i;
         if (solid[k]) { U[k] = 0; V[k] = 0; continue; }
         let abri = 0;
@@ -240,26 +314,232 @@ export function creerSolveur(grille) {
         if (abri > 0) { U[k] *= 1 - abri; V[k] *= 1 - abri; }
       }
     }
-    for (let i = 0; i < N; i++) {
-      for (const k of [i, (N - 1) * N + i, i * N, i * N + N - 1]) { U[k] = u0; V[k] = v0; }
-    }
+    for (let i = I0; i <= I1; i++) for (const k of [J0 * N + i, J1 * N + i]) { U[k] = u0; V[k] = v0; }
+    for (let j = J0; j <= J1; j++) for (const k of [j * N + I0, j * N + I1]) { U[k] = u0; V[k] = v0; }
     etat.direction = direction;
     etat.vitesse = vitesse;
   }
 
-  // vitesse bilinéaire en (x, y) du calcul ; renvoie false hors de la grille
-  function echantillon(x, y, out) {
-    const gx = (x + HALF) / H - 0.5, gy = (y + HALF) / H - 0.5;
-    if (gx < 0 || gy < 0 || gx >= N - 1 || gy >= N - 1) return false;
-    const i = Math.floor(gx), j = Math.floor(gy), fx = gx - i, fy = gy - j;
-    const k = j * N + i;
-    const w00 = (1 - fx) * (1 - fy), w10 = fx * (1 - fy), w01 = (1 - fx) * fy, w11 = fx * fy;
-    out[0] = U[k] * w00 + U[k + 1] * w10 + U[k + N] * w01 + U[k + N + 1] * w11;
-    out[1] = V[k] * w00 + V[k + 1] * w10 + V[k + N] * w01 + V[k + N + 1] * w11;
-    return true;
+  function resoudre(direction, vitesse) {
+    const g = etapes(direction, vitesse);
+    while (!g.next().done);
   }
 
-  return { resoudre, echantillon, U, V, etat };
+  // vitesse bilinéaire en (x, y) du calcul ; renvoie false hors de la grille
+  const echantillon = (x, y, out) => echantillonChamp(U, V, x, y, out);
+
+  return { resoudre, etapes, echantillon, U, V, etat };
+}
+
+// vitesse bilinéaire en (x, y) du calcul dans un champ (U, V) de N × N cellules ; false hors de la grille
+export function echantillonChamp(U, V, x, y, out) {
+  const gx = (x + HALF) / H - 0.5, gy = (y + HALF) / H - 0.5;
+  if (gx < 0 || gy < 0 || gx >= N - 1 || gy >= N - 1) return false;
+  const i = Math.floor(gx), j = Math.floor(gy), fx = gx - i, fy = gy - j;
+  const k = j * N + i;
+  const w00 = (1 - fx) * (1 - fy), w10 = fx * (1 - fy), w01 = (1 - fx) * fy, w11 = fx * fy;
+  out[0] = U[k] * w00 + U[k + 1] * w10 + U[k + N] * w01 + U[k + N + 1] * w11;
+  out[1] = V[k] * w00 + V[k + 1] * w10 + V[k + N] * w01 + V[k + N + 1] * w11;
+  return true;
+}
+
+// ------------------------------------------------------------------
+// Bibliothèque de champs par direction (carte de chaleur dynamique, animation ; 07/11/2026)
+// ------------------------------------------------------------------
+// Le calcul est LINÉAIRE en vitesse (champ uniforme × vitesse, plafond 2,5 × vitesse, sillage multiplicatif) :
+// un champ calculé pour 1 m/s, multiplié par la vitesse, donne exactement le champ de cette vitesse.
+// On calcule donc une fois les champs de n directions (24 par défaut, tous les 15°) pour 1 m/s, par lots
+// d'itérations (avancer(budget) : quelques ms par image), puis pour une direction quelconque on mélange
+// les deux directions voisines : norme = moyenne pondérée des normes, sens = moyenne pondérée des vecteurs.
+// Écart avec un calcul direct au pire angle (7,5° des deux voisines), bâti réel de l'atlas (1 201 bâtiments, cercle de 300 m) :
+// 0,04 fois le vent libre en moyenne, 1,6 à 3,4 % des mailles au-delà de 0,25 (bords de sillage) ; avec 16 directions : ≈ 0,08.
+// Calcul : ≈ 0,13 s par direction (24 directions ≈ 3 s, réparties sur les images, 8 ms par image) ; mélange : ≈ 1,2 ms.
+export const SECTEURS_BIBLIO = 24;
+const ecartAngle = (a, b) => { const d = Math.abs((((a - b) % 360) + 360) % 360); return Math.min(d, 360 - d); };
+
+// Emprise réduite (07/11/2026) : fenetre { i0, i1, j0, j1 } de la grille, seule calculée et seule interpolée
+// (hors fenêtre : vent libre) ; iterations : itérations de Jacobi (grille fine : davantage, la pression se propage moins vite).
+// Grille quelconque (grille.n, grille.h) : bibliothèque fine de la haute résolution.
+export function creerBibliotheque(grille, n = SECTEURS_BIBLIO, { fenetre = null, iterations = 350 } = {}) {
+  const solveur = creerSolveur(grille);
+  const NG = grille.n ?? N, NN = NG * NG;
+  const F = fenetre
+    ? { i0: Math.max(0, fenetre.i0), i1: Math.min(NG - 1, fenetre.i1), j0: Math.max(0, fenetre.j0), j1: Math.min(NG - 1, fenetre.j1) }
+    : { i0: 0, i1: NG - 1, j0: 0, j1: NG - 1 };
+  const U = new Array(n), V = new Array(n), M = new Array(n);
+  const pret = new Uint8Array(n);
+  let nbPrets = 0, enCours = null, duree = 0, libere = false;
+  const pas = 360 / n;
+
+  // avance le calcul pendant budget ms au plus ; preferee : direction à calculer d'abord (la plus proche)
+  function avancer(budget = 8, preferee = 0) {
+    if (libere) return false;
+    const t0 = performance.now();
+    while (nbPrets < n && performance.now() - t0 < budget) {
+      if (!enCours) {
+        let k = -1, dmin = 1e9;
+        for (let i = 0; i < n; i++) if (!pret[i]) { const d = ecartAngle(i * pas, preferee); if (d < dmin) { dmin = d; k = i; } }
+        enCours = { k, gen: solveur.etapes(k * pas, 1, 20, { fenetre: F, iterations }) };
+      }
+      if (enCours.gen.next().done) {
+        const k = enCours.k;
+        U[k] = Float32Array.from(solveur.U);
+        V[k] = Float32Array.from(solveur.V);
+        const m = new Float32Array(NN);
+        for (let i = 0; i < NN; i++) m[i] = Math.hypot(U[k][i], V[k][i]);
+        M[k] = m;
+        pret[k] = 1; nbPrets++; enCours = null;
+      }
+    }
+    duree += performance.now() - t0;
+    return nbPrets === n;
+  }
+
+  // champ interpolé pour (direction, vitesse) dans sortie { U, V, M } (Float32Array N × N) ;
+  // renvoie { k0, k1, t, exact } ou null si aucune direction n'est encore prête
+  function interpoler(direction, vitesse, sortie) {
+    if (!nbPrets) return null;
+    const a = ((((direction % 360) + 360) % 360) / pas);
+    let k0 = Math.floor(a) % n, k1 = (k0 + 1) % n, t = a - Math.floor(a);
+    if (!pret[k0] || !pret[k1]) {
+      if (pret[k0]) { t = 0; k1 = k0; } else if (pret[k1]) { t = 1; k0 = k1; }
+      else { // direction la plus proche déjà calculée
+        let dmin = 1e9;
+        for (let i = 0; i < n; i++) if (pret[i]) { const d = ecartAngle(i * pas, direction); if (d < dmin) { dmin = d; k0 = i; } }
+        k1 = k0; t = 0;
+      }
+    }
+    const u0 = U[k0], v0 = V[k0], m0 = M[k0], u1 = U[k1], v1 = V[k1], m1 = M[k1], s = 1 - t;
+    const SU = sortie.U, SV = sortie.V, SM = sortie.M;
+    // hors fenêtre : vent libre de la direction demandée (rempli une fois par appel, sans racine carrée)
+    if (fenetre) {
+      const th = (direction * Math.PI) / 180, uu = -vitesse * Math.sin(th), vv = -vitesse * Math.cos(th);
+      for (let j = 0; j < NG; j++) {
+        const dedans = j >= F.j0 && j <= F.j1;
+        for (let i = 0; i < NG; i++) {
+          if (dedans && i === F.i0) { i = F.i1; continue; }
+          const k = j * NG + i;
+          SU[k] = uu; SV[k] = vv; SM[k] = vitesse;
+        }
+      }
+    }
+    for (let j = F.j0; j <= F.j1; j++) {
+      for (let i = j * NG + F.i0, fin = j * NG + F.i1; i <= fin; i++) {
+        const m = (s * m0[i] + t * m1[i]) * vitesse;
+        const u = s * u0[i] + t * u1[i], v = s * v0[i] + t * v1[i], l = Math.hypot(u, v);
+        const f = l > 1e-6 ? m / l : 0;
+        SU[i] = u * f; SV[i] = v * f; SM[i] = m;
+      }
+    }
+    return { k0, k1, t, approche: !(pret[Math.floor(a) % n] && pret[(Math.floor(a) + 1) % n]) };
+  }
+
+  return {
+    n, avancer, interpoler, fenetre: F, grille,
+    get prets() { return nbPrets; },
+    get complet() { return nbPrets === n; },
+    get duree() { return duree; }, // temps de calcul cumulé (ms)
+    // libère les champs (changement d'emprise ou de résolution)
+    liberer() { U.fill(null); V.fill(null); M.fill(null); pret.fill(0); nbPrets = 0; enCours = null; libere = true; },
+  };
+}
+
+// ------------------------------------------------------------------
+// Sillage animé (représentation QUALITATIVE, pas un calcul instationnaire ; 07/11/2026, affiné le 07/11/2026)
+// ------------------------------------------------------------------
+// Pour une direction, chaque cellule libre de la grille du calcul reçoit le bâtiment « propriétaire » de sa perturbation :
+// - sous le vent : premier bâtiment rencontré en remontant le vent (h ≥ 4 m), si la cellule est à moins de Lw de sa face arrière ;
+// - flancs et bords du sillage : dilatation (passes de 8-voisinage) depuis le bâtiment et son sillage, dans un cône
+//   |n| ≤ W/2 + 10 m + 0,16 s, à partir de 3 m + 0,15 W en amont de la face au vent (angles de la face au vent, couches de cisaillement) ;
+// - atténuation au bord de chaque zone (att : 0 sur la cellule du bord, 1 à deux cellules à l'intérieur).
+// Par bâtiment : W largeur vue du vent, cm milieu transversal, f0 / f1 abscisses des faces au vent / sous le vent,
+// Lw = min(150, 3 h + 4 W), graine (phase propre). La perturbation elle-même (allée de tourbillons de Lamb-Oseen alternés,
+// couches de cisaillement ondulées, survitesses d'angle) est évaluée à chaque pixel par le shader de js/vent.js, avec ces données.
+// fenetre { i0, i1, j0, j1 } : seules ces cellules sont traitées (emprise réduite).
+export const CONE_SILLAGE = { marge: 10, ouverture: 0.16, amont: 3, amontW: 0.15, passes: 7 };
+export function preparerSillages(grille, direction, fenetre = null) {
+  const { solid, ids, batiments: B } = grille;
+  const th = (direction * Math.PI) / 180;
+  const ux = Math.sin(th), uy = Math.cos(th); // vers l'amont
+  const fx = -ux, fy = -uy, cx = -fy, cy = fx;
+  const P = B.map((b, i) => {
+    const ring = b.r[0];
+    let c0 = 1e9, c1 = -1e9, f0 = 1e9, f1 = -1e9;
+    for (let k = 0; k < ring.length - 1; k++) {
+      const c = ring[k][0] * cx + ring[k][1] * cy, f = ring[k][0] * fx + ring[k][1] * fy;
+      c0 = Math.min(c0, c); c1 = Math.max(c1, c); f0 = Math.min(f0, f); f1 = Math.max(f1, f);
+    }
+    const W = Math.max(c1 - c0, 4);
+    // graine stable par bâtiment (position) : phases des tourbillons décalées d'un bâtiment à l'autre
+    const graine = (((Math.sin(b.cx * 12.9898 + b.cy * 78.233) * 43758.5453) % 1) + 1) % 1;
+    return { cm: (c0 + c1) / 2, W, f0, f1, Lw: Math.min(150, 3 * b.h + 4 * W), h: b.h, graine, i };
+  });
+  const I0 = fenetre ? Math.max(1, fenetre.i0) : 1, I1 = fenetre ? Math.min(N - 2, fenetre.i1) : N - 2;
+  const J0 = fenetre ? Math.max(1, fenetre.j0) : 1, J1 = fenetre ? Math.min(N - 2, fenetre.j1) : N - 2;
+  const bat = new Int32Array(N * N).fill(-1);
+  const eligible = (bi) => bi >= 0 && P[bi].h >= 4;
+  const pas = Math.ceil(150 / H);
+  const xc = (i) => i * H - HALF + H / 2;
+  for (let j = J0; j <= J1; j++) for (let i = I0; i <= I1; i++) {
+    const k = j * N + i;
+    if (solid[k]) { if (eligible(ids[k])) bat[k] = ids[k]; continue; } // germes des flancs
+    for (let st = 1; st <= pas; st++) {
+      const si = Math.round(i + ux * st), sj = Math.round(j + uy * st);
+      if (si < 0 || sj < 0 || si >= N || sj >= N) break;
+      const kk = sj * N + si;
+      if (!solid[kk]) continue;
+      const bi = ids[kk];
+      if (eligible(bi)) {
+        const sd = xc(i) * fx + xc(j) * fy - P[bi].f1;
+        if (sd < P[bi].Lw) bat[k] = bi;
+      }
+      break;
+    }
+  }
+  // dilatation dans le cône de chaque bâtiment (bords du sillage, flancs, angles au vent)
+  const C = CONE_SILLAGE;
+  const dans = (bi, x, y) => {
+    const p = P[bi], f = x * fx + y * fy, sl = f - p.f1, n = Math.abs(x * cx + y * cy - p.cm);
+    return f - p.f0 >= -(C.amont + C.amontW * p.W) && sl < p.Lw && n <= p.W / 2 + C.marge + C.ouverture * Math.max(0, sl);
+  };
+  const VOIS = [-1, 1, -N, N, -N - 1, -N + 1, N - 1, N + 1];
+  let src = bat, dst = new Int32Array(bat);
+  for (let passe = 0; passe < C.passes; passe++) {
+    let change = false;
+    for (let j = J0; j <= J1; j++) for (let i = I0; i <= I1; i++) {
+      const k = j * N + i;
+      if (src[k] >= 0 || solid[k]) continue;
+      const x = xc(i), y = xc(j);
+      let choix = -1, smin = 1e9;
+      for (const d of VOIS) {
+        const bi = src[k + d];
+        if (bi < 0 || bi === choix) continue;
+        if (!dans(bi, x, y)) continue;
+        const sl = x * fx + y * fy - P[bi].f1; // le plus proche sous le vent l'emporte
+        if (sl < smin) { smin = sl; choix = bi; }
+      }
+      if (choix >= 0) { dst[k] = choix; change = true; }
+    }
+    if (!change) break;
+    src.set(dst);
+  }
+  // atténuation au bord de chaque zone (0 sur la dernière cellule, 1 à deux cellules à l'intérieur) : la perturbation
+  // s'éteint avant la limite de la zone, sans marche quand le shader mélange les cellules voisines
+  const niv = new Uint8Array(N * N).fill(255), att = new Float32Array(N * N);
+  for (let j = J0; j <= J1; j++) for (let i = I0; i <= I1; i++) {
+    const k = j * N + i, o = src[k];
+    if (o < 0) continue;
+    for (const d of VOIS) if (src[k + d] !== o) { niv[k] = 0; break; }
+  }
+  for (let L = 1; L <= 2; L++) {
+    for (let j = J0; j <= J1; j++) for (let i = I0; i <= I1; i++) {
+      const k = j * N + i;
+      if (src[k] < 0 || niv[k] !== 255) continue;
+      for (const d of VOIS) if (niv[k + d] === L - 1 && src[k + d] === src[k]) { niv[k] = L; break; }
+    }
+  }
+  for (let k = 0; k < N * N; k++) if (src[k] >= 0) att[k] = Math.min(2, niv[k]) / 2;
+  return { bat: src, att, P, fx, fy, cx, cy, direction };
 }
 
 // ------------------------------------------------------------------
@@ -569,7 +849,10 @@ export async function rapportsSecteurs(grille, { journal = () => {}, attendre = 
   for (let d = 0; d < 12; d++) {
     journal(`Vent du secteur ${d * 30}° (${d + 1} sur 12)…`);
     await attendre();
-    solveur.resoudre(d * 30, 1);
+    // par lots (≤ 25 ms d'affilée, 07/11/2026) : plus de blocage de 0,12 s par secteur
+    const gen = solveur.etapes(d * 30, 1, 10);
+    let t = performance.now();
+    while (!gen.next().done) if (performance.now() - t > 25) { await attendre(); t = performance.now(); }
     const arr = new Float32Array(NC * NC);
     for (let j = 0; j < NC; j++) for (let i = 0; i < NC; i++) {
       const x = -CHALF + (i + 0.5) * CH, z = -CHALF + (j + 0.5) * CH;
