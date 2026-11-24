@@ -22,6 +22,7 @@ const ICONES = {
   trajets: '<circle cx="6" cy="19" r="2"/><circle cx="18" cy="5" r="2"/><path d="M8 19h7a3 3 0 0 0 0-6H9a3 3 0 0 1 0-6h7"/>',
   bati: '<path d="M4 21V8l6-4 6 4v13"/><path d="M16 11h4v10"/><path d="M2 21h20"/><path d="M8 10h4M8 14h4M8 18h4"/>',
   hauteurs: '<path d="M4 21V9h7v12"/><path d="M2 21h20"/><path d="M17 3v18M14.5 5.5 17 3l2.5 2.5M14.5 18.5 17 21l2.5-2.5"/>',
+  'calage-facades': '<path d="M3 21h18"/><path d="M5 21V6h14v15"/><path d="M8 9h3v3H8zM13 9h3v3h-3zM8 15h3v3H8z"/><path d="M13.5 17.5 21 10M18 10h3v3"/>',
   projet: '<path d="M4 21V10l6-4 6 4v11"/><path d="M2 21h20"/><path d="M8 21v-5h4v5"/><path d="M19 2v6M16 5h6"/>',
   exporter: '<path d="M12 4v11"/><path d="m7.5 10.5 4.5 4.5 4.5-4.5"/><path d="M5 19h14"/>',
   relief: '<path d="M2 19 8 9l4 6 3-4 7 8Z"/><path d="M6.5 12.5 8 14l1.5-1.5"/>',
@@ -89,8 +90,8 @@ export function creerInterface(app) {
   }
 
   // Outils jamais ouverts d'office par un clic sur l'onglet : capture au sol ou mode de saisie dès l'ouverture
-  // (Hauteurs, Projet, Centre, Relevé, Observateur, Parcours) ; l'onglet ouvre alors le premier outil « panneau simple ».
-  const PAS_D_OFFICE = new Set(['hauteurs', 'projet', 'centre', 'releve', 'observateur', 'parcours']);
+  // (Hauteurs, Calage des façades, Projet, Centre, Relevé, Observateur, Parcours) ; l'onglet ouvre alors le premier outil « panneau simple ».
+  const PAS_D_OFFICE = new Set(['hauteurs', 'calage-facades', 'projet', 'centre', 'releve', 'observateur', 'parcours']);
   function premierOutil(id) {
     const liste = outilsDuGroupe(id);
     // Ambiance : l'analyse affichée (js/ambiances.js) est rouverte plutôt qu'effacée par Soleil

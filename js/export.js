@@ -62,7 +62,7 @@ const horodatage = () => {
 };
 
 export function creerExport(app) {
-  const reglages = { echelle: 2, legendes: true, format3D: 'glb', etendue: 'plateau', coords: 'lambert93', etendueDXF: 'perimetre', relief: false, vent: true, demolis3D: false, secteursMeteo: 16 };
+  const reglages = { echelle: 2, legendes: true, format3D: 'rhino', etendue: 'plateau', coords: 'lambert93', etendueDXF: 'perimetre', relief: false, vent: true, demolis3D: false, secteursMeteo: 16 };
   const ui = {};
   const rayon = (etendue) => (etendue === 'plateau' ? app.config.rayonPlateau : app.config.rayonEtude);
   const visibleDansScene = (o) => { for (let v = o; v; v = v.parent) if (!v.visible) return false; return true; };
@@ -205,7 +205,7 @@ export function creerExport(app) {
     const poser = (g, x, z) => (relief ? g.translate(0, dz(x, z), 0) : g);
     const scene = new THREE.Scene();
     const mat = (nom, couleur, options = {}) => new THREE.MeshStandardMaterial({ name: nom, color: couleur, roughness: 0.9, metalness: 0, ...options });
-    const ajouter = (nom, geos, materiau) => {
+    const ajouter = (nom, geos, materiau, calque = nom, extra = {}) => {
       const liste = geos.filter((g) => g && g.getAttribute('position')?.count);
       if (!liste.length) return;
       // attributs communs à toutes les géométries du lot
@@ -213,12 +213,19 @@ export function creerExport(app) {
       for (const g of liste) for (const a of Object.keys(g.attributes)) if (!communs.includes(a)) g.deleteAttribute(a);
       const m = new THREE.Mesh(mergeGeometries(liste, false), materiau);
       m.name = nom;
+      m.userData = { calque, ...extra };
       scene.add(m);
     };
+    // identifiant d'un bâtiment : osm / id_ign, sinon centre géographique g<lat>,<lon> (comme les démolitions)
+    const idBatiment = (e) => { if (e.id) return String(e.id); const p = app.proj.versGeo(e.cx, e.cz); return `g${p.lat.toFixed(6)},${p.lon.toFixed(6)}`; };
+    const r2 = (v) => (Number.isFinite(v) ? v.toFixed(2) : '');
+    const fiches = new Map(); // façade (id) → bâtiment qui la porte
 
-    // Bâti existant, bâtiment par bâtiment (couleurs PSMV comprises si elles sont affichées)
+    // Bâti existant : un objet par bâtiment, nommé <id>__<nom>, avec ses attributs (texte d'attribut dans Rhino,
+    // « extras » dans le GLB) ; couleurs PSMV comprises si elles sont affichées
     const colores = !!app.couches.batimentsPSMV;
-    const bati = [];
+    const matBati = mat('Bati', 0xf7f6f2, { vertexColors: colores });
+    const metaFacades = new Map((app.toits?.ensembles || []).flatMap((x) => x.facades?.facades || []).map((f) => [f.id, f]));
     for (const e of app.empreintes || []) {
       if (!e.mesh || !visibleDansScene(e.mesh) || !dedans(e.cx, e.cz)) continue;
       const src = e.mesh.geometry;
@@ -231,24 +238,64 @@ export function creerExport(app) {
       e.mesh.updateWorldMatrix(true, false);
       g.applyMatrix4(e.mesh.matrixWorld);
       if (!colores) g.deleteAttribute('color');
-      bati.push(poser(g, e.cx, e.cz));
+      poser(g, e.cx, e.cz);
+      if (!g.getAttribute('position')?.count) continue;
+      const id = idBatiment(e);
+      const geoPt = app.proj.versGeo(e.cx, e.cz);
+      const [X, Y] = versLambert93(geoPt.lat, geoPt.lon);
+      const facades = (e.facades || []).filter((f) => f.userData.facadePhoto && f.visible && f.material.map?.image).map((f) => f.userData.facadePhoto);
+      for (const f of facades) { if (!fiches.has(f)) fiches.set(f, []); fiches.get(f).push({ id, nom: e.nom || '' }); }
+      const m = new THREE.Mesh(g, matBati);
+      m.name = `${id}__${e.nom || 'sans nom'}`;
+      m.userData = {
+        calque: 'Bati existant',
+        attributs: {
+          type: e.detail ? 'batiment detaille' : e.rem ? 'batiment remarquable' : 'batiment',
+          atlas_id: id, nom: e.nom || 'sans nom', hauteur_m: r2(e.hauteur), base_m: r2(e.base ?? 0),
+          x_local_m: r2(e.cx), y_local_m: r2(-e.cz), L93_x: X.toFixed(2), L93_y: Y.toFixed(2),
+          detaille: e.detail ? 'oui' : 'non',
+          corps: (e.detail?.corps || []).map((c) => c.id).join(';'),
+          facades: facades.join(';'),
+        },
+      };
+      scene.add(m);
     }
-    ajouter('Bati existant', bati, mat('Bati', 0xf7f6f2, { vertexColors: colores }));
 
-    // Photos de façade (js/toits.js) : un objet texturé par façade, posé sur le mur (GLB : texture incluse ;
-    // OBJ : archive ZIP avec le MTL et les JPEG des façades)
-    {
-      for (const e of app.empreintes || []) {
-        if (!e.mesh || !e.detail || !visibleDansScene(e.mesh) || !dedans(e.cx, e.cz)) continue;
-        for (const c of e.mesh.children) {
-          if (!c.userData.facadePhoto || !c.visible || !c.material.map?.image) continue;
-          c.updateWorldMatrix(true, false);
-          const g = poser(c.geometry.clone().applyMatrix4(c.matrixWorld), e.cx, e.cz);
-          const m = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ name: `Facade ${c.userData.facadePhoto}`, map: c.material.map, roughness: 0.9, metalness: 0 }));
-          m.name = `Facade photo ${c.userData.facadePhoto}`;
-          scene.add(m);
-        }
+    // Photos de façade (js/toits.js) : un objet texturé par façade, nommé facade__<id>, posé sur le mur ; une façade
+    // portée par plusieurs bâtiments (îlots découpés) est réunie en un seul objet
+    // (GLB : texture incluse ; OBJ : archive ZIP avec le MTL et les JPEG ; Rhino : coordonnées de texture seules)
+    const morceaux = new Map(); // id de façade → { geos, map }
+    for (const e of app.empreintes || []) {
+      if (!e.mesh || !e.detail || !visibleDansScene(e.mesh) || !dedans(e.cx, e.cz)) continue;
+      for (const c of e.mesh.children) {
+        if (!c.userData.facadePhoto || !c.visible || !c.material.map?.image) continue;
+        c.updateWorldMatrix(true, false);
+        const fid = c.userData.facadePhoto;
+        if (!morceaux.has(fid)) morceaux.set(fid, { geos: [], map: c.material.map, batiments: [] });
+        const mc = morceaux.get(fid);
+        mc.geos.push(poser(c.geometry.clone().applyMatrix4(c.matrixWorld), e.cx, e.cz));
+        if (!fiches.has(fid)) mc.batiments.push({ id: idBatiment(e), nom: e.nom || '' });
       }
+    }
+    for (const [fid, { geos, map, batiments }] of morceaux) {
+      const g = geos.length > 1 ? mergeGeometries(geos.map((x) => (x.index ? x.toNonIndexed() : x)), false) : geos[0];
+      if (!g) continue;
+      const m = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ name: `Facade ${fid}`, map, roughness: 0.9, metalness: 0 }));
+      m.name = `facade__${fid}`;
+      const f = metaFacades.get(fid) || {};
+      const bats = fiches.get(fid) || batiments;
+      const [gx, gz] = f.gauche || [NaN, NaN], [dx, dz] = f.droite || [NaN, NaN];
+      m.userData = {
+        calque: 'Facades photo',
+        attributs: {
+          type: 'facade photo', facade_id: fid, batiment_id: bats.map((b) => b.id).join(';'), batiment_nom: [...new Set(bats.map((b) => b.nom).filter(Boolean))].join(';'),
+          rue: f.rue || '', corps: [].concat(f.corps || []).join(';'), normale_az_deg: f.normale_az ?? '', hauteur_m: r2(f.hauteur_m),
+          longueur_m: r2(Math.hypot(dx - gx, dz - gz)),
+          gauche_x: r2(gx), gauche_y: r2(-gz), droite_x: r2(dx), droite_y: r2(-dz),
+          image: f.image || '', source: f.source || '', auteur: f.auteur || '', licence: f.licence || '',
+        },
+      };
+      scene.add(m);
     }
 
     // Projet (js/projet.js) : chaque volume ajouté est un objet séparé ; le bâti démoli, un objet à part (option)
@@ -258,9 +305,9 @@ export function creerExport(app) {
       if (!dedans(e.cx, e.cz) || app.etat === 'avant') continue; // volumes absents de l'état « avant 1943 »
       const geos = geometriesExtrudees(e.polys, e.hauteur, 0).map((g) => { g.deleteAttribute('uv'); return poser(g, e.cx, e.cz); });
       const c = e.forme?.couleur || couleurProjet;
-      ajouter(`Projet ${e.nom}`, geos, mat(`Projet ${String(c).replace('#', '')}`, c));
+      ajouter(`Projet ${e.nom}`, geos, mat(`Projet ${String(c).replace('#', '')}`, c), 'Projet', { couleurPropre: true, attributs: { type: 'volume projet', nom: e.nom || '', hauteur_m: r2(e.hauteur) } });
     }
-    if (app.etat !== 'avant') for (const o of app.imports?.objetsExport?.(dedans) || []) { if (relief) o.position.y += dz(o.position.x, o.position.z); scene.add(o); }
+    if (app.etat !== 'avant') for (const o of app.imports?.objetsExport?.(dedans) || []) { if (relief) o.position.y += dz(o.position.x, o.position.z); o.userData.calque = 'Projet (modeles importes)'; scene.add(o); }
     if (reglages.demolis3D) {
       const geos = [];
       for (const d of app.projet?.demolisVisibles() || []) {
@@ -278,7 +325,7 @@ export function creerExport(app) {
       sol.deleteAttribute('uv');
       draper(sol);
     } else sol = new THREE.CircleGeometry(r, 128).rotateX(-Math.PI / 2);
-    ajouter(relief ? 'Terrain (RGE ALTI)' : 'Sol', [sol], mat('Sol', 0xecedea));
+    ajouter(relief ? 'Terrain (RGE ALTI)' : 'Sol', [sol], mat('Sol', 0xecedea), 'Sol');
 
     // Voirie et surfaces (triangles dont le centre est dans l'étendue)
     for (const [nomGroupe, nom, couleur] of [['voirie', 'Voirie', 0xc6cac8], ['surfaces', 'Surfaces', 0xd2dccb]]) {
@@ -315,9 +362,9 @@ export function creerExport(app) {
           }
         }
       }
-      ajouter('Arbres couronnes', couronnes.map((g) => { g.deleteAttribute('uv'); return g; }), mat('Arbres', 0xc8deb0));
-      ajouter('Arbres troncs', troncs.map((g) => { g.deleteAttribute('uv'); return g; }), mat('Troncs', 0xd9d6cc));
-      if (branches.length) ajouter('Arbres branches', branches.map((g) => { g.deleteAttribute('uv'); return g; }), mat('Branches', 0xa39d90));
+      ajouter('Arbres couronnes', couronnes.map((g) => { g.deleteAttribute('uv'); return g; }), mat('Arbres', 0xc8deb0), 'Arbres');
+      ajouter('Arbres troncs', troncs.map((g) => { g.deleteAttribute('uv'); return g; }), mat('Troncs', 0xd9d6cc), 'Arbres');
+      if (branches.length) ajouter('Arbres branches', branches.map((g) => { g.deleteAttribute('uv'); return g; }), mat('Branches', 0xa39d90), 'Arbres');
     }
 
     // Couche de l'étudiant visible : mémoire de 1943
@@ -338,6 +385,17 @@ export function creerExport(app) {
       });
       ajouter(nom, geos, mat(nom, couleur, options));
     }
+
+    // noms uniques (suffixe _2, _3… en cas de doublon), pour tous les formats
+    const pris = new Set();
+    scene.traverse((o) => {
+      if (o === scene) return;
+      const base = o.name || 'objet';
+      let n = base, k = 2;
+      while (pris.has(n)) n = `${base}_${k++}`;
+      pris.add(n);
+      o.name = n;
+    });
     return scene;
   }
 
@@ -349,6 +407,22 @@ export function creerExport(app) {
     const nb = scene.children.length;
     if (!nb) { app.signaler('Rien à exporter : la maquette est vide.'); return; }
     const base = `atlas-hdv-maquette-${reglages.etendue}-${horodatage()}`;
+    if (reglages.format3D === 'rhino') {
+      try {
+        const { fichier3dm } = await import('./export-rhino.js');
+        const o = app.config.origine;
+        const res = await fichier3dm(scene, {
+          texte: `${texteOrigine('3d')}\nRhino : X est, Y nord, Z haut (atlas (x, y, z) → Rhino (x, −z, y)) ; Lambert-93 = Rhino + décalage (texte du document : L93_decalage_x / L93_decalage_y).`,
+          origine: o, L93: versLambert93(o.lat, o.lon), h0: reglages.relief && app.topo?.disponible ? app.topo.etat.h0 : null,
+        });
+        telecharger(`${base}.3dm`, new Blob([res.octets], { type: 'application/octet-stream' }));
+        app.signaler(`Maquette Rhino exportée (${res.objets} objets sur ${res.calques} calques), en mètres, origine à la mairie, Y au nord.`);
+      } catch (err) {
+        console.warn(err);
+        app.signaler(err?.name === 'ErreurRhino' ? err.message : `Export Rhino impossible : ${err?.message || err}. Les formats GLB et OBJ restent disponibles.`);
+      }
+      return;
+    }
     if (reglages.format3D === 'glb') {
       scene.userData = { origine: texteOrigine('3d') }; // écrit dans les « extras » du fichier glTF
       const res = await new GLTFExporter().parseAsync(scene, { binary: true });
@@ -478,6 +552,9 @@ export function creerExport(app) {
     RESEAU_GAZ: 2, RESEAU_ELEC_BT: 1, RESEAU_ELEC_HTA: 14, POSTES: 14,
     ARBRES: 3, MAGNOLIAS: 94, BATI_DISPARU_1943: 150, AXES_COUPE: 1,
   };
+  // classement sonore des voies (21/11/2026) : une couleur ACI par catégorie (1 noir/blanc … 5 vert), limites des secteurs en tirets
+  const ACI_CLASSEMENT = { 1: 7, 2: 200, 3: 230, 4: 150, 5: 110 };
+  const couleurCalque = (nom) => ACI_CLASSEMENT[(/^(?:CLASSEMENT|SECTEUR_AFFECTE)_CAT_(\d)$/.exec(nom) || [])[1]] ?? 5;
 
   function ecrireDXF(entites) {
     const out = [];
@@ -497,9 +574,9 @@ export function creerExport(app) {
     g(0, 'LTYPE'); g(2, 'DASHED'); g(70, 0); g(3, 'Dashed __ __ __'); g(72, 65); g(73, 2); g(40, '1.5'); g(49, '1.0'); g(49, '-0.5');
     g(0, 'ENDTAB');
     const calques = { ...CALQUES_DXF };
-    for (const e of entites) if (!(e.calque in calques)) calques[e.calque] = 5;
+    for (const e of entites) if (!(e.calque in calques)) calques[e.calque] = couleurCalque(e.calque);
     g(0, 'TABLE'); g(2, 'LAYER'); g(70, Object.keys(calques).length);
-    for (const [nom, couleur] of Object.entries(calques)) { g(0, 'LAYER'); g(2, nom); g(70, 0); g(62, couleur); g(6, nom === 'BATI_DEMOLI' ? 'DASHED' : 'CONTINUOUS'); }
+    for (const [nom, couleur] of Object.entries(calques)) { g(0, 'LAYER'); g(2, nom); g(70, 0); g(62, couleur); g(6, nom === 'BATI_DEMOLI' || nom.startsWith('SECTEUR_AFFECTE_') ? 'DASHED' : 'CONTINUOUS'); }
     g(0, 'ENDTAB');
     g(0, 'ENDSEC');
     g(0, 'SECTION'); g(2, 'ENTITIES');
@@ -642,8 +719,16 @@ export function creerExport(app) {
     for (const t of app.trajets?.traces || []) poly(`TRAJET_${t.mode.toUpperCase()}${t.type === 'pied' && t.mode === 'tc' ? '_MARCHE' : ''}`, t.pts, false);
     for (const z of app.trajets?.zones || []) for (const [ext, ...trous] of z.polys) { poly(`ISOCHRONE_${z.min}MIN`, ext); trous.forEach((tr) => poly(`ISOCHRONE_${z.min}MIN`, tr)); }
 
-    // carte du bruit affichée
-    if (app.bruit?.zones && app.couches.bruit) {
+    // carte du bruit affichée (20/11/2026 : calques par source et indicateur, zones au-dessus du seuil, secteurs de type C : js/bruit.js)
+    if (app.bruit?.entitesDXF) { // grandes zones (jusqu'à 800 m) : gardées si leur boîte touche l'emprise (non découpées)
+      for (const { calque, poly: [ext, ...trous] } of app.bruit.entitesDXF()) {
+        const xs = ext.map((q) => q[0]), zs = ext.map((q) => q[1]);
+        if (!dedans(Math.max(Math.min(...xs), Math.min(0, Math.max(...xs))), Math.max(Math.min(...zs), Math.min(0, Math.max(...zs))))) continue;
+        poly(calque, ext); trous.forEach((tr) => poly(calque, tr));
+      }
+      // classement sonore des voies (21/11/2026) : axes des tronçons CLASSEMENT_CAT_n, limites des secteurs affectés SECTEUR_AFFECTE_CAT_n
+      for (const { calque, pts } of app.bruit.lignesDXF?.() || []) if (pts.some(([x, z]) => dedans(x, z))) poly(calque, pts, false);
+    } else if (app.bruit?.zones && app.couches.bruit) {
       for (const f of app.bruit.zones.features) {
         const n = app.bruit.niveauDe(f.properties);
         if (n == null) continue;
@@ -727,8 +812,8 @@ export function creerExport(app) {
       h('div', { class: 'actions' }, h('button', { type: 'button', class: 'bouton principal', onclick: exporterImage }, 'Enregistrer l\'image')),
 
       h('h3', {}, 'Maquette 3D'),
-      h('p', { class: 'note' }, 'Bâti existant, volumes du projet (un objet chacun), sol, voirie, arbres et couches visibles, en mètres. Le GLB garde les couleurs ; l\'OBJ est lu par la plupart des logiciels.'),
-      choix('format-3d', [['glb', 'GLB (glTF)'], ['obj', 'OBJ + textures (ZIP)']], 'format3D'),
+      h('p', { class: 'note' }, 'Bâti existant (un objet par bâtiment, nommé identifiant__nom), façades photo, volumes du projet, sol, voirie, arbres et couches visibles, en mètres. Rhino (.3dm) : un calque par thème, X est, Y nord, Z haut, attributs de chaque bâtiment et façade en texte d\'attribut, décalage Lambert-93 dans le texte du document (bibliothèque rhino3dm à copier dans lib/rhino3dm/). Le GLB garde les couleurs et les photos ; l\'OBJ est lu par la plupart des logiciels.'),
+      choix('format-3d', [['rhino', 'Rhino (.3dm)'], ['glb', 'GLB (glTF)'], ['obj', 'OBJ + textures (ZIP)']], 'format3D'),
       choix('etendue-3d', [['plateau', `Plateau (${Math.round(app.config.rayonPlateau * 2)} m)`], ['perimetre', `Périmètre (${Math.round(app.config.rayonEtude * 2)} m)`]], 'etendue'),
       h('label', { class: `case${app.topo?.disponible ? '' : ' indisponible'}` },
         h('input', { type: 'checkbox', disabled: !app.topo?.disponible, checked: reglages.relief, onchange: (e) => { reglages.relief = e.target.checked; } }),

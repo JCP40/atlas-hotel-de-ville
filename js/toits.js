@@ -17,6 +17,10 @@ import { centroide, pointDansPolygone } from './geo.js';
 //   situé dans le périmètre de la mairie qui contient son centre. Ce bâtiment garde son emprise et sa
 //   clé (démolition, coupes, soleil, vent, export DXF utilisent l'emprise et la hauteur maximale).
 // - Représentation à 4 choix (onglet Bâtiments > Bâti) : simple, détaillé, détaillé avec photos (défaut au démarrage), détaillé blanc.
+// - Photos de façade : facadesPhoto(geos) ; base_m facultatif (bas de l'image au-dessus du sol, 0 par défaut) ; rafraichirFacade(f)
+//   refait le seul mesh d'une façade après un calage (js/calage-facades.js), definirOpaciteFacade(id, v) pour la comparer au mur.
+//   rechargerImageFacade(f, url?) (nouvelle image redressée, aperçu blob: ou fichier relu) et ajouterFacade(idEnsemble, f) :
+//   outil de redressement Panoramax (js/redressement-facades.js).
 
 const ENSEMBLES = ['hotel-de-ville', 'ilot-saint-vincent', 'ilot-commune-saint-vincent', 'ilot-fanny-peccot', 'hotel-de-charette', 'moulin-23-27', 'fenelon-flechier'];
 const dossierFacades = (id) => `data/facades/${id}/`;
@@ -593,11 +597,12 @@ export function creerToits(app) {
   const calques = new Set(); // meshes de photos de façade construits (pour la bascule)
   const cheminImage = (f) => dossierFacades(ensembleFacade.get(f)?.id || 'hotel-de-ville') + f.image;
   const etatImage = (f) => textures.get(cheminImage(f));
-  function texture(f) {
+  // url : autre adresse de la même image (blob: d'un aperçu de redressement, ou chemin + ?v= pour relire le fichier remplacé)
+  function texture(f, url = null) {
     const chemin = cheminImage(f);
     if (!textures.has(chemin)) {
       const e = { texture: null, ok: null };
-      e.texture = new THREE.TextureLoader().load(chemin,
+      e.texture = new THREE.TextureLoader().load(url || chemin,
         () => { e.ok = true; },
         undefined,
         () => {
@@ -612,91 +617,187 @@ export function creerToits(app) {
     return textures.get(chemin);
   }
   const PARALLELE = Math.cos(THREE.MathUtils.degToRad(25));
+  // murs de chaque bâtiment détaillé, par tableau renvoyé (= empreinte.facades) : rafraîchissement ciblé d'une façade (calage, js/calage-facades.js)
+  const mursParAppel = new Map();
+  // opacité propre d'une façade (comparaison photo / mur pendant le calage), multipliée par celle du bâti
+  const opacitesFacades = new Map();
   function facadesPhoto(geos) {
     const liste = toutesFacades();
     if (!liste.length) return [];
     const pieces = geos.flatMap((g) => g.userData.murs || []);
     const res = [];
     for (const f of liste) {
-      const [gx, gz] = f.gauche, [dx0, dz0] = f.droite;
-      const L = Math.hypot(dx0 - gx, dz0 - gz);
-      if (!(L > 0.5) || !(f.hauteur_m > 0)) continue;
-      const ux = (dx0 - gx) / L, uz = (dz0 - gz) / L;
-      const az = THREE.MathUtils.degToRad(f.normale_az);
-      const nx = Math.sin(az), nz = -Math.cos(az); // nord = -z
-      const abs = (p) => (p[0] - gx) * ux + (p[1] - gz) * uz; // abscisse le long de la façade
-      const ecart = (p) => Math.abs((p[0] - gx) * uz - (p[1] - gz) * ux); // distance à la ligne
-      const pos = [], uv = [], nor = [];
-      for (const m of pieces) {
-        const lm = Math.hypot(m.q[0] - m.p[0], m.q[1] - m.p[1]);
-        if (lm < 0.05) continue;
-        const ol = Math.hypot(m.out[0], m.out[1]) || 1;
-        if ((m.out[0] * nx + m.out[1] * nz) / ol < 0.5) continue; // mur tourné vers la rue
-        if (Math.abs(((m.q[0] - m.p[0]) * ux + (m.q[1] - m.p[1]) * uz) / lm) < PARALLELE) continue;
-        if (ecart(m.p) > 2 || ecart(m.q) > 2) continue;
-        // découpe du mur à l'étendue de la façade [0, L] (prolongée de 0,3 m)
-        let t0 = abs(m.p), t1 = abs(m.q);
-        const a = Math.max(Math.min(t0, t1), -0.3), b = Math.min(Math.max(t0, t1), L + 0.3);
-        if (b - a < 0.05) continue;
-        const pt = (t) => { const k = (t - t0) / (t1 - t0); return { x: m.p[0] + (m.q[0] - m.p[0]) * k, z: m.p[1] + (m.q[1] - m.p[1]) * k, h: m.hp + (m.hq - m.hp) * k }; };
-        const A = pt(a), B = pt(b);
-        // polygone du mur (bas, puis haut) coupé à y <= hauteur_m
-        const poly = [];
-        const H = f.hauteur_m;
-        const sommets = [[A, 0], [B, 0], [B, B.h], [A, A.h]];
-        for (let i = 0; i < 4; i++) {
-          const [P1, y1] = sommets[i], [P2, y2] = sommets[(i + 1) % 4];
-          if (y1 <= H) poly.push([P1.x, y1, P1.z]);
-          if ((y1 < H && y2 > H) || (y1 > H && y2 < H)) {
-            const k = (H - y1) / (y2 - y1);
-            poly.push([P1.x + (P2.x - P1.x) * k, H, P1.z + (P2.z - P1.z) * k]);
-          }
-        }
-        if (poly.length < 3) continue;
-        const o = new THREE.Vector3(m.out[0], 0, m.out[1]).normalize();
-        for (let i = 1; i < poly.length - 1; i++) {
-          let tri = [poly[0], poly[i], poly[i + 1]];
-          const e1 = new THREE.Vector3(tri[1][0] - tri[0][0], tri[1][1] - tri[0][1], tri[1][2] - tri[0][2]);
-          const e2 = new THREE.Vector3(tri[2][0] - tri[0][0], tri[2][1] - tri[0][1], tri[2][2] - tri[0][2]);
-          if (e1.cross(e2).dot(o) < 0) tri = [tri[0], tri[2], tri[1]];
-          for (const v of tri) {
-            pos.push(...v);
-            nor.push(o.x, 0, o.z);
-            uv.push(Math.min(Math.max(abs([v[0], v[2]]) / L, 0), 1), v[1] / H);
-          }
-        }
-      }
-      if (!pos.length) continue;
-      const g = new THREE.BufferGeometry();
-      g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-      g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
-      g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
-      const tx = texture(f);
-      const mat = new THREE.MeshStandardMaterial({
-        name: `Facade ${f.id}`, map: tx.texture, roughness: 0.9, metalness: 0,
-        polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2,
-      });
-      const mesh = new THREE.Mesh(g, mat);
-      mesh.name = `facade-photo-${f.id}`;
-      mesh.raycast = () => {};
-      mesh.castShadow = false;
-      mesh.receiveShadow = true;
-      mesh.userData.facadePhoto = f.id;
-      mesh.userData.blocRelief = true; // suit le bâtiment sur le relief (js/relief.js)
-      // suit la transparence du bâti (js/bati.js règle le matériau des bâtiments remarquables)
-      mesh.onBeforeRender = () => {
-        const r = app.materiaux?.remarquable;
-        if (!r) return;
-        if (mat.transparent !== r.transparent) { mat.transparent = r.transparent; mat.needsUpdate = true; }
-        mat.opacity = r.opacity; mat.depthWrite = r.depthWrite;
-      };
-      mesh.userData.cree = performance.now();
-      calques.add(mesh);
-      res.push(mesh);
+      const mesh = meshFacade(f, pieces);
+      if (mesh) res.push(mesh);
     }
+    if (mursParAppel.size > 200) {
+      const actuels = new Set((app.empreintes || []).map((e) => e.facades));
+      for (const k of mursParAppel.keys()) if (!actuels.has(k)) mursParAppel.delete(k);
+    }
+    mursParAppel.set(res, pieces);
     majFacades();
     return res;
   }
+  // mesh texturé d'une façade sur les murs d'un bâtiment (null si aucun mur ne convient) ;
+  // base_m (facultatif, 0 par défaut) : hauteur du bas de l'image au-dessus du sol (négatif : image enterrée, coupée au sol)
+  function meshFacade(f, pieces) {
+    const [gx, gz] = f.gauche, [dx0, dz0] = f.droite;
+    const L = Math.hypot(dx0 - gx, dz0 - gz);
+    if (!(L > 0.5) || !(f.hauteur_m > 0)) return null;
+    const ux = (dx0 - gx) / L, uz = (dz0 - gz) / L;
+    const az = THREE.MathUtils.degToRad(f.normale_az);
+    const nx = Math.sin(az), nz = -Math.cos(az); // nord = -z
+    const abs = (p) => (p[0] - gx) * ux + (p[1] - gz) * uz; // abscisse le long de la façade
+    const ecart = (p) => Math.abs((p[0] - gx) * uz - (p[1] - gz) * ux); // distance à la ligne
+    const H = f.hauteur_m, B0 = Number.isFinite(f.base_m) ? f.base_m : 0;
+    // polygone [[x, y, z]…] coupé par le plan horizontal y = c (garde y <= c si dessous, sinon y >= c)
+    const couperY = (poly, c, dessous) => {
+      const out = [];
+      for (let i = 0; i < poly.length; i++) {
+        const P1 = poly[i], P2 = poly[(i + 1) % poly.length];
+        const in1 = dessous ? P1[1] <= c : P1[1] >= c, in2 = dessous ? P2[1] <= c : P2[1] >= c;
+        if (in1) out.push(P1);
+        if (in1 !== in2) {
+          const k = (c - P1[1]) / (P2[1] - P1[1]);
+          out.push([P1[0] + (P2[0] - P1[0]) * k, c, P1[2] + (P2[2] - P1[2]) * k]);
+        }
+      }
+      return out;
+    };
+    const pos = [], uv = [], nor = [];
+    for (const m of pieces) {
+      const lm = Math.hypot(m.q[0] - m.p[0], m.q[1] - m.p[1]);
+      if (lm < 0.05) continue;
+      const ol = Math.hypot(m.out[0], m.out[1]) || 1;
+      if ((m.out[0] * nx + m.out[1] * nz) / ol < 0.5) continue; // mur tourné vers la rue
+      if (Math.abs(((m.q[0] - m.p[0]) * ux + (m.q[1] - m.p[1]) * uz) / lm) < PARALLELE) continue;
+      if (ecart(m.p) > 2 || ecart(m.q) > 2) continue;
+      // découpe du mur à l'étendue de la façade [0, L] (prolongée de 0,3 m)
+      let t0 = abs(m.p), t1 = abs(m.q);
+      const a = Math.max(Math.min(t0, t1), -0.3), b = Math.min(Math.max(t0, t1), L + 0.3);
+      if (b - a < 0.05) continue;
+      const pt = (t) => { const k = (t - t0) / (t1 - t0); return { x: m.p[0] + (m.q[0] - m.p[0]) * k, z: m.p[1] + (m.q[1] - m.p[1]) * k, h: m.hp + (m.hq - m.hp) * k }; };
+      const A = pt(a), Bp = pt(b);
+      // polygone du mur (bas, puis haut) coupé entre y = base et y = base + hauteur_m
+      let poly = couperY([[A.x, 0, A.z], [Bp.x, 0, Bp.z], [Bp.x, Bp.h, Bp.z], [A.x, A.h, A.z]], B0 + H, true);
+      if (B0 > 0) poly = couperY(poly, B0, false);
+      if (poly.length < 3) continue;
+      const o = new THREE.Vector3(m.out[0], 0, m.out[1]).normalize();
+      for (let i = 1; i < poly.length - 1; i++) {
+        let tri = [poly[0], poly[i], poly[i + 1]];
+        const e1 = new THREE.Vector3(tri[1][0] - tri[0][0], tri[1][1] - tri[0][1], tri[1][2] - tri[0][2]);
+        const e2 = new THREE.Vector3(tri[2][0] - tri[0][0], tri[2][1] - tri[0][1], tri[2][2] - tri[0][2]);
+        if (e1.cross(e2).dot(o) < 0) tri = [tri[0], tri[2], tri[1]];
+        for (const v of tri) {
+          pos.push(...v);
+          nor.push(o.x, 0, o.z);
+          uv.push(Math.min(Math.max(abs([v[0], v[2]]) / L, 0), 1), (v[1] - B0) / H);
+        }
+      }
+    }
+    if (!pos.length) return null;
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+    g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+    const tx = texture(f);
+    const mat = new THREE.MeshStandardMaterial({
+      name: `Facade ${f.id}`, map: tx.texture, roughness: 0.9, metalness: 0,
+      polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2,
+    });
+    const mesh = new THREE.Mesh(g, mat);
+    mesh.name = `facade-photo-${f.id}`;
+    mesh.raycast = () => {};
+    mesh.castShadow = false;
+    mesh.receiveShadow = true;
+    mesh.userData.facadePhoto = f.id;
+    mesh.userData.blocRelief = true; // suit le bâtiment sur le relief (js/relief.js)
+    // suit la transparence du bâti (js/bati.js règle le matériau des bâtiments remarquables), et l'opacité de calage
+    mesh.onBeforeRender = () => {
+      const r = app.materiaux?.remarquable;
+      if (!r) return;
+      const k = opacitesFacades.get(f.id) ?? 1;
+      const tr = r.transparent || k < 1;
+      if (mat.transparent !== tr) { mat.transparent = tr; mat.needsUpdate = true; }
+      mat.opacity = r.opacity * k; mat.depthWrite = r.depthWrite && k >= 1;
+    };
+    mesh.userData.cree = performance.now();
+    calques.add(mesh);
+    return mesh;
+  }
+  // Recalcul d'une seule façade après modification de gauche, droite, hauteur_m ou base_m (outil Calage des façades) :
+  // le mesh de chaque bâtiment détaillé est remplacé à partir des murs gardés, sans reconstruire le bâti ; empreinte.facades
+  // suit (exports GLB / OBJ / Rhino), la découpe de la maquette est reprise du mesh remplacé, le relief affiché est appliqué
+  // comme pour le bâtiment (décalage d'un bloc) et retiré avec lui (etat.traites de js/relief.js).
+  function rafraichirFacade(f) {
+    const empreintes = app.empreintes || [];
+    let n = 0;
+    for (const [res, pieces] of mursParAppel) {
+      const e = empreintes.find((x) => x.facades === res);
+      if (!e?.mesh) { mursParAppel.delete(res); continue; }
+      const anciens = res.filter((m) => m.userData.facadePhoto === f.id);
+      const neuf = meshFacade(f, pieces);
+      if (!anciens.length && !neuf) continue;
+      const decoupe = anciens.find((m) => m.material.clippingPlanes)?.material;
+      for (const m of anciens) {
+        res.splice(res.indexOf(m), 1);
+        m.parent?.remove(m);
+        calques.delete(m);
+        m.geometry.dispose(); m.material.dispose(); // la texture (partagée) est gardée
+      }
+      if (!neuf) continue;
+      if (decoupe) { neuf.material.clippingPlanes = decoupe.clippingPlanes; neuf.material.clipShadows = decoupe.clipShadows; }
+      const rel = app.relief;
+      if (rel?.actif && rel.etat) {
+        const p = neuf.geometry.getAttribute('position');
+        const o = p.array.slice();
+        // comme js/relief.js (traiterBatiment) : décalage du bâtiment à son centre, pieds de mur prolongés jusqu'au point bas de l'emprise
+        const d = e.decalageRelief ?? 0;
+        let dMin = d;
+        for (const [x, z] of e.polys?.[0]?.[0] || []) dMin = Math.min(dMin, rel.dz(x, z));
+        const pieds = new Set(pieces.flatMap((m) => [m.p, m.q]).map(([x, z]) => `${Math.fround(x)},${Math.fround(z)}`));
+        for (let i = 0; i < p.count; i++) {
+          const y = p.getY(i);
+          p.setY(i, y + (y <= 0.05 && pieds.has(`${p.getX(i)},${p.getZ(i)}`) ? dMin - 0.3 : d));
+        }
+        neuf.geometry.computeBoundingSphere();
+        neuf.userData.reliefVersion = rel.etat.version;
+        rel.etat.traites.push(() => { p.array.set(o); p.needsUpdate = true; neuf.geometry.computeBoundingSphere(); });
+      }
+      res.push(neuf);
+      e.mesh.add(neuf);
+      n++;
+    }
+    majFacades();
+    return n;
+  }
+  // Outil de redressement (js/redressement-facades.js, 19/11/2026) : nouvelle image d'une façade (url blob: pour l'aperçu
+  // avant enregistrement ; sans url, relecture du fichier enregistré) et façade ajoutée en cours de session à un ensemble.
+  function rechargerImageFacade(f, url = null) {
+    const chemin = cheminImage(f);
+    const ancien = textures.get(chemin);
+    textures.delete(chemin);
+    texture(f, url || `${chemin}?v=${Date.now()}`);
+    const n = rafraichirFacade(f); // les meshes de la façade reprennent la nouvelle texture
+    if (ancien?.texture) setTimeout(() => ancien.texture.dispose(), 0);
+    app.emettre?.('facades');
+    return n;
+  }
+  function ajouterFacade(idEnsemble, f) {
+    const e = ensembles.find((x) => x.id === idEnsemble);
+    if (!e || toutesFacades().some((x) => x.id === f.id)) return false;
+    if (!e.facades) e.facades = { origine: { lat: app.config.origine.lat, lon: app.config.origine.lon }, facades: [] };
+    e.facades.facades.push(f);
+    ensembleFacade.set(f, e);
+    rafraichirFacade(f);
+    app.emettre?.('facades');
+    return true;
+  }
+  function definirOpaciteFacade(id, v) {
+    if (v == null || v >= 1) opacitesFacades.delete(id); else opacitesFacades.set(id, Math.max(0, v));
+  }
+  // ensemble (id du fichier data/facades/<id>.json) d'une façade
+  const ensembleDeFacade = (f) => ensembleFacade.get(f) || null;
   // visibles si la bascule est active, l'image chargée et les couleurs PSMV du bâti masquées
   function majFacades() {
     // calques d'un bâti reconstruit (démolition, mode) : retirés de la liste et libérés
@@ -863,7 +964,7 @@ export function creerToits(app) {
 
   return {
     charger, assigner, geometries, fonctionHauteur, lignesEtages, aretesDetail, hauteurMax, blocFiche, construireCommandes, definirMode, definirRepresentation, representation, corpsSous, centre,
-    facadesPhoto, definirPhotos, creditsFacades, remarquable,
+    facadesPhoto, definirPhotos, creditsFacades, remarquable, rafraichirFacade, definirOpaciteFacade, ensembleDeFacade, cheminImage, toutesFacades, rechargerImageFacade, ajouterFacade,
     etat, get donnees() { return donnees; }, get facades() { return facades; }, get ensembles() { return ensembles; },
     get detaille() { return etat.mode === 'detaille' && ensembles.length > 0; },
   };

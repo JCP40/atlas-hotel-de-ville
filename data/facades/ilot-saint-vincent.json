@@ -74,6 +74,160 @@
    "date_prise": "2026-04-16",
    "confiance": "moyenne",
    "remarque": "Vue frontale à 15 m ; branches d'arbre devant le bord droit, voitures devant le rez-de-chaussée."
+  },
+  {
+   "id": "ilot-saint-vincent-sud-4",
+   "nom": "Immeuble du 27 rue de Strasbourg, façade sud",
+   "corps": ["immeuble-27-strasbourg"],
+   "gauche": [89.23, 44.85],
+   "droite": [103.98, 42.19],
+   "normale_az": 170,
+   "hauteur_m": 21,
+   "image": "ilot-saint-vincent-sud-4.jpg",
+   "pixels": [899, 1260],
+   "source": "Panoramax",
+   "photo": "7a5f081d-4c68-419b-9874-0a7a13f26c87",
+   "lien": "https://api.panoramax.xyz/api/collections/ff181560-91bc-4000-bfff-3a1fe991e592/items/7a5f081d-4c68-419b-9874-0a7a13f26c87",
+   "auteur": "immergis",
+   "licence": "Licence Ouverte 2.0 (Etalab)",
+   "date_prise": "2026-04-16",
+   "confiance": "faible",
+   "remarque": "Redressée dans l'atlas sur 4 coins (photo Panoramax 360° reprojetée, 19 m, obliquité 41°).",
+   "redressement": {
+    "date": "2026-11-19",
+    "outil": "atlas, Bâtiments > Calage > Redresser (Panoramax)",
+    "photo_id": "7a5f081d-4c68-419b-9874-0a7a13f26c87",
+    "collection": "ff181560-91bc-4000-bfff-3a1fe991e592",
+    "type": "360",
+    "image_source": "hd",
+    "largeur_source": 7680,
+    "vue": {
+     "lacet": 30.9,
+     "tangage": 22.8,
+     "champ": 55.3,
+     "largeur": 1281,
+     "hauteur": 1764,
+     "hauteur_prise_m": 2.5
+    },
+    "coins": [
+     [483.4, 271.1],
+     [917.4, 629],
+     [1050.7, 1462.8],
+     [483.4, 1594.2]
+    ],
+    "px_par_m": 60,
+    "obliquite_deg": 41,
+    "distance_m": 19,
+    "ancien": {
+     "image": "ilot-saint-vincent-sud-4.jpg",
+     "source": "Panoramax",
+     "photo": "d6ba1e8e-cac2-47c6-a330-1db42128533c",
+     "auteur": "Koreller",
+     "licence": "CC BY-SA 4.0",
+     "date_prise": "2025-07-03",
+     "confiance": "moyenne",
+     "pixels": [899, 1104]
+    }
+   },
+   "calage": {
+    "date": "2026-11-19",
+    "outil": "atlas, onglet Bâtiments > Calage",
+    "ancien": {
+     "gauche": [89.23, 44.85],
+     "droite": [103.98, 42.19],
+     "hauteur_m": 18.4
+    }
+   }
+  },
+  {
+   "id": "ilot-saint-vincent-sud-ouest-5",
+   "nom": "Immeuble du 27 rue de Strasbourg, façade sud-ouest",
+   "corps": ["immeuble-27-strasbourg"],
+   "gauche": [86.15, 42.2],
+   "droite": [89.23, 44.85],
+   "normale_az": 221,
+   "hauteur_m": 18.4,
+   "image": "ilot-saint-vincent-sud-ouest-5.jpg",
+   "pixels": [244, 1104],
+   "source": "Panoramax",
+   "photo": "21b1e273-4853-4bf4-b0e8-53e868bd7e85",
+   "lien": "https://api.panoramax.xyz/api/collections/ff181560-91bc-4000-bfff-3a1fe991e592/items/21b1e273-4853-4bf4-b0e8-53e868bd7e85",
+   "auteur": "immergis",
+   "licence": "Licence Ouverte 2.0 (Etalab)",
+   "date_prise": "2026-04-16",
+   "confiance": "moyenne",
+   "remarque": "Redressée dans l'atlas sur 4 coins (photo Panoramax 360° reprojetée, 19 m, obliquité 34°).",
+   "redressement": {
+    "date": "2026-11-19",
+    "outil": "atlas, Bâtiments > Calage > Redresser (Panoramax)",
+    "photo_id": "21b1e273-4853-4bf4-b0e8-53e868bd7e85",
+    "collection": "ff181560-91bc-4000-bfff-3a1fe991e592",
+    "type": "360",
+    "image_source": "hd",
+    "largeur_source": 7680,
+    "vue": {
+     "lacet": 6.4,
+     "tangage": 19,
+     "champ": 40,
+     "largeur": 1200,
+     "hauteur": 1865,
+     "hauteur_prise_m": 2.5
+    },
+    "coins": [
+     [592.4, 231.2],
+     [882.9, 106.7],
+     [1094.6, 1688.2],
+     [700.3, 1675.7]
+    ],
+    "px_par_m": 60,
+    "obliquite_deg": 34,
+    "distance_m": 19
+   }
+  },
+  {
+   "id": "ilot-saint-vincent-sud-est-6",
+   "nom": "Immeuble du 27 rue de Strasbourg, façade sud-est",
+   "corps": ["immeuble-27-strasbourg"],
+   "gauche": [103.98, 42.19],
+   "droite": [106.44, 36.82],
+   "normale_az": 115,
+   "hauteur_m": 18.4,
+   "image": "ilot-saint-vincent-sud-est-6.jpg",
+   "pixels": [354, 1104],
+   "source": "Panoramax",
+   "photo": "a0095d3a-1690-497e-b04e-a50b04bb785e",
+   "lien": "https://api.panoramax.xyz/api/collections/ff181560-91bc-4000-bfff-3a1fe991e592/items/a0095d3a-1690-497e-b04e-a50b04bb785e",
+   "auteur": "immergis",
+   "licence": "Licence Ouverte 2.0 (Etalab)",
+   "date_prise": "2026-04-16",
+   "confiance": "bonne",
+   "remarque": "Redressée dans l'atlas sur 4 coins (photo Panoramax 360° reprojetée, 13 m, obliquité 0°).",
+   "redressement": {
+    "date": "2026-11-19",
+    "outil": "atlas, Bâtiments > Calage > Redresser (Panoramax)",
+    "photo_id": "a0095d3a-1690-497e-b04e-a50b04bb785e",
+    "collection": "ff181560-91bc-4000-bfff-3a1fe991e592",
+    "type": "360",
+    "image_source": "hd",
+    "largeur_source": 7680,
+    "vue": {
+     "lacet": 295.1,
+     "tangage": 26.7,
+     "champ": 40,
+     "largeur": 1200,
+     "hauteur": 2400,
+     "hauteur_prise_m": 2.5
+    },
+    "coins": [
+     [721.4, 431.2],
+     [1189, 479],
+     [1352.4, 2381.9],
+     [651.1, 2376.9]
+    ],
+    "px_par_m": 60,
+    "obliquite_deg": 0,
+    "distance_m": 13
+   }
   }
  ],
  "sans_photo": "Façade ouest sur la rue Saint-Vincent (25 m) : rue de 7 m, panoramas pris à 4-6 m du mur, la façade entière n'est jamais visible (vues rasantes au-delà de 10 m) : laissée en teinte. Pans coupés sud-ouest et sud-est (4 et 6 m) et murs de la courette : en teinte."

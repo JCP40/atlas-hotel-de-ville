@@ -1189,7 +1189,7 @@ export function creerCoupes(app) {
         if (Math.max(d0, d1) <= 0 || Math.min(d0, d1) > D) continue;
         const t0 = (f.gauche[0] - O.x) * u.x + (f.gauche[1] - O.z) * u.z, t1 = (f.droite[0] - O.x) * u.x + (f.droite[1] - O.z) * u.z;
         if (Math.max(t0, t1) < 0 || Math.min(t0, t1) > Ls) continue;
-        const g = alt((f.gauche[0] + f.droite[0]) / 2, (f.gauche[1] + f.droite[1]) / 2);
+        const g = alt((f.gauche[0] + f.droite[0]) / 2, (f.gauche[1] + f.droite[1]) / 2) + (Number.isFinite(f.base_m) ? f.base_m : 0); // base_m : calage (js/calage-facades.js)
         verifierImage(href);
         facades.push({ sG: S(t0), sD: S(t1), z0: g, z1: g + f.hauteur_m, d: Math.max((d0 + d1) / 2, 0), href, id: f.id, image: f.image });
       }

@@ -1,0 +1,64 @@
+{
+ "_note": "Photos de façade (même format que data/facades/hotel-de-ville.json), créé par l'outil de redressement Panoramax de l'atlas. « gauche » et « droite » : extrémités vues depuis la rue (mètres, relatifs à « origine »), « normale_az » : direction de la rue, « hauteur_m » : hauteur couverte.",
+ "titre": "Photos de façade : Îlot rue Fénelon – rue Fléchier (EO 49 et 162)",
+ "id": "fenelon-flechier",
+ "date": "2026-11-19",
+ "origine": { "lat": 47.21761, "lon": -1.55452 },
+ "facades": [
+  {
+   "id": "fenelon-flechier-nord-est-1",
+   "nom": "3 rue Fléchier / 2 rue Fanny Peccot, aile sur la rue Fanny Peccot, façade nord-est",
+   "corps": ["flechier-3-nord"],
+   "gauche": [38.62, 15.57],
+   "droite": [24.8, 9.78],
+   "normale_az": 23,
+   "hauteur_m": 17.6,
+   "image": "fenelon-flechier-nord-est-1.jpg",
+   "pixels": [899, 1056],
+   "source": "Panoramax",
+   "photo": "e6ca8c57-24b1-4895-8257-8dcb7963d85c",
+   "lien": "https://api.panoramax.xyz/api/collections/ff181560-91bc-4000-bfff-3a1fe991e592/items/e6ca8c57-24b1-4895-8257-8dcb7963d85c",
+   "auteur": "immergis",
+   "licence": "Licence Ouverte 2.0 (Etalab)",
+   "date_prise": "2026-04-16",
+   "confiance": "faible",
+   "remarque": "Redressée dans l'atlas sur 4 coins (photo Panoramax 360° reprojetée, 20 m, obliquité 43°).",
+   "redressement": {
+    "date": "2026-11-19",
+    "outil": "atlas, Bâtiments > Calage > Redresser (Panoramax)",
+    "photo_id": "e6ca8c57-24b1-4895-8257-8dcb7963d85c",
+    "collection": "ff181560-91bc-4000-bfff-3a1fe991e592",
+    "type": "360",
+    "image_source": "hd",
+    "largeur_source": 7680,
+    "vue": {
+     "lacet": 160.1,
+     "tangage": 17.8,
+     "champ": 50.7,
+     "largeur": 1200,
+     "hauteur": 1529,
+     "hauteur_prise_m": 2.5
+    },
+    "coins": [
+     [360.9, 406.6],
+     [1042.4, 180.5],
+     [1014.4, 1371.9],
+     [197.5, 1216.8]
+    ],
+    "px_par_m": 60,
+    "obliquite_deg": 43,
+    "distance_m": 20,
+    "ancien": {
+     "image": "fenelon-flechier-nord-est-1.jpg",
+     "source": "Panoramax",
+     "photo": "853164aa-122f-418e-81ac-14c7470ddc75",
+     "auteur": "immergis",
+     "licence": "Licence Ouverte 2.0 (Etalab)",
+     "date_prise": "2026-04-16",
+     "confiance": "bonne",
+     "pixels": [899, 1056]
+    }
+   }
+  }
+ ]
+}

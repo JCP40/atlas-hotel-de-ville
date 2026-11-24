@@ -210,6 +210,43 @@
       "date_prise": "2026-04-16",
       "confiance": "moyenne",
       "remarque": "Vue depuis la rue du Moulin à une vingtaine de mètres, légèrement oblique ; passants et feu tricolore devant le soubassement."
+    },
+    {
+      "id": "hotel-de-ville-sud-ouest-11",
+      "nom": "Bâtiment bas au sud, façade sud-ouest",
+      "corps": ["bas-sud"],
+      "gauche": [56.8, 5.1],
+      "droite": [59.6, 10.4],
+      "normale_az": 242,
+      "hauteur_m": 12.5,
+      "image": "hotel-de-ville-sud-ouest-11.jpg",
+      "pixels": [360, 750],
+      "source": "Panoramax",
+      "photo": "74c54ef4-bcb6-4331-a729-9d24d5e5ea2e",
+      "lien": "https://api.panoramax.xyz/api/collections/c0271418-b2c3-4739-95d1-0c9f5f359c4e/items/74c54ef4-bcb6-4331-a729-9d24d5e5ea2e",
+      "auteur": "immergis",
+      "licence": "Licence Ouverte 2.0 (Etalab)",
+      "date_prise": "2026-04-16",
+      "confiance": "moyenne",
+      "remarque": "Redressée dans l'atlas sur 4 coins (photo Panoramax perspective, 25 m, obliquité 22°).",
+      "redressement": {
+        "date": "2026-11-19",
+        "outil": "atlas, Bâtiments > Calage > Redresser (Panoramax)",
+        "photo_id": "74c54ef4-bcb6-4331-a729-9d24d5e5ea2e",
+        "collection": "c0271418-b2c3-4739-95d1-0c9f5f359c4e",
+        "type": "perspective",
+        "image_source": "hd",
+        "largeur_source": 2448,
+        "coins": [
+          [1146, 298],
+          [1484.8, 299.4],
+          [1511.8, 1078.4],
+          [1210.8, 1085.1]
+        ],
+        "px_par_m": 60,
+        "obliquite_deg": 22,
+        "distance_m": 25
+      }
     }
   ],
   "sans_photo": "Façades sur rue sans photo : rue Garde-Dieu (aucune vue Panoramax dans la rue ; photo de la fiche 43 du PSMV trop oblique et en basse définition), rue Saint-Léonard (façade de l'aile ouest cachée par le haut mur de clôture et les arbres ; pas de vue au nord, vers le pavillon d'angle), fond de la cour d'honneur (vu seulement à travers la grille : barreaux, véhicules et surexposition, photo inexploitable). Le jardin entre le n° 4 et le pavillon à verrière est fermé par un mur et une grille (pas de bâtiment)."

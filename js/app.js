@@ -19,6 +19,7 @@ import { creerProjet } from './projet.js';
 import { creerRues } from './rues.js';
 import { creerImports } from './imports.js';
 import { creerHauteurs } from './hauteurs.js';
+import { creerCalageFacades } from './calage-facades.js';
 import { creerDecoupe } from './decoupe.js';
 import { creerElements } from './elements.js';
 import { creerVuesRapides } from './vues-rapides.js';
@@ -432,12 +433,13 @@ async function demarrer() {
   I.ajouterOutil({ id: 'bati', groupe: 'batiments', libelle: 'Bâti', titre: 'Bâti existant', horsBorne: true, construire: (c) => app.bati.construireCommandes(c) });
   I.ajouterOutil({ id: 'hauteurs', groupe: 'batiments', libelle: 'Hauteurs', titre: 'Hauteur des bâtiments', horsBorne: true, construire: (c) => app.hauteurs.construirePanneau(c) });
   I.ajouterOutil({ id: 'projet', groupe: 'batiments', libelle: 'Projet', titre: 'Projet : démolir et ajouter des volumes', horsBorne: true, construire: (c) => app.projet.construirePanneau(c) });
+  I.ajouterOutil({ id: 'calage-facades', groupe: 'batiments', libelle: 'Calage', titre: 'Calage des photos de façade', horsBorne: true, construire: (c) => (app.calageFacades ||= creerCalageFacades(app)).construirePanneau(c) });
   I.ajouterOutil({ id: 'soleil', groupe: 'climat', libelle: 'Soleil', titre: 'Soleil et ombres', raccourci: 'S', construire: (c) => app.soleil.construirePanneau(c) });
-  I.ajouterOutil({ id: 'climat', groupe: 'climat', libelle: 'Climat', titre: 'Températures et vent (source météo choisie)', raccourci: 'K', construire: (c) => app.climat.construirePanneau(c) });
+  I.ajouterOutil({ id: 'climat', groupe: 'climat', libelle: 'Climat', titre: 'Températures de l\'air et vent (source météo choisie)', raccourci: 'K', construire: (c) => app.climat.construirePanneau(c) });
   I.ajouterOutil({ id: 'vent', groupe: 'climat', libelle: 'Vent', titre: 'Vent autour du bâti', raccourci: 'W', construire: (c) => app.vent.construirePanneau(c) });
   ajouterLigneAide('K', 'W', 'Vent autour du bâti');
   I.ajouterOutil({ id: 'confort', groupe: 'climat', libelle: 'Confort', titre: 'Rayonnement et confort', construire: (c) => app.confort.construirePanneau(c) });
-  I.ajouterOutil({ id: 'chaleur', groupe: 'climat', libelle: 'Chaleur', titre: 'Chaleur au sol (estimation pédagogique)', construire: (c) => app.chaleur.construire(c) });
+  I.ajouterOutil({ id: 'chaleur', groupe: 'climat', libelle: 'Chaleur', titre: 'Chaleur au sol', construire: (c) => app.chaleur.construire(c) });
   I.ajouterOutil({ id: 'coupes', groupe: 'coupes', libelle: 'Coupes', titre: 'Coupes', raccourci: 'C', construire: (c) => app.coupes.construirePanneau(c) });
   app.vues.ajouterOutils(I, ajouterLigneAide); // onglet Vues (outils déclarés par js/vues.js)
   I.ajouterOutil({ id: 'flux', groupe: 'site', libelle: 'Flux', titre: 'Bus, tram et parkings', construire: (c) => app.flux.construirePanneau(c) });

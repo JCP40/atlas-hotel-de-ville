@@ -2,9 +2,10 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
 import { MTLLoader } from 'three/addons/loaders/MTLLoader.js';
-import { h, info } from './util.js';
+import { h, info, lireLS, ecrireLS } from './util.js';
 import { enregistrerDonnees } from './donnees.js';
-import { visibiliteBatiment } from './maquette.js';
+import { visibiliteBatiment, hauteurBatiment } from './maquette.js';
+import { polygonesLocaux, centroide } from './geo.js';
 
 // Fichiers 3D importés dans le projet (onglet Bâtiments > Projet) : GLB / glTF (recommandé) et OBJ (+ MTL facultatif),
 // lus par les chargeurs de Three.js copiés dans lib/three/addons/loaders (même version que lib/three, r180).
@@ -18,6 +19,19 @@ import { visibiliteBatiment } from './maquette.js';
 // - Bâti effectif (soleil, vent, coupes, confort) : le volume ne compte que par son emprise (enveloppe convexe
 //   extrudée jusqu'au point le plus haut) s'il est « simple » (ses faces vues de dessus couvrent au moins 85 % de
 //   l'enveloppe) ; sinon il est affiché et exporté, mais ignoré par le vent et les coupes (le panneau le dit).
+// - Retour de Rhino (18/11/2026) : un modèle peut REMPLACER un bâtiment existant, repéré par sa clé atlas_id (osm / id_ign,
+//   sinon g<lat>,<lon> du centre, comme les démolitions et l'export Rhino qui nomme les objets <id>__<nom>). La clé est lue
+//   dans le nom d'un objet du modèle (motif id__nom ; nom d'origine du nœud glTF, ou nom nettoyé par GLTFLoader) ou dans ses
+//   extras glTF (atlas_id, attributs.atlas_id), sinon choisie dans la liste du panneau. Champ remplace: cle de l'entrée
+//   d'import (projet.json, clé imports ; absent = pas de remplacement, fichiers d'avant inchangés). Le bâtiment remplacé est
+//   retiré du bâti chargé par app.projet.filtrer (enveloppé ici, sans démolition dans projet.json) : maquette, ombres,
+//   app.empreintes et exports (GLB, OBJ, DXF, Rhino : pas de doublon) ; dans le bâti effectif, le modèle le remplace avec la
+//   même clé (id) : emprise du modèle s'il est simple, sinon emprise du bâtiment d'origine, hauteur du modèle. Comme les
+//   autres volumes du projet, le remplacement suit le calque Projet (phase Existant : bâtiment d'origine). Un fichier
+//   introuvable ne retire rien.
+//   Coordonnées du fichier (coordonnees: 'fichier', proposé d'office quand une clé est trouvée) : le modèle garde ses
+//   coordonnées locales (repère de l'export Rhino : mètres, origine config.origine, X est, Y nord, Z haut ; un GLB exporté par
+//   Rhino a Y vers le haut, axes par défaut), sans recalage au sol ni au centre ; seul le relief affiché le soulève d'un bloc.
 
 const UNITES = [[1, 'mètres'], [0.01, 'centimètres'], [0.001, 'millimètres'], [0.3048, 'pieds']];
 const SEUIL_SIMPLE = 0.85;
@@ -101,6 +115,74 @@ export function creerImports(app) {
   const ui = {};
 
   // ---------------------------------------------------------------
+  // Bâtiments remplacés (retour de Rhino) : index du bâti chargé, clés trouvées dans le modèle, filtre du bâti
+  // ---------------------------------------------------------------
+  const LS_COORDS = 'atlas-hdv-imports-coordonnees'; // '1' : nouveaux imports sans clé gardés dans le repère du fichier
+  const cleXZ = (cx, cz) => { const g = app.proj.versGeo(cx, cz); return `g${g.lat.toFixed(6)},${g.lon.toFixed(6)}`; };
+  // clé d'un bâtiment chargé : la même que projet.js (démolitions), maquette.js (empreinte.id) et l'export (atlas_id)
+  function decrireFeature(f) {
+    const p = f.properties || {};
+    const id = p.osm || p.id_ign;
+    const polys = polygonesLocaux(f.geometry, app.proj);
+    if (!polys.length || !polys[0][0] || polys[0][0].length < 3) return null;
+    const [cx, cz] = centroide(polys[0][0]);
+    return { cle: id != null ? String(id) : cleXZ(cx, cz), id: id ?? null, nom: p.name || p.nom || null, polys, cx, cz, p };
+  }
+  let indexBati = null;
+  function batiments() {
+    if (indexBati?.source === app.donnees?.batiments) return indexBati;
+    const map = new Map(), propres = new Map();
+    for (const f of app.donnees?.batiments?.features || []) {
+      const d = decrireFeature(f);
+      if (!d || map.has(d.cle)) continue;
+      map.set(d.cle, d);
+      propres.set(THREE.PropertyBinding.sanitizeNodeName(d.cle), d.cle); // nom nettoyé par GLTFLoader (sans . : / [ ])
+    }
+    indexBati = { source: app.donnees?.batiments, map, propres };
+    return indexBati;
+  }
+  const decrireBati = (cle) => (cle ? batiments().map.get(cle) || null : null);
+  const nomBati = (cle) => { const d = decrireBati(cle); return d?.nom || (d ? `bâtiment ${cle}` : `bâtiment ${cle} (absent du bâti chargé)`); };
+  const hauteurBati = (d) => { try { return hauteurBatiment(d.p, app.config); } catch { return NaN; } };
+  // clés atlas_id présentes dans le modèle lu (noms id__nom, extras glTF), limitées aux bâtiments chargés
+  function clesDuModele(racine) {
+    const { map, propres } = batiments();
+    const trouvees = new Set();
+    const essayer = (s) => {
+      if (s == null || s === '') return;
+      s = String(s).trim();
+      if (map.has(s)) { trouvees.add(s); return; }
+      if (propres.has(s)) trouvees.add(propres.get(s));
+    };
+    racine.traverse((o) => {
+      const u = o.userData || {};
+      for (const nom of [u.name, o.name]) {
+        const m = typeof nom === 'string' && nom.match(/^(.+?)__/);
+        if (m && !/^facade$/i.test(m[1])) essayer(m[1]);
+      }
+      essayer(u.atlas_id);
+      essayer(u.attributs?.atlas_id);
+    });
+    return [...trouvees];
+  }
+  // clés retirées du bâti chargé : remplacements affichés (calque Projet), fichier lu ou en cours de lecture
+  const clesRemplacees = () => new Set(app.projet?.visible === false ? [] : liste.filter((it) => it.remplace && it.vis && !it.erreur).map((it) => it.remplace));
+  if (app.projet?.filtrer) {
+    const filtrerProjet = app.projet.filtrer;
+    app.projet.filtrer = (fc) => {
+      const res = filtrerProjet(fc);
+      const cles = clesRemplacees();
+      if (!res?.features || !cles.size) return res;
+      return { ...res, features: res.features.filter((f) => !cles.has(decrireFeature(f)?.cle)) };
+    };
+  }
+  // bâti reconstruit sans (ou avec) les bâtiments remplacés, puis événement « bati » (soleil, vent, chaleur, coupes…)
+  function appliquerRemplacements() {
+    app.reconstruireBatiments?.();
+    changement();
+  }
+
+  // ---------------------------------------------------------------
   // Lecture d'un modèle (fichiers locaux choisis, ou fichiers de data/imports/)
   // ---------------------------------------------------------------
   async function charger(fichiers, urls) {
@@ -152,8 +234,27 @@ export function creerImports(app) {
         it.retourne = retourner;
       }
     }
-    o.rotation.set(0, THREE.MathUtils.degToRad(it.rot), 0);
     const k = it.unite * it.echelle;
+    if (it.fichier) {
+      // coordonnées du fichier (repère de l'export Rhino) : ni rotation, ni recalage ; unité et échelle autour de l'origine,
+      // « hauteur » ajoutée, relief affiché pris au centre du modèle (comme le bâti, soulevé d'un bloc)
+      o.rotation.set(0, 0, 0);
+      o.scale.setScalar(k);
+      o.position.set(0, 0, 0);
+      o.updateMatrixWorld(true);
+      const c = new THREE.Box3().setFromObject(o).getCenter(new THREE.Vector3());
+      if (Number.isFinite(c.x) && Number.isFinite(c.z)) {
+        const g = app.proj.versGeo(c.x, c.z);
+        Object.assign(it, { x: c.x, z: c.z, lat: g.lat, lon: g.lon });
+      }
+      const dz = app.relief?.actif ? app.relief.dz(it.x, it.z) : 0;
+      o.position.set(0, it.hauteur + dz, 0);
+      o.visible = it.vis && app.projet?.visible !== false && visibiliteBatiment(app, cle(it));
+      o.updateMatrixWorld(true);
+      calculerEmprise(it);
+      return;
+    }
+    o.rotation.set(0, THREE.MathUtils.degToRad(it.rot), 0);
     o.scale.setScalar(k);
     o.position.set(0, 0, 0);
     o.updateMatrixWorld(true);
@@ -234,11 +335,15 @@ export function creerImports(app) {
   // Bâti effectif (appelé par projet.batiEffectif) et export
   // ---------------------------------------------------------------
   function empreintes() {
-    return liste.filter((it) => it.vis && it.objet && it.simple && it.emprise).map((it) => {
+    // un modèle qui remplace un bâtiment compte toujours (même complexe) : même clé (id) que le bâtiment d'origine,
+    // emprise du modèle s'il est simple, sinon celle du bâtiment d'origine
+    return liste.filter((it) => it.vis && it.objet && it.emprise && (it.simple || it.remplace)).map((it) => {
       const dz = app.relief?.actif ? app.relief.dz(it.x, it.z) : 0;
+      const orig = it.remplace ? decrireBati(it.remplace) : null;
       return {
-        polys: [[it.emprise]], hauteur: Math.max(it.hauteurMax - dz, 0.5), base: Math.max(it.base - dz, 0), cle: cle(it), rem: false,
-        id: `import-${it.n}`, nom: `Import ${it.nom}`, cx: it.x, cz: it.z, mesh: null, debut: 0, nb: 0, projet: true, importe: true,
+        polys: it.simple || !orig ? [[it.emprise]] : orig.polys, hauteur: Math.max(it.hauteurMax - dz, 0.5), base: Math.max(it.base - dz, 0), cle: cle(it), rem: false,
+        id: it.remplace || `import-${it.n}`, nom: it.remplace ? (orig?.nom || `Import ${it.nom}`) : `Import ${it.nom}`, cx: it.x, cz: it.z,
+        mesh: null, debut: 0, nb: 0, projet: true, importe: true, ...(it.remplace ? { remplace: it.remplace } : {}),
       };
     });
   }
@@ -251,7 +356,10 @@ export function creerImports(app) {
       if (!it.vis || !it.objet || !dedans(it.x, it.z)) continue;
       const dz = app.relief?.actif ? app.relief.dz(it.x, it.z) : 0;
       const copie = new THREE.Group();
-      copie.name = `Import ${it.nom}`;
+      // modèle qui remplace un bâtiment : nommé comme le bâti exporté (<id>__<nom>), clé en attribut (atlas_id), pour
+      // le retrouver au prochain aller-retour Rhino ; calque « Bati remplace (modeles importes) »
+      const orig = it.remplace ? decrireBati(it.remplace) : null;
+      copie.name = it.remplace ? `${it.remplace}__${orig?.nom || 'sans nom'}` : `Import ${it.nom}`;
       copie.position.set(it.x, -dz, it.z);
       const versLocal = new THREE.Matrix4().makeTranslation(-it.x, 0, -it.z);
       it.objet.updateMatrixWorld(true);
@@ -262,7 +370,13 @@ export function creerImports(app) {
         const g = m.geometry.clone().applyMatrix4(M);
         if (M.determinant() < 0) inverserFaces(g);
         const c = new THREE.Mesh(g, m.material);
-        c.name = m.name || copie.name;
+        c.name = it.remplace ? copie.name : (m.name || copie.name);
+        if (it.remplace) {
+          c.userData = {
+            calque: 'Bati remplace (modeles importes)',
+            attributs: { type: 'batiment remplace (modele importe)', atlas_id: it.remplace, nom: orig?.nom || 'sans nom', modele: it.nom, fichier: it.fichiers[0] || '', objet_du_modele: m.userData?.name || m.name || '' },
+          };
+        }
         copie.add(c);
       });
       if (copie.children.length) res.push(copie);
@@ -309,40 +423,60 @@ export function creerImports(app) {
     try { objet = await charger(fichiers.map((f) => f.name), urls); } catch (e) { note(`Lecture impossible : ${e.message || e}`); return; }
     const c = app.controls.target;
     const g = app.proj.versGeo(c.x, c.z);
+    // bâtiment remplacé : clé atlas_id lue dans le modèle (une seule clé connue), sinon à choisir dans le panneau
+    const cles = clesDuModele(objet);
+    const remplace = cles.length === 1 ? cles[0] : null;
     const it = {
       n: suivant++, nom: principal.name.replace(/\.[^.]+$/, ''), fichiers: fichiers.map((f) => `imports/${f.name}`),
       lat: g.lat, lon: g.lon, x: c.x, z: c.z, rot: 0, unite: 1, echelle: 1, hauteur: 0, vis: true, axes: { ...propose.axes },
+      remplace, candidat: remplace || cles[0] || null, clesTrouvees: cles, fichier: !!remplace || lireLS(LS_COORDS) === '1',
     };
     liste.push(it);
     ajouterObjet(it, objet);
     sel = liste.length - 1;
     majListe(); chargerFormulaire();
-    changement();
+    if (it.remplace) appliquerRemplacements(); else changement();
     // copie du fichier dans data/imports/ (serveur local) ; sinon téléchargé, à placer dans data/imports/
     for (const f of fichiers) await enregistrerDonnees(`imports/${f.name}`, f, { apres: 'référencé par projet.json' });
-    note(`${principal.name} importé au centre de la vue : « Placer au clic » pour le poser ailleurs.${propose.raison ? ` Axes : ${propose.raison} (à vérifier).` : ''} Si le modèle est couché ou à l'envers, choisir « Axes du fichier ». ${texteSimple(it)}`);
+    const ou = it.fichier ? 'dans les coordonnées du fichier (repère de l\'export Rhino)' : 'au centre de la vue : « Placer au clic » pour le poser ailleurs';
+    const quoi = remplace ? ` Il remplace ${nomBati(remplace)} (clé ${remplace} lue dans le fichier).`
+      : cles.length > 1 ? ` Plusieurs bâtiments nommés dans le fichier (${cles.slice(0, 4).join(', ')}${cles.length > 4 ? '…' : ''}) : choisir celui qu'il remplace.` : '';
+    note(`${principal.name} importé ${ou}.${quoi}${propose.raison ? ` Axes : ${propose.raison} (à vérifier).` : ''} Si le modèle est couché ou à l'envers, choisir « Axes du fichier ». ${texteSimple(it)}`);
   }
 
   async function lire(entrees) {
+    const avaitRemplacements = liste.some((it) => it.remplace);
     vider(false);
+    // 1. toutes les entrées d'abord (sans attendre) : les bâtiments remplacés sont retirés dès la première construction du bâti
     for (const x of entrees || []) {
       if (!x || !Array.isArray(x.fichiers) || !Number.isFinite(x.lat) || !Number.isFinite(x.lon)) continue;
       const p = app.proj.versLocal(x.lat, x.lon);
+      const remplace = typeof x.remplace === 'string' && x.remplace ? x.remplace : null;
       const it = {
         n: x.n || suivant, nom: String(x.nom || x.fichiers[0]), fichiers: x.fichiers.map(String), lat: x.lat, lon: x.lon, x: p.x, z: p.z,
         rot: +x.rot || 0, unite: +x.unite || 1, echelle: +x.echelle || 1, hauteur: +x.hauteur || 0, vis: x.vis !== false,
         axes: axesValides(x.axes) ? { est: x.axes.est, nord: x.axes.nord, haut: x.axes.haut } : { ...AXES_Y }, // sans champ : Y vers le haut
+        remplace, candidat: remplace, fichier: x.coordonnees === 'fichier', // sans champ : ni remplacement, ni coordonnées du fichier
       };
       suivant = Math.max(suivant, it.n + 1);
       liste.push(it);
+    }
+    // 2. lecture des fichiers ; un fichier absent rend le bâtiment d'origine
+    let rendus = avaitRemplacements;
+    for (const it of [...liste]) {
       const urls = new Map(it.fichiers.map((f) => [f.split('/').pop(), `data/${f}`]));
-      try { ajouterObjet(it, await charger(it.fichiers.map((f) => f.split('/').pop()), urls)); } catch (e) {
+      try {
+        const brut = await charger(it.fichiers.map((f) => f.split('/').pop()), urls);
+        if (!liste.includes(it)) continue; // projet relu ou import supprimé pendant la lecture
+        ajouterObjet(it, brut);
+      } catch (e) {
         it.erreur = /OBJ sans faces/.test(e?.message) ? e.message : `fichier introuvable ou illisible (data/${it.fichiers[0]})`;
         console.warn(`Import 3D : ${it.erreur}`, e);
+        if (it.remplace) rendus = true;
       }
     }
-    majListe();
-    if (liste.length) changement();
+    majListe(); chargerFormulaire();
+    if (rendus) appliquerRemplacements(); else if (liste.length) changement();
   }
 
   function serialiser() {
@@ -351,6 +485,8 @@ export function creerImports(app) {
       n: it.n, nom: it.nom, fichiers: it.fichiers, lat: +it.lat.toFixed(7), lon: +it.lon.toFixed(7),
       rot: it.rot, unite: it.unite, echelle: it.echelle, hauteur: it.hauteur, vis: it.vis,
       ...(it.axes && !memesAxes(it.axes, AXES_Y) ? { axes: { ...it.axes } } : {}), // omis pour Y vers le haut (fichiers d'avant inchangés)
+      ...(it.fichier ? { coordonnees: 'fichier' } : {}), // omis : posé au point lat / lon (comportement d'avant)
+      ...(it.remplace ? { remplace: it.remplace, remplaceNom: decrireBati(it.remplace)?.nom || undefined } : {}), // bâtiment remplacé (clé atlas_id)
     }));
   }
 
@@ -363,21 +499,38 @@ export function creerImports(app) {
     });
   }
   function vider(signal = true) {
+    // (projet.reinitialiser reconstruit ensuite le bâti : les bâtiments remplacés reviennent)
     liste.splice(0).forEach(liberer);
     sel = -1;
     majListe();
     if (signal) changement();
   }
   function supprimer(i) {
-    liberer(liste[i]);
+    const it = liste[i];
+    liberer(it);
     liste.splice(i, 1);
     if (sel >= liste.length) sel = liste.length - 1;
     majListe(); chargerFormulaire();
-    changement();
+    if (it?.remplace) appliquerRemplacements(); else changement();
+  }
+  // remplacement du bâtiment cle (null : retiré, retour au volume d'origine)
+  function definirRemplacement(it, cleBati) {
+    if (!it || (it.remplace || null) === (cleBati || null)) return;
+    if (cleBati && liste.some((x) => x !== it && x.remplace === cleBati)) {
+      note(`${nomBati(cleBati)} est déjà remplacé par un autre modèle : retirer d'abord ce remplacement.`);
+      chargerFormulaire();
+      return;
+    }
+    it.remplace = cleBati || null;
+    if (cleBati) it.candidat = cleBati;
+    majListe(); chargerFormulaire();
+    appliquerRemplacements();
   }
 
   const changement = () => app.emettre('bati');
-  const texteSimple = (it) => (!it.objet ? '' : it.simple
+  const texteSimple = (it) => (!it.objet ? '' : it.remplace
+    ? `Remplace ${nomBati(it.remplace)} : compté dans le bâti effectif (soleil, vent, chaleur, coupes) sous la même clé, avec ${it.simple ? 'l\'emprise du modèle' : 'l\'emprise du bâtiment d\'origine (modèle complexe)'} et sa hauteur (${Math.round(it.hauteurMax || 0)} m).`
+    : it.simple
     ? `Volume simple : compté dans le soleil, le vent et les coupes par son emprise (${Math.round(it.couverture * 100)} % de l'enveloppe couverte).`
     : `Volume complexe (${Math.round((it.couverture || 0) * 100)} % de l'enveloppe couverte) : affiché, exporté et pris en compte par les ombres de la maquette, mais ignoré par le vent, les coupes et les calculs de soleil et de confort.`);
 
@@ -386,7 +539,7 @@ export function creerImports(app) {
   // ---------------------------------------------------------------
   function clic(p) {
     const it = liste[sel];
-    if (!p || !it) return;
+    if (!p || !it || it.fichier) return;
     const g = app.proj.versGeo(p[0], p[1]);
     Object.assign(it, { x: p[0], z: p[1], lat: g.lat, lon: g.lon });
     placer(it);
@@ -410,6 +563,38 @@ export function creerImports(app) {
     ui.rot.value = it.rot; ui.unite.value = it.unite; ui.echelle.value = it.echelle; ui.hauteur.value = it.hauteur;
     afficherAxes(it);
     ui.etat.textContent = it.erreur ? `${it.nom} : ${it.erreur}.` : texteSimple(it);
+    // coordonnées du fichier : ni rotation, ni placement au clic
+    ui.fichier.checked = !!it.fichier;
+    for (const el of [ui.rot, ui.placer, ...ui.tourner]) el.disabled = !!it.fichier;
+    afficherRemplacement(it);
+  }
+  // bloc « Remplace le bâtiment » : case, recherche, liste des bâtiments (les plus proches du modèle d'abord)
+  function afficherRemplacement(it) {
+    const c = it.remplace || it.candidat;
+    ui.remplaceCase.checked = !!it.remplace;
+    ui.remplaceCase.disabled = !c;
+    ui.remplaceNom.textContent = c ? `${nomBati(c)}${decrireBati(c)?.nom ? ` (${c})` : ''}` : '(choisir dans la liste)';
+    ui.retirer.disabled = !it.remplace;
+    const trouvees = it.clesTrouvees?.length > 1 ? `Bâtiments nommés dans le fichier : ${it.clesTrouvees.slice(0, 6).map(nomBati).join(', ')}${it.clesTrouvees.length > 6 ? '…' : ''}. ` : '';
+    ui.remplaceNote.textContent = `${trouvees}${it.remplace ? 'Le bâtiment d\'origine est retiré de la maquette, des ombres, du bâti effectif et des exports (calque Projet affiché ; phase Existant : bâtiment d\'origine).' : 'Aucun bâtiment remplacé : le modèle s\'ajoute au bâti existant.'}`;
+    remplirChoix(it);
+  }
+  const sansAccents = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+  function remplirChoix(it) {
+    if (!ui.choix) return;
+    const q = sansAccents(ui.recherche.value.trim());
+    const res = [];
+    for (const d of batiments().map.values()) {
+      if (q && !sansAccents(d.nom).includes(q) && !sansAccents(d.cle).includes(q)) continue;
+      res.push([Math.hypot(d.cx - it.x, d.cz - it.z), d]);
+    }
+    res.sort((a, b) => a[0] - b[0]);
+    const c = it.remplace || it.candidat;
+    const opts = res.slice(0, 40).map(([dist, d]) => {
+      const hb = hauteurBati(d);
+      return h('option', { value: d.cle, selected: d.cle === c }, `${d.nom || 'Sans nom'} — ${d.cle}${Number.isFinite(hb) ? `, ${Math.round(hb)} m` : ''}, à ${Math.round(dist)} m`);
+    });
+    ui.choix.replaceChildren(...(opts.length ? opts : [h('option', { value: '', disabled: true }, q ? 'Aucun bâtiment trouvé.' : 'Bâti non chargé.')]));
   }
   // listes des axes : présélection, case miroir et mode avancé (Est ←, Nord ←, Haut ←) reflètent it.axes
   function afficherAxes(it) {
@@ -446,9 +631,9 @@ export function creerImports(app) {
   function majListe() {
     if (!ui.liste?.isConnected) return;
     ui.liste.replaceChildren(...(liste.length ? liste.map((it, i) => h('li', { class: i === sel ? 'choisi' : '' },
-      h('input', { type: 'checkbox', checked: it.vis, 'aria-label': `Afficher ${it.nom}`, onchange: (e) => { it.vis = e.target.checked; placer(it); changement(); } }),
+      h('input', { type: 'checkbox', checked: it.vis, 'aria-label': `Afficher ${it.nom}`, onchange: (e) => { it.vis = e.target.checked; placer(it); if (it.remplace) appliquerRemplacements(); else changement(); } }),
       h('button', { type: 'button', class: 'choisir', 'aria-pressed': String(i === sel), onclick: () => { sel = sel === i ? -1 : i; majListe(); chargerFormulaire(); } },
-        `${it.nom}${it.erreur ? ' (absent)' : it.simple ? '' : ' (complexe)'}`),
+        `${it.nom}${it.erreur ? ' (absent)' : it.remplace ? ` (remplace ${nomBati(it.remplace)})` : it.simple ? '' : ' (complexe)'}`),
       h('button', { type: 'button', class: 'bouton discret petit', 'aria-label': `Supprimer ${it.nom}`, title: 'Supprimer', onclick: () => supprimer(i) }, '×'),
     )) : [h('li', { class: 'vide' }, 'Aucun fichier importé.')]));
   }
@@ -477,13 +662,49 @@ export function creerImports(app) {
     ui.axeNord = h('select', { onchange: avance, 'aria-label': 'Axe du fichier vers le nord' }, ...AXES.map(option));
     ui.axeHaut = h('select', { onchange: avance, 'aria-label': 'Axe du fichier vers le haut' }, ...AXES.map(option));
     ui.axesNote = h('p', { class: 'note note-axes', 'data-garder': '' });
-    const tourner = (d) => { const it = liste[sel]; if (!it) return; ui.rot.value = ((((it.rot || 0) + d) % 360) + 360) % 360; editer(); };
+    const tourner = (d) => { const it = liste[sel]; if (!it || it.fichier) return; ui.rot.value = ((((it.rot || 0) + d) % 360) + 360) % 360; editer(); };
+    // remplacement d'un bâtiment existant (retour de Rhino)
+    ui.fichier = h('input', { type: 'checkbox', onchange: (e) => {
+      const it = liste[sel];
+      if (!it) return;
+      it.fichier = e.target.checked;
+      ecrireLS(LS_COORDS, it.fichier ? '1' : null); // choix proposé aux prochains imports sans clé
+      placer(it); chargerFormulaire();
+      clearTimeout(editer.t); editer.t = setTimeout(changement, 300);
+    } });
+    ui.remplaceCase = h('input', { type: 'checkbox', onchange: (e) => { const it = liste[sel]; if (it) definirRemplacement(it, e.target.checked ? it.candidat : null); } });
+    ui.remplaceNom = h('strong', {});
+    ui.recherche = h('input', { type: 'search', style: { width: '100%', boxSizing: 'border-box' }, placeholder: 'Nom ou identifiant (way/…, BATIMENT…)', 'aria-label': 'Chercher un bâtiment', oninput: () => { const it = liste[sel]; if (it) remplirChoix(it); } });
+    ui.choix = h('select', { size: 6, style: { width: '100%' }, 'aria-label': 'Bâtiment remplacé par le modèle', onchange: () => {
+      const it = liste[sel];
+      const c = ui.choix.value;
+      if (!it || !c) return;
+      it.candidat = c;
+      // modèle posé à un point : amené sur le bâtiment choisi (le modèle dans les coordonnées du fichier ne bouge pas)
+      const d = decrireBati(c);
+      if (!it.fichier && d) { const g = app.proj.versGeo(d.cx, d.cz); Object.assign(it, { x: d.cx, z: d.cz, lat: g.lat, lon: g.lon }); placer(it); }
+      definirRemplacement(it, c);
+      afficherRemplacement(it);
+    } });
+    ui.retirer = h('button', { type: 'button', class: 'bouton discret', onclick: () => { const it = liste[sel]; if (!it) return; definirRemplacement(it, null); note('Remplacement retiré : le bâtiment d\'origine est rétabli (le modèle reste affiché, ajouté au bâti).'); } }, 'Retirer le remplacement');
+    ui.remplaceNote = h('p', { class: 'note', 'data-garder': '' });
     ui.placer = h('button', { type: 'button', class: 'bouton', 'aria-pressed': 'false', onclick: () => {
       if (!liste[sel]) return;
       if (app.captureSol === clic) { arreter(); return; }
       app.captureSol = clic; ui.placer.setAttribute('aria-pressed', 'true'); note('Cliquez le sol pour poser le modèle choisi.');
     } }, 'Placer au clic');
+    ui.tourner = [
+      h('button', { type: 'button', class: 'bouton discret', title: 'Tourner de 90° (sens trigonométrique)', onclick: () => tourner(90) }, '↺ 90°'),
+      h('button', { type: 'button', class: 'bouton discret', title: 'Tourner de 90° (sens horaire)', onclick: () => tourner(-90) }, '↻ 90°'),
+    ];
     ui.reglages = h('div', { hidden: true },
+      h('div', { class: 'bloc-axes bloc-remplace' },
+        h('label', { class: 'case-axes' }, ui.remplaceCase, h('span', {}, 'Remplace le bâtiment : ', ui.remplaceNom)),
+        ui.recherche,
+        ui.choix,
+        h('div', { class: 'actions' }, ui.retirer),
+        h('label', { class: 'case-axes' }, ui.fichier, ' Garder les coordonnées du fichier (repère de l\'export Rhino : mètres, origine de l\'atlas, sans recalage)'),
+        ui.remplaceNote),
       h('div', { class: 'bloc-axes' },
         h('label', { class: 'champ-projet' }, h('span', {}, 'Axes du fichier'), ui.preselection),
         h('label', { class: 'case-axes' }, ui.miroir, ' Inverser l\'avant et l\'arrière (modèle en miroir)'),
@@ -491,17 +712,15 @@ export function creerImports(app) {
           h('div', { class: 'formulaire-axes' }, champ('Est ←', ui.axeEst), champ('Nord ←', ui.axeNord), champ('Haut ←', ui.axeHaut))),
         ui.axesNote),
       h('div', { class: 'formulaire-projet' }, champ('Rotation (°)', ui.rot), champ('Unité du fichier', ui.unite), champ('Échelle', ui.echelle), champ('Hauteur au sol (m)', ui.hauteur)),
-      h('div', { class: 'actions' },
-        h('button', { type: 'button', class: 'bouton discret', title: 'Tourner de 90° (sens trigonométrique)', onclick: () => tourner(90) }, '↺ 90°'),
-        h('button', { type: 'button', class: 'bouton discret', title: 'Tourner de 90° (sens horaire)', onclick: () => tourner(-90) }, '↻ 90°'),
-        ui.placer),
+      h('div', { class: 'actions' }, ...ui.tourner, ui.placer),
       ui.etat);
     conteneur.replaceChildren(
       h('div', { class: 'titre-info' }, h('h3', {}, 'Importer un fichier 3D'),
         info('GLB ou glTF (recommandé : un seul fichier, textures comprises) ou OBJ, avec son fichier MTL et ses textures choisis en même temps (facultatif). Unité : le mètre ; pour un OBJ en centimètres ou en millimètres, choisir l\'unité.',
           'Axes du fichier : glTF et GLB ont Y vers le haut ; Rhino, Revit, ArchiCAD ou AutoCAD exportent souvent l\'OBJ avec Z vers le haut (proposé d\'office quand l\'en-tête du fichier le dit). Un modèle couché ou à l\'envers : changer la présélection. Un modèle en miroir (texte inversé, plan retourné) : cocher « Inverser l\'avant et l\'arrière ». Axes avancés : pour chaque direction de l\'atlas (est, nord, haut), l\'axe du fichier qui la donne, signe compris. Les axes s\'appliquent avant l\'unité, l\'échelle et la rotation, puis le modèle est reposé au sol.',
           'Le modèle est posé au centre de la vue, sur le sol, puis se place au clic ; rotation, échelle et hauteur au sol se règlent. Le fichier est copié dans data/imports/ (serveur local ; sinon téléchargé, à y déposer) et projet.json garde sa référence : « Enregistrer projet.json » pour le retrouver à l\'ouverture.',
-          `Un modèle « simple » (vu de dessus, ses faces couvrent au moins ${Math.round(SEUIL_SIMPLE * 100)} % de son enveloppe) compte dans le bâti effectif par son emprise extrudée (soleil, confort, vent, coupes) ; un modèle complexe est affiché et exporté, mais ignoré par le vent et les coupes.`)),
+          `Un modèle « simple » (vu de dessus, ses faces couvrent au moins ${Math.round(SEUIL_SIMPLE * 100)} % de son enveloppe) compte dans le bâti effectif par son emprise extrudée (soleil, confort, vent, coupes) ; un modèle complexe est affiché et exporté, mais ignoré par le vent et les coupes.`,
+          'Retour de Rhino : un bâtiment exporté (Export > Rhino, objet nommé identifiant__nom, texte d\'attribut atlas_id) puis retravaillé peut revenir en GLB (ou OBJ) et remplacer le bâtiment d\'origine. La clé est lue dans le nom d\'un objet du fichier ou dans ses extras glTF ; sinon, choisir le bâtiment dans la liste (recherche par nom ou identifiant). Le modèle garde alors les coordonnées du fichier (mètres, origine de l\'atlas ; le GLB de Rhino a Y vers le haut, l\'OBJ Z vers le haut). Le bâtiment d\'origine disparaît de la maquette, des ombres, du bâti effectif (le modèle prend sa clé : soleil, vent, chaleur) et des exports, tant que le calque Projet est affiché ; « Retirer le remplacement » le rétablit. projet.json garde « remplace » dans l\'entrée de l\'import (aucune démolition ajoutée).')),
       h('div', { class: 'actions' }, h('button', { type: 'button', class: 'bouton', onclick: () => fichier.click() }, 'Importer GLB / glTF / OBJ…'), fichier),
       ui.note,
       ui.liste,
@@ -519,6 +738,7 @@ export function creerImports(app) {
 
   return {
     groupe, lire, serialiser, empreintes, objetsExport, construireBloc, importer, vider,
+    definirRemplacement, clesDuModele, remplacees: () => [...clesRemplacees()],
     nombre: () => liste.length, get liste() { return liste; },
   };
 }
