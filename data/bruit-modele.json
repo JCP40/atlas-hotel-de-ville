@@ -1,0 +1,1144 @@
+{
+  "version": 1,
+  "description": "Paramètres du modèle de bruit de l'atlas (js/bruit-calcul.js), estimation pédagogique. Trafics par type de voie OSM, facteur des comptages du classement sonore, part de la nuit, correction globale et SEL du tramway calibrés par outils/bruit/calibrer-modele.mjs sur une carte de référence locale (non jointe). Aucune donnée de la référence dans ce fichier.",
+  "calcul": {
+    "pas": 2,
+    "rayon_m": 200,
+    "rayons": 144,
+    "reflexions": 2,
+    "perte_reflexion_db": 1,
+    "absorption_db_m": 0.005,
+    "h_recepteur": 4,
+    "h_source": 0.05,
+    "grille_m": 5
+  },
+  "periodes": {
+    "jour": 0.728,
+    "soir": 0.183,
+    "nuit": 0.09
+  },
+  "correction_globale_db": 0.6,
+  "rues": {
+    "Rue de Briord": 1.23,
+    "Place du Port Communeau": 5.82,
+    "Rue d'Aguesseau": 0.45,
+    "Rue des Pénitentes": 0.89,
+    "Rue des Trois Croissants": 0.47,
+    "Allée de la Tremperie": 0.73,
+    "Allée Flesselles": 0.98,
+    "Allée du Port Maillard": 0.26,
+    "Rue de Verdun": 1.19,
+    "Rue des Petites Écuries": 0.63,
+    "Rue Pierre Chéreau": 0.25,
+    "Rue d'Orléans": 0.37,
+    "Rue Léon Blum": 3.25,
+    "Rue de la Commune": 1.59,
+    "Allée d'Erdre": 0.44,
+    "Rue Léopold Cassegrain": 0.9,
+    "Rue du Pont Sauvetout": 0.54,
+    "Rue de Feltre": 1.28,
+    "Rue du Refuge": 0.48,
+    "Rue Chateaubriand": 9.98,
+    "Rue Président Édouard Herriot": 0.77,
+    "Rue Saint-Léonard": 1.33,
+    "Rue des Halles": 0.56,
+    "Rue de la Clavurerie": 0.76,
+    "Place Saint-Similien": 5.26,
+    "Rue Armand Brossard": 2.6,
+    "Place Dumoustier": 1.04,
+    "Rue Saint-Denis": 9.98,
+    "Rue Saint-Vincent": 0.83,
+    "Rue des États": 0.37,
+    "Rue de l'Arche Sèche": 0.66,
+    "Rue Moquechien": 0.87,
+    "Rue Paul Bellamy": 9.98,
+    "Rue Le Nôtre": 0.37,
+    "Place Maréchal Foch": 1.28,
+    "Rue Tournefort": 0.54,
+    "Place Roger Salengro": 0.67,
+    "Rue d'Argentré": 3.35,
+    "Rue Notre-Dame": 1.86,
+    "Rue Général Leclerc de Hauteclocque": 2.67,
+    "Rue Garde Dieu": 0.38,
+    "Place Saint-Pierre": 3.83,
+    "Rue du Château": 0.55,
+    "Rue de la Marne": 0.75,
+    "Rue Guépin": 0.91,
+    "Rue Cacault": 0.85,
+    "Rue du Cheval Blanc": 9.98,
+    "Rue du Bourgneuf": 1.21,
+    "Rue Edmond Prieur": 3.76,
+    "Quai de Versailles": 9.98,
+    "Rue Fénelon": 1.43,
+    "Rue de la Paix": 0.92,
+    "Rue du Roi Albert": 2.21,
+    "Rue Saint-Jean": 1.22,
+    "Place du Bouffay": 0.72,
+    "Place de l'Hôtel de Ville": 1.58,
+    "Rue Maurice Duval": 2.04,
+    "Allée Duquesne": 0.5,
+    "Rue de l'Hôtel de Ville": 0.54,
+    "Rue du Marais": 0.79,
+    "Cours des Cinquante Otages": 0.34,
+    "Cours Franklin Roosevelt": 0.44,
+    "Rue Ogée": 3.26,
+    "Rue Beauregard": 0.6,
+    "Rue de la Barillerie": 0.53,
+    "Rue Léon Maître": 0.69,
+    "Place de Bretagne": 0.84,
+    "Rue du Vieil Hôpital": 0.54,
+    "Parvis Neptune": 0.42,
+    "Rue du Bouffay": 0.86,
+    "Rue du Moulin": 0.92,
+    "Rond-Point du Pont Morand": 1.41
+  },
+  "facteur_comptages": 0.685,
+  "trafics": {
+    "primary": 15000,
+    "secondary": 2653,
+    "tertiary": 2304,
+    "unclassified": 1500,
+    "residential": 1576,
+    "living_street": 1232,
+    "service": 1056,
+    "pedestrian": 204,
+    "busway": 0
+  },
+  "vitesses": {
+    "primary": 50,
+    "secondary": 30,
+    "tertiary": 30,
+    "unclassified": 30,
+    "residential": 30,
+    "living_street": 20,
+    "service": 20,
+    "pedestrian": 20,
+    "busway": 30
+  },
+  "pl": {
+    "primary": 0.05,
+    "secondary": 0.04,
+    "tertiary": 0.03,
+    "unclassified": 0.02,
+    "residential": 0.02,
+    "living_street": 0.02,
+    "service": 0.02,
+    "pedestrian": 0.05,
+    "busway": 0
+  },
+  "largeurs": {
+    "primary": 12,
+    "secondary": 9,
+    "tertiary": 7,
+    "unclassified": 6,
+    "residential": 5.5,
+    "living_street": 4.5,
+    "service": 3.5,
+    "pedestrian": 4,
+    "busway": 6
+  },
+  "revetements": {
+    "paving_stones": 2.5,
+    "sett": 3,
+    "cobblestone": 4,
+    "unhewn_cobblestone": 4,
+    "concrete": 0.5
+  },
+  "bus": {
+    "passages_par_ligne_sens": {
+      "jour": 4,
+      "soir": 2,
+      "nuit": 0.3
+    },
+    "facteur": 0.061,
+    "vitesse": 25,
+    "largeur": 3.5
+  },
+  "tram": {
+    "sel_7_5m": 87.5,
+    "vitesse": 25,
+    "passages_heure": {
+      "jour": 16,
+      "soir": 10,
+      "nuit": 3
+    },
+    "largeur": 3
+  },
+  "points": {
+    "terrasse": {
+      "libelle": "Terrasse de café (≈ 30 personnes)",
+      "lw": 85,
+      "h": 1.2,
+      "parts": {
+        "jour": 0.5,
+        "soir": 1,
+        "nuit": 0.1
+      }
+    },
+    "livraison": {
+      "libelle": "Aire de livraison (camion, déchargement)",
+      "lw": 100,
+      "h": 1.5,
+      "parts": {
+        "jour": 0.04,
+        "soir": 0,
+        "nuit": 0
+      }
+    },
+    "ventilation": {
+      "libelle": "Ventilation / climatisation (groupe extérieur)",
+      "lw": 75,
+      "h": 3,
+      "parts": {
+        "jour": 1,
+        "soir": 1,
+        "nuit": 0.5
+      }
+    },
+    "animation": {
+      "libelle": "Place animée, marché, jeux d'enfants",
+      "lw": 90,
+      "h": 1.5,
+      "parts": {
+        "jour": 0.4,
+        "soir": 0.3,
+        "nuit": 0
+      }
+    },
+    "autre": {
+      "libelle": "Autre source (puissance à saisir)",
+      "lw": 85,
+      "h": 1.5,
+      "parts": {
+        "jour": 1,
+        "soir": 1,
+        "nuit": 0
+      }
+    }
+  },
+  "statuts": {
+    "zone30": {
+      "vitesse": 30,
+      "trafic": 1
+    },
+    "zone20": {
+      "vitesse": 20,
+      "trafic": 0.8
+    },
+    "pietonne": {
+      "vitesse": 20,
+      "riverains": 0.05,
+      "livraisons_tmja": 30,
+      "livraisons_pl": 0.5
+    }
+  },
+  "calibration": {
+    "date": "2026-11-21",
+    "points": 12654,
+    "outil": "outils/bruit/calibrer-modele.mjs",
+    "reference": "cartes de bruit stratégiques de Nantes Métropole (2022, GAMBA), routes, classes de 5 dB(A), points à 4 m hors bâti (fichier local non publié)",
+    "Lden": {
+      "n": 12003,
+      "dansClasse": 0.6720819795051237,
+      "unePres": 0.9752561859535116,
+      "biais": -0.2627126737920855,
+      "ecartMoyen": 2.5519431297185053
+    },
+    "Ln": {
+      "n": 12003,
+      "dansClasse": 0.7396484212280263,
+      "unePres": 0.9847538115471132,
+      "biais": 0.23517627408248126,
+      "ecartMoyen": 2.3305439312078366
+    },
+    "cartes_etat": {
+      "Lden": {
+        "n": 7952,
+        "ok": 1431,
+        "m": 4588
+      },
+      "Ln": {
+        "n": 5285,
+        "ok": 1241,
+        "m": 3306
+      }
+    },
+    "rues": [
+      {
+        "rue": "CRS DES 50 OTAGES",
+        "n": 471,
+        "lden_modele": 66.4,
+        "lden_dans_classe": 0.1,
+        "ln_modele": 57
+      },
+      {
+        "rue": "R DE STRASBOURG",
+        "n": 303,
+        "lden_modele": 69.5,
+        "lden_dans_classe": 0.55,
+        "ln_modele": 60.4
+      },
+      {
+        "rue": "CRS FRANKLIN ROOSEVELT",
+        "n": 160,
+        "lden_modele": 54.8,
+        "lden_dans_classe": 0.8,
+        "ln_modele": 45.5
+      },
+      {
+        "rue": "PL MARECHAL FOCH",
+        "n": 152,
+        "lden_modele": 66.8,
+        "lden_dans_classe": 0.78,
+        "ln_modele": 57.6
+      },
+      {
+        "rue": "ALL DES TANNEURS",
+        "n": 147,
+        "lden_modele": 60.8,
+        "lden_dans_classe": 0.25,
+        "ln_modele": 51.5
+      },
+      {
+        "rue": "R DE L'ARCHE SECHE",
+        "n": 142,
+        "lden_modele": 58.9,
+        "lden_dans_classe": 0.7,
+        "ln_modele": 49.8
+      },
+      {
+        "rue": "R LEOPOLD CASSEGRAIN",
+        "n": 134,
+        "lden_modele": 63.9,
+        "lden_dans_classe": 0.72,
+        "ln_modele": 54.8
+      },
+      {
+        "rue": "ALL DUQUESNE",
+        "n": 121,
+        "lden_modele": 63.2,
+        "lden_dans_classe": 0.88,
+        "ln_modele": 53.8
+      },
+      {
+        "rue": "QU CEINERAY",
+        "n": 120,
+        "lden_modele": 66.5,
+        "lden_dans_classe": 0.63,
+        "ln_modele": 57.4
+      },
+      {
+        "rue": "ALL D'ORLEANS",
+        "n": 116,
+        "lden_modele": 61.8,
+        "lden_dans_classe": 0.41,
+        "ln_modele": 52.3
+      },
+      {
+        "rue": "PL DE BRETAGNE",
+        "n": 112,
+        "lden_modele": 61.2,
+        "lden_dans_classe": 0.85,
+        "ln_modele": 52
+      },
+      {
+        "rue": "CRS SAINT-PIERRE",
+        "n": 109,
+        "lden_modele": 58.7,
+        "lden_dans_classe": 0.79,
+        "ln_modele": 49.5
+      },
+      {
+        "rue": "PL ROGER SALENGRO",
+        "n": 105,
+        "lden_modele": 60.4,
+        "lden_dans_classe": 0.72,
+        "ln_modele": 51.3
+      },
+      {
+        "rue": "R GENERAL LECLERC DE HAUTECLOCQUE",
+        "n": 103,
+        "lden_modele": 66.4,
+        "lden_dans_classe": 0.86,
+        "ln_modele": 57.2
+      },
+      {
+        "rue": "R SAINT-LEONARD",
+        "n": 88,
+        "lden_modele": 58.5,
+        "lden_dans_classe": 0.41,
+        "ln_modele": 49.4
+      },
+      {
+        "rue": "R DU ROI ALBERT",
+        "n": 88,
+        "lden_modele": 62.1,
+        "lden_dans_classe": 0.83,
+        "ln_modele": 53
+      },
+      {
+        "rue": "R ARMAND BROSSARD",
+        "n": 87,
+        "lden_modele": 62.9,
+        "lden_dans_classe": 0.37,
+        "ln_modele": 53.8
+      },
+      {
+        "rue": "R JEANNE D'ARC",
+        "n": 86,
+        "lden_modele": 68.1,
+        "lden_dans_classe": 0.74,
+        "ln_modele": 58.9
+      },
+      {
+        "rue": "R DU MOULIN",
+        "n": 84,
+        "lden_modele": 58.3,
+        "lden_dans_classe": 0.64,
+        "ln_modele": 49.1
+      },
+      {
+        "rue": "PL DU PORT COMMUNEAU",
+        "n": 83,
+        "lden_modele": 69,
+        "lden_dans_classe": 0.67,
+        "ln_modele": 59.9
+      },
+      {
+        "rue": "R DE VERDUN",
+        "n": 81,
+        "lden_modele": 56.2,
+        "lden_dans_classe": 0.35,
+        "ln_modele": 47.1
+      },
+      {
+        "rue": "R PRESIDENT EDOUARD HERRIOT",
+        "n": 74,
+        "lden_modele": 61,
+        "lden_dans_classe": 0.91,
+        "ln_modele": 51.9
+      },
+      {
+        "rue": "ALL DU PORT MAILLARD",
+        "n": 73,
+        "lden_modele": 56.9,
+        "lden_dans_classe": 0.63,
+        "ln_modele": 47.7
+      },
+      {
+        "rue": "R DE FELTRE",
+        "n": 67,
+        "lden_modele": 62.3,
+        "lden_dans_classe": 0.97,
+        "ln_modele": 52.8
+      },
+      {
+        "rue": "R TOURNEFORT",
+        "n": 64,
+        "lden_modele": 62.2,
+        "lden_dans_classe": 0.88,
+        "ln_modele": 53.1
+      },
+      {
+        "rue": "PL SAINT-PIERRE",
+        "n": 59,
+        "lden_modele": 66.1,
+        "lden_dans_classe": 0.68,
+        "ln_modele": 56.9
+      },
+      {
+        "rue": "R DE L'HOTEL DE VILLE",
+        "n": 56,
+        "lden_modele": 61.4,
+        "lden_dans_classe": 0.52,
+        "ln_modele": 51.9
+      },
+      {
+        "rue": "QU DE VERSAILLES",
+        "n": 56,
+        "lden_modele": 63.6,
+        "lden_dans_classe": 0.91,
+        "ln_modele": 54.5
+      },
+      {
+        "rue": "R CACAULT",
+        "n": 53,
+        "lden_modele": 54.9,
+        "lden_dans_classe": 0.66,
+        "ln_modele": 45.8
+      },
+      {
+        "rue": "R DU PONT SAUVETOUT",
+        "n": 52,
+        "lden_modele": 56.3,
+        "lden_dans_classe": 0.56,
+        "ln_modele": 47.2
+      },
+      {
+        "rue": "R DE LA MARNE",
+        "n": 51,
+        "lden_modele": 53.5,
+        "lden_dans_classe": 0.9,
+        "ln_modele": 44.4
+      },
+      {
+        "rue": "R DES ETATS",
+        "n": 50,
+        "lden_modele": 55.2,
+        "lden_dans_classe": 0.68,
+        "ln_modele": 46.1
+      },
+      {
+        "rue": "R DE LA COMMUNE",
+        "n": 49,
+        "lden_modele": 60.1,
+        "lden_dans_classe": 0.63,
+        "ln_modele": 50.8
+      },
+      {
+        "rue": "R GARDE DIEU",
+        "n": 49,
+        "lden_modele": 58.1,
+        "lden_dans_classe": 0.41,
+        "ln_modele": 49
+      },
+      {
+        "rue": "R MATHELIN RODIER",
+        "n": 48,
+        "lden_modele": 51.8,
+        "lden_dans_classe": 0.79,
+        "ln_modele": 42.7
+      },
+      {
+        "rue": "PL SAINT-SIMILIEN",
+        "n": 48,
+        "lden_modele": 67.1,
+        "lden_dans_classe": 0.69,
+        "ln_modele": 58
+      },
+      {
+        "rue": "R PAUL BELLAMY",
+        "n": 48,
+        "lden_modele": 73.2,
+        "lden_dans_classe": 0.98,
+        "ln_modele": 64
+      },
+      {
+        "rue": "ALL CASSARD",
+        "n": 47,
+        "lden_modele": 60.4,
+        "lden_dans_classe": 0.4,
+        "ln_modele": 50.9
+      },
+      {
+        "rue": "R DES TROIS CROISSANTS",
+        "n": 47,
+        "lden_modele": 54.6,
+        "lden_dans_classe": 0.7,
+        "ln_modele": 45.3
+      },
+      {
+        "rue": "R PREMION",
+        "n": 47,
+        "lden_modele": 53.6,
+        "lden_dans_classe": 1,
+        "ln_modele": 44.5
+      },
+      {
+        "rue": "ALL D'ERDRE",
+        "n": 47,
+        "lden_modele": 64.7,
+        "lden_dans_classe": 0.7,
+        "ln_modele": 55.4
+      },
+      {
+        "rue": "R AFFRE",
+        "n": 45,
+        "lden_modele": 54.2,
+        "lden_dans_classe": 0.73,
+        "ln_modele": 45.1
+      },
+      {
+        "rue": "PL DUMOUSTIER",
+        "n": 45,
+        "lden_modele": 58.4,
+        "lden_dans_classe": 0.91,
+        "ln_modele": 49.3
+      },
+      {
+        "rue": "PRV NEPTUNE",
+        "n": 44,
+        "lden_modele": 51.9,
+        "lden_dans_classe": 0.8,
+        "ln_modele": 42.8
+      },
+      {
+        "rue": "R PARE",
+        "n": 44,
+        "lden_modele": 54.9,
+        "lden_dans_classe": 0.61,
+        "ln_modele": 45.8
+      },
+      {
+        "rue": "ALL DE LA TREMPERIE",
+        "n": 42,
+        "lden_modele": 54.1,
+        "lden_dans_classe": 0.81,
+        "ln_modele": 44.9
+      },
+      {
+        "rue": "R DE LA PAIX",
+        "n": 42,
+        "lden_modele": 54.3,
+        "lden_dans_classe": 0.95,
+        "ln_modele": 45.2
+      },
+      {
+        "rue": "R D'ORLEANS",
+        "n": 42,
+        "lden_modele": 51.7,
+        "lden_dans_classe": 0.79,
+        "ln_modele": 42.6
+      },
+      {
+        "rue": "PL DU BOUFFAY",
+        "n": 41,
+        "lden_modele": 52.3,
+        "lden_dans_classe": 1,
+        "ln_modele": 43.2
+      },
+      {
+        "rue": "R DU CHATEAU",
+        "n": 41,
+        "lden_modele": 54.9,
+        "lden_dans_classe": 0.71,
+        "ln_modele": 45.8
+      },
+      {
+        "rue": "ALL PENTHIEVRE",
+        "n": 40,
+        "lden_modele": 64.2,
+        "lden_dans_classe": 0.8,
+        "ln_modele": 54.7
+      },
+      {
+        "rue": "R DE L'EVECHE",
+        "n": 40,
+        "lden_modele": 66.2,
+        "lden_dans_classe": 0.7,
+        "ln_modele": 56.9
+      },
+      {
+        "rue": "R LEON BLUM",
+        "n": 40,
+        "lden_modele": 58.7,
+        "lden_dans_classe": 0.7,
+        "ln_modele": 49.5
+      },
+      {
+        "rue": "R DES HALLES",
+        "n": 39,
+        "lden_modele": 54.3,
+        "lden_dans_classe": 0.77,
+        "ln_modele": 45.1
+      },
+      {
+        "rue": "R SAINT-VINCENT",
+        "n": 39,
+        "lden_modele": 61.1,
+        "lden_dans_classe": 0.56,
+        "ln_modele": 52
+      },
+      {
+        "rue": "R MOQUECHIEN",
+        "n": 39,
+        "lden_modele": 61.9,
+        "lden_dans_classe": 0.51,
+        "ln_modele": 52.7
+      },
+      {
+        "rue": "R DUVOISIN",
+        "n": 38,
+        "lden_modele": 51.9,
+        "lden_dans_classe": 0.92,
+        "ln_modele": 42.7
+      },
+      {
+        "rue": "R GUEPIN",
+        "n": 38,
+        "lden_modele": 55.1,
+        "lden_dans_classe": 0.37,
+        "ln_modele": 46
+      },
+      {
+        "rue": "R DU REFUGE",
+        "n": 38,
+        "lden_modele": 57.3,
+        "lden_dans_classe": 0.74,
+        "ln_modele": 48.2
+      },
+      {
+        "rue": "R MERCOEUR",
+        "n": 37,
+        "lden_modele": 66.2,
+        "lden_dans_classe": 0.05,
+        "ln_modele": 57.1
+      },
+      {
+        "rue": "ALL FLESSELLES",
+        "n": 36,
+        "lden_modele": 54.9,
+        "lden_dans_classe": 0.92,
+        "ln_modele": 45.5
+      },
+      {
+        "rue": "R DES CARMELITES",
+        "n": 36,
+        "lden_modele": 54.5,
+        "lden_dans_classe": 0.25,
+        "ln_modele": 45.4
+      },
+      {
+        "rue": "R PIERRE CHEREAU",
+        "n": 36,
+        "lden_modele": 54.8,
+        "lden_dans_classe": 0.89,
+        "ln_modele": 45.7
+      },
+      {
+        "rue": "PL DU PONT MORAND",
+        "n": 36,
+        "lden_modele": 72,
+        "lden_dans_classe": 0.58,
+        "ln_modele": 62.8
+      },
+      {
+        "rue": "R DU MARAIS",
+        "n": 35,
+        "lden_modele": 60.1,
+        "lden_dans_classe": 0.34,
+        "ln_modele": 50.9
+      },
+      {
+        "rue": "R LE NOTRE",
+        "n": 34,
+        "lden_modele": 58.3,
+        "lden_dans_classe": 0.82,
+        "ln_modele": 49.2
+      },
+      {
+        "rue": "R DE LA BARILLERIE",
+        "n": 33,
+        "lden_modele": 54.7,
+        "lden_dans_classe": 0.73,
+        "ln_modele": 45.6
+      },
+      {
+        "rue": "R DE L'EMERY",
+        "n": 33,
+        "lden_modele": 54.7,
+        "lden_dans_classe": 0.82,
+        "ln_modele": 45.6
+      },
+      {
+        "rue": "R EDMOND PRIEUR",
+        "n": 33,
+        "lden_modele": 65.5,
+        "lden_dans_classe": 0.73,
+        "ln_modele": 56.3
+      },
+      {
+        "rue": "PL DE L'HOTEL DE VILLE",
+        "n": 32,
+        "lden_modele": 63.3,
+        "lden_dans_classe": 0.88,
+        "ln_modele": 54
+      },
+      {
+        "rue": "R DU BOURGNEUF",
+        "n": 31,
+        "lden_modele": 61.2,
+        "lden_dans_classe": 0.71,
+        "ln_modele": 52.1
+      },
+      {
+        "rue": "R DES PETITES ECURIES",
+        "n": 30,
+        "lden_modele": 54.1,
+        "lden_dans_classe": 0.77,
+        "ln_modele": 44.9
+      },
+      {
+        "rue": "PL DU PILORI",
+        "n": 30,
+        "lden_modele": 53.8,
+        "lden_dans_classe": 1,
+        "ln_modele": 44.7
+      },
+      {
+        "rue": "R DE LA BOUCHERIE",
+        "n": 29,
+        "lden_modele": 54.3,
+        "lden_dans_classe": 0.79,
+        "ln_modele": 44.9
+      },
+      {
+        "rue": "R D'AGUESSEAU",
+        "n": 29,
+        "lden_modele": 56.4,
+        "lden_dans_classe": 0.45,
+        "ln_modele": 47.3
+      },
+      {
+        "rue": "R NOTRE DAME",
+        "n": 28,
+        "lden_modele": 64.3,
+        "lden_dans_classe": 0.57,
+        "ln_modele": 55.2
+      },
+      {
+        "rue": "R DES PENITENTES",
+        "n": 28,
+        "lden_modele": 59.9,
+        "lden_dans_classe": 0.68,
+        "ln_modele": 50.8
+      },
+      {
+        "rue": "R LEON MAITRE",
+        "n": 27,
+        "lden_modele": 54.1,
+        "lden_dans_classe": 0.78,
+        "ln_modele": 45
+      },
+      {
+        "rue": "R DU VIEIL HOPITAL",
+        "n": 27,
+        "lden_modele": 53.3,
+        "lden_dans_classe": 0.85,
+        "ln_modele": 44.2
+      },
+      {
+        "rue": "PL DU BON PASTEUR",
+        "n": 27,
+        "lden_modele": 56,
+        "lden_dans_classe": 0.56,
+        "ln_modele": 46.6
+      },
+      {
+        "rue": "R DES CARMES",
+        "n": 26,
+        "lden_modele": 55,
+        "lden_dans_classe": 0.5,
+        "ln_modele": 45.9
+      },
+      {
+        "rue": "R SAINT-JEAN",
+        "n": 26,
+        "lden_modele": 61.5,
+        "lden_dans_classe": 0.38,
+        "ln_modele": 52.4
+      },
+      {
+        "rue": "R MAURICE DUVAL",
+        "n": 26,
+        "lden_modele": 62.4,
+        "lden_dans_classe": 0.88,
+        "ln_modele": 53.2
+      },
+      {
+        "rue": "R BEAUREGARD",
+        "n": 25,
+        "lden_modele": 54.4,
+        "lden_dans_classe": 0.76,
+        "ln_modele": 45.3
+      },
+      {
+        "rue": "R DU CHEVAL BLANC",
+        "n": 25,
+        "lden_modele": 59.5,
+        "lden_dans_classe": 0.64,
+        "ln_modele": 50.4
+      },
+      {
+        "rue": "R FENELON",
+        "n": 25,
+        "lden_modele": 56.3,
+        "lden_dans_classe": 0.76,
+        "ln_modele": 47.2
+      },
+      {
+        "rue": "R SAINT-PIERRE",
+        "n": 25,
+        "lden_modele": 47.9,
+        "lden_dans_classe": 0.08,
+        "ln_modele": 38.8
+      },
+      {
+        "rue": "PL DE L'ECLUSE",
+        "n": 24,
+        "lden_modele": 60.5,
+        "lden_dans_classe": 0.33,
+        "ln_modele": 51
+      },
+      {
+        "rue": "R DE BRIORD",
+        "n": 24,
+        "lden_modele": 55.7,
+        "lden_dans_classe": 0.54,
+        "ln_modele": 46.5
+      },
+      {
+        "rue": "IMP SAINT-LAURENT",
+        "n": 24,
+        "lden_modele": 50.6,
+        "lden_dans_classe": 0.46,
+        "ln_modele": 41.4
+      },
+      {
+        "rue": "R SAINT-DENIS",
+        "n": 24,
+        "lden_modele": 59,
+        "lden_dans_classe": 0.25,
+        "ln_modele": 49.8
+      },
+      {
+        "rue": "RLE DU PETIT BOURGNEUF",
+        "n": 24,
+        "lden_modele": 59.6,
+        "lden_dans_classe": 0.46,
+        "ln_modele": 50.5
+      },
+      {
+        "rue": "R SAINTE-CATHERINE",
+        "n": 23,
+        "lden_modele": 54.9,
+        "lden_dans_classe": 0.52,
+        "ln_modele": 45.7
+      },
+      {
+        "rue": "R DE LA CLAVURERIE",
+        "n": 23,
+        "lden_modele": 55.1,
+        "lden_dans_classe": 0.65,
+        "ln_modele": 45.9
+      },
+      {
+        "rue": "R DE BUDAPEST",
+        "n": 23,
+        "lden_modele": 59.1,
+        "lden_dans_classe": 0.3,
+        "ln_modele": 49.9
+      },
+      {
+        "rue": "R LEON JAMIN",
+        "n": 23,
+        "lden_modele": 57,
+        "lden_dans_classe": 0.17,
+        "ln_modele": 47.8
+      },
+      {
+        "rue": "R D'ARGENTRE",
+        "n": 23,
+        "lden_modele": 64,
+        "lden_dans_classe": 0.96,
+        "ln_modele": 54.9
+      },
+      {
+        "rue": "R OGEE",
+        "n": 22,
+        "lden_modele": 64.2,
+        "lden_dans_classe": 0.32,
+        "ln_modele": 55.1
+      },
+      {
+        "rue": "R SIMEON FOUCAULT",
+        "n": 22,
+        "lden_modele": 53.2,
+        "lden_dans_classe": 0.18,
+        "ln_modele": 44.1
+      },
+      {
+        "rue": "R BOSSUET",
+        "n": 21,
+        "lden_modele": 55.4,
+        "lden_dans_classe": 0.57,
+        "ln_modele": 46.2
+      },
+      {
+        "rue": "R FANNY PECCOT",
+        "n": 21,
+        "lden_modele": 60,
+        "lden_dans_classe": 0.52,
+        "ln_modele": 50.8
+      },
+      {
+        "rue": "R PORTAIL",
+        "n": 21,
+        "lden_modele": 64.4,
+        "lden_dans_classe": 0.76,
+        "ln_modele": 55.3
+      },
+      {
+        "rue": "R DES CORDELIERS",
+        "n": 20,
+        "lden_modele": 60.2,
+        "lden_dans_classe": 0.35,
+        "ln_modele": 51.1
+      },
+      {
+        "rue": "R D'ENFER",
+        "n": 20,
+        "lden_modele": 60.1,
+        "lden_dans_classe": 0.45,
+        "ln_modele": 51
+      },
+      {
+        "rue": "R DU COUEDIC",
+        "n": 19,
+        "lden_modele": 54.8,
+        "lden_dans_classe": 0.74,
+        "ln_modele": 45.6
+      },
+      {
+        "rue": "R DU PRE NIAN",
+        "n": 19,
+        "lden_modele": 55.2,
+        "lden_dans_classe": 0.53,
+        "ln_modele": 46
+      },
+      {
+        "rue": "R DES DEUX PONTS",
+        "n": 19,
+        "lden_modele": 55,
+        "lden_dans_classe": 0.47,
+        "ln_modele": 45.9
+      },
+      {
+        "rue": "CRS OLIVIER DE CLISSON",
+        "n": 18,
+        "lden_modele": 62.2,
+        "lden_dans_classe": 0.72,
+        "ln_modele": 52
+      },
+      {
+        "rue": "R DU BOUFFAY",
+        "n": 18,
+        "lden_modele": 54.5,
+        "lden_dans_classe": 0.72,
+        "ln_modele": 45.4
+      },
+      {
+        "rue": "R PAUL DUBOIS",
+        "n": 18,
+        "lden_modele": 54.3,
+        "lden_dans_classe": 0.83,
+        "ln_modele": 45.2
+      },
+      {
+        "rue": "R SAINT-NICOLAS",
+        "n": 18,
+        "lden_modele": 52.5,
+        "lden_dans_classe": 1,
+        "ln_modele": 43.3
+      },
+      {
+        "rue": "PL MARC ELDER",
+        "n": 18,
+        "lden_modele": 52.9,
+        "lden_dans_classe": 0.83,
+        "ln_modele": 43.8
+      },
+      {
+        "rue": "COUR SAINTE-MARIE",
+        "n": 18,
+        "lden_modele": 34.3,
+        "lden_dans_classe": 1,
+        "ln_modele": 25.7
+      },
+      {
+        "rue": "R BEAUSOLEIL",
+        "n": 18,
+        "lden_modele": 58.7,
+        "lden_dans_classe": 0.89,
+        "ln_modele": 49.6
+      },
+      {
+        "rue": "IMP DE LA PSALETTE",
+        "n": 18,
+        "lden_modele": 36.4,
+        "lden_dans_classe": 0.72,
+        "ln_modele": 27.6
+      },
+      {
+        "rue": "R CHAUVIN",
+        "n": 18,
+        "lden_modele": 62.4,
+        "lden_dans_classe": 0.44,
+        "ln_modele": 53.2
+      },
+      {
+        "rue": "ALL DUGUAY TROUIN",
+        "n": 17,
+        "lden_modele": 55,
+        "lden_dans_classe": 0.47,
+        "ln_modele": 45.6
+      },
+      {
+        "rue": "R DE LA BACLERIE",
+        "n": 17,
+        "lden_modele": 55.4,
+        "lden_dans_classe": 0.41,
+        "ln_modele": 46.3
+      },
+      {
+        "rue": "R DE LA JUIVERIE",
+        "n": 17,
+        "lden_modele": 55.3,
+        "lden_dans_classe": 0.41,
+        "ln_modele": 46.1
+      },
+      {
+        "rue": "R DES BONS FRANCAIS",
+        "n": 16,
+        "lden_modele": 54.9,
+        "lden_dans_classe": 0.5,
+        "ln_modele": 45.8
+      },
+      {
+        "rue": "R CHATEAUBRIAND",
+        "n": 16,
+        "lden_modele": 66.5,
+        "lden_dans_classe": 0.31,
+        "ln_modele": 57.4
+      },
+      {
+        "rue": "R DES ECHEVINS",
+        "n": 15,
+        "lden_modele": 55.4,
+        "lden_dans_classe": 0.2,
+        "ln_modele": 46.3
+      },
+      {
+        "rue": "R LAMBERT",
+        "n": 15,
+        "lden_modele": 54.3,
+        "lden_dans_classe": 0.87,
+        "ln_modele": 45.2
+      },
+      {
+        "rue": "R DES VIEILLES DOUVES",
+        "n": 15,
+        "lden_modele": 55.4,
+        "lden_dans_classe": 0.47,
+        "ln_modele": 46.3
+      },
+      {
+        "rue": "R DE TALENSAC",
+        "n": 15,
+        "lden_modele": 66.9,
+        "lden_dans_classe": 0.73,
+        "ln_modele": 57.8
+      }
+    ]
+  }
+}

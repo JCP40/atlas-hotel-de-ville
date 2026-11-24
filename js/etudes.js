@@ -18,7 +18,6 @@ export function creerEtudes(app, regle) {
     allerVers(app, [0.9 * R, y0 + 2.55 * R, 2.85 * R], [0, y0 + 4, 0], 1200);
   }
   function vuePlan() { if (!app.vue2D) app.vue.basculer(true); }
-  const bouton = (texte) => [...document.querySelectorAll('#panneau-outil button')].find((b) => b.textContent.trim() === texte);
 
   const ETUDES = [
     { id: 'ensoleillement', titre: 'Ensoleillement', outil: 'soleil', sous: 'ombres et diagramme solaire',
@@ -31,12 +30,15 @@ export function creerEtudes(app, regle) {
     { id: 'chaleur', titre: 'Chaleur', outil: 'chaleur', sous: 'température de surface, journée chaude, 15 h',
       async ouvrir() { await app.chaleur.charger(); vuePlan(); app.chaleur.prereglage('chaude'); },
       pret: () => !app.chaleur.etat.calcul && !!app.chaleur.etat.calque },
-    // Confort : export par défaut = température ressentie ; si la carte UTCI est affichée (07/11/2026), elle est gardée et exportée
+    // Confort (15/11/2026) : carte UTCI au jour et à l'heure de la barre du temps, par l'API app.confort.ouvrirCarte / pret
+    // (plus de clic sur un bouton par son texte ; l'ancienne température ressentie de Steadman a été retirée de Confort)
     { id: 'confort', titre: 'Confort', outil: 'confort',
-      get sous() { return app.confort?.etat.calque && app.confort.etat.info?.utci ? `UTCI, ${app.confort.etat.resUTCI?.q.libelle ?? ''}`.replace(/, $/, '') : 'température ressentie, après-midi chaud'; },
-      async ouvrir() { vuePlan(); await attendre(50); if (app.confort?.etat.calque && app.confort.etat.info?.utci) return; bouton('Confort thermique')?.click(); },
-      pret: () => !!app.confort.etat.calque },
-    { id: 'bruit', titre: 'Bruit', outil: 'bruit', sous: 'carte du bruit (Lden)',
+      get sous() { const q = app.confort?.etat.resUTCI?.q.libelle; return `température ressentie (UTCI)${q ? `, ${q}` : ''}`; },
+      async ouvrir() { vuePlan(); await attendre(50); app.confort.ouvrirCarte('utci'); }, // sans attendre : exporter() attend pret()
+      pret: () => !!app.confort?.pret?.() },
+    // Bruit (20/11/2026) : Lden, routes et voies ferrées, zones au-dessus de la valeur limite française hachurées (secteurs de type C)
+    { id: 'bruit', titre: 'Bruit', outil: 'bruit', sous: 'Lden, routes et fer, valeur limite',
+      avant() { app.bruit?.definir?.({ nuit: false, sources: { routes: true, fer: true }, seuil: 'fr' }); },
       async ouvrir() { if (!app.couches.bruit) { app.couches.bruit = true; app.emettre('couches'); } vuePlan(); } },
   ];
 

@@ -438,6 +438,7 @@ export function creerProjet(app) {
       couleur: etat.couleurDefaut || undefined,
       imports: app.imports?.serialiser?.() ?? (etat.importsLus.length ? etat.importsLus : undefined),
       formes: etat.formes.map((f) => ({ n: f.n, forme: f.forme, a: f.a, b: f.b, t: f.t, rot: f.rot, h: f.h, lat: +f.lat.toFixed(7), lon: +f.lon.toFixed(7), vis: f.vis, couleur: f.couleur || undefined })),
+      bruit: app.bruit?.modele ? app.bruit.modele.serialiser() : (etat.bruitLu ?? undefined), // scénario du modèle de bruit (js/bruit-modele.js)
     };
   }
   function lire(d) {
@@ -449,6 +450,8 @@ export function creerProjet(app) {
     const hexOk = (c) => (typeof c === 'string' && /^#[0-9a-f]{6}$/i.test(c) ? c.toLowerCase() : undefined);
     etat.couleurDefaut = hexOk(d.couleur) || null;
     etat.importsLus = Array.isArray(d.imports) ? d.imports : []; // fichiers 3D importés (js/imports.js)
+    etat.bruitLu = d.bruit && typeof d.bruit === 'object' ? d.bruit : null; // scénario du modèle de bruit, lu par js/bruit-modele.js
+    app.bruit?.modele?.lire?.(etat.bruitLu);
     app.imports?.lire?.(etat.importsLus);
     const absents = [];
     for (const x of d.demolis || []) {

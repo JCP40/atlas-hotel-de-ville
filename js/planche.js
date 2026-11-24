@@ -553,6 +553,8 @@ export function creerPlanche(app) {
     return o.join('');
   }
   function bruitVecteurs(X, Y) {
+    // vecteurs fournis par js/bruit.js (20/11/2026 : maximum des classes routes / voies ferrées, atténuation sous le seuil, hachures, type C)
+    if (app.bruit?.svgPlanche) return app.bruit.svgPlanche(X, Y);
     const g = app.scene.children.find((o) => o.name === 'bruit');
     if (!g?.visible || !app.couches.bruit) return '';
     const par = new Map();

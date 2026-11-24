@@ -13,7 +13,7 @@ import { formaterHeure } from './geo.js';
 // - légendes de couleurs des analyses d'Ambiance affichées, fournies par les outils eux-mêmes (pas de copie) :
 //   app.chaleur.legendeAuto() (matériaux, échauffement, albédo, température, écart), app.confort.legendeAuto(),
 //   app.soleil.legendeAuto() (heures de soleil), et ici le Vent (carte de chaleur : app.vent.legendeCarte() ; classes CLASSES_CONFORT, particules)
-//   et le Bruit (classes portées par les meshes du groupe « bruit »).
+//   et le Bruit (app.bruit.legendeAuto() : classes, sources, seuil).
 // decrire() rend une liste de sections { id, titre, items: [{ libelle, couleur, forme: aplat|trait|tirets|cercle|carre|contour }],
 // degrade?: { stops: [[u, [r, g, b]]], graduations: [{ u, texte }], gauche?, droite? }, note? } ; elle sert aussi à la planche
 // à l'échelle (js/planche.js, légende en vecteurs). Mise à jour sur les événements (couches, outil, bati, meteoSource, soleil, vues…)
@@ -115,7 +115,9 @@ export function creerLegende(app) {
     return L;
   }
 
+  // Bruit (20/11/2026) : sections fournies par js/bruit.js (titre selon Lden/Ln, sources et seuil ; hachures, secteurs de type C)
   function sectionBruit() {
+    if (app.bruit?.legendeAuto) return app.bruit.legendeAuto();
     const g = chercher('bruit');
     if (!g?.visible || !app.couches.bruit || !g.children.length) return null;
     const classes = [...new Set(g.children.map((m) => m.userData.classe).filter(Boolean))].sort((a, b) => a.min - b.min);
