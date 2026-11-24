@@ -12,6 +12,9 @@ import {
   creerBibliotheque, echantillonChamp, preparerSillages, SECTEURS_BIBLIO, CONE_SILLAGE,
   HAUTEUR_PIETON, PROFIL, MELANGE, facteurProfil, filtrerHauteur, poidsMelange,
 } from './vent-calcul.js';
+import { creerVentLocal } from './vent-local.js';
+import { graphiqueMensuel } from './graphique-mensuel.js'; // 15/11/2026 : graphique mensuel commun avec l'outil Climat
+import { abriCiel } from './vent-abri.js';
 
 const SEUILS = [[3, '3 m/s (pour comparer les lieux)'], [4, '4 m/s (rester assis)'], [5, '5 m/s (usage courant, NEN 8100)'], [8, '8 m/s (marche rapide)']];
 const NOMS12 = ['N', 'NNE', 'ENE', 'E', 'ESE', 'SSE', 'S', 'SSO', 'OSO', 'O', 'ONO', 'NNO']; // secteurs de 30° centrés sur k × 30°
@@ -452,11 +455,12 @@ export function creerVent(app) {
     return true;
   }
 
-  // Champ du vent pour un autre outil (UTCI de Confort, 07/11/2026) : calcul exact pour la direction et la vitesse du panneau
-  // (donc la période choisie si la direction la suit), même panneau Vent fermé ; par petits lots (≤ 25 ms d'affilée, l'interface
-  // reste fluide). TOUJOURS à 1,5 m (hauteur du piéton), quelle que soit la hauteur de la carte du Vent (07/11/2026).
+  // Champ exact du vent à 1,5 m sur le fil principal (UTCI de Confort, 07/11/2026 ; utilisé par ventLocal quand le calcul en
+  // arrière-plan de js/vent-local.js est indisponible) : direction et vitesse du panneau (donc la période choisie si la direction
+  // la suit), même panneau Vent fermé ; par petits lots (≤ 25 ms d'affilée, l'interface reste fluide). TOUJOURS à 1,5 m (hauteur
+  // du piéton), quelle que soit la hauteur de la carte du Vent (07/11/2026).
   // Renvoie { direction, vitesse, hauteur: 1,5, attente, echantillon(x, z, out) } en repère atlas (z sud).
-  async function champPour(progres = () => {}) {
+  async function champExact(progres = () => {}) {
     const mesure = { attente: 0 };
     let sv = null;
     for (let essai = 0; essai < 6 && !sv; essai++) {
@@ -464,8 +468,34 @@ export function creerVent(app) {
       sv = await calculExact(entreeHauteur(HAUTEUR_PIETON), etat.direction, etat.vitesse, { progres, mesure });
     }
     sv ??= entreeHauteur(HAUTEUR_PIETON).solveur; // curseur encore en mouvement : dernier calcul exact
-    return { direction: sv.etat.direction, vitesse: sv.etat.vitesse, hauteur: HAUTEUR_PIETON, attente: mesure.attente, echantillon: (x, z, out) => sv.echantillon(x, -z, out) };
+    return { direction: sv.etat.direction, vitesse: sv.etat.vitesse, hauteur: HAUTEUR_PIETON, attente: mesure.attente, source: 'exact', echantillon: (x, z, out) => sv.echantillon(x, -z, out) };
   }
+
+  // VENT LOCAL : seule fonction publique pour les autres outils (15/11/2026 ; Chaleur, Confort et son UTCI). Rapport
+  // vitesse locale / vent libre en (x, z) (repère atlas, z sud) pour la direction et la vitesse du panneau Vent.
+  //  - calculer: true (UTCI de Confort) : champ à 1,5 m calculé s'il le faut, d'abord en arrière-plan (js/vent-local.js : cache
+  //    des directions tant que le bâti ne change pas, Web Worker), sinon calcul exact sur le fil principal (champExact) ;
+  //  - calculer: false (Chaleur) : seulement le champ que l'outil Vent a déjà calculé (sa hauteur, sa grille) ; null s'il n'y en a pas.
+  // Renvoie null ou { direction, vitesse, hauteur, source, attente, echantillon(x, z, out), rapport(x, z) (≤ plafond ; NaN hors du
+  // champ), repli(svf) } ; repli = abriCiel (js/vent-abri.js), 0,35 + 0,65 SVF, LE repli de tous les appelants (hors champ, sans champ).
+  const fond = creerVentLocal(app);
+  async function ventLocal({ calculer = true, plafond = 2.5, progres = () => {} } = {}) {
+    let c = null;
+    if (!calculer) {
+      const sv = etat.solveur;
+      if (sv?.etat?.direction == null || !(etat.vitesse > 0)) return null;
+      c = { direction: sv.etat.direction, vitesse: etat.vitesse, hauteur: etat.hauteur, source: 'outil', attente: 0, echantillon: (x, z, out) => sv.echantillon(x, -z, out) };
+    } else {
+      try { c = await fond.champ(etat.direction, etat.vitesse, progres); } catch (e) { if (!e.indisponible) console.warn('Vent local en arrière-plan indisponible :', e); }
+      c ??= await champExact(progres);
+    }
+    const o = [0, 0];
+    c.rapport = (x, z) => (c.vitesse > 0 && c.echantillon(x, z, o) ? Math.min(plafond, Math.hypot(o[0], o[1]) / c.vitesse) : NaN);
+    c.repli = abriCiel;
+    return c;
+  }
+  // ancien nom (07/11/2026) gardé pour les appels existants : champ à 1,5 m, calculé s'il le faut
+  const champPour = (progres = () => {}) => ventLocal({ progres });
 
   let minuterieCalcul = 0;
   function recalculer() {
@@ -1701,30 +1731,11 @@ export function creerVent(app) {
     if (!ui.mois?.isConnected) return;
     const n = normales();
     if (!n) { ui.mois.replaceChildren(h('p', { class: 'note' }, mention())); return; }
-    const L = 300, H = 170, g = 26, bas = 104, haut = 10, tMin = -2, tMax = 28;
-    const y = (t) => bas - ((t - tMin) / (tMax - tMin)) * (bas - haut);
-    const pas = (L - g - 4) / 12, y0 = H - 4, kv = 8;
-    const svg = s('svg', { viewBox: `0 0 ${L} ${H}`, class: 'graphique graphique-mois', role: 'group', 'aria-label': 'Températures et vent moyens par mois : choisir un mois' });
-    svg.append(s('rect', { x: g + etat.mois * pas, y: 2, width: pas, height: H - 4, class: 'mois-actif' }));
-    for (const t of [0, 10, 20]) svg.append(s('line', { x1: g, x2: L - 4, y1: y(t), y2: y(t), class: 'grille' }), s('text', { x: g - 4, y: y(t) + 3, 'text-anchor': 'end', class: 'axe' }, `${t}°`));
-    let ligne = '';
-    n.T.forEach((t, i) => {
-      const x = g + i * pas, actif = i === etat.mois;
-      svg.append(s('rect', { x: x + pas * 0.28, y: y(n.Tmax[i]), width: pas * 0.44, height: y(n.Tmin[i]) - y(n.Tmax[i]), rx: 2, class: actif ? 'temp actif' : 'temp' }));
-      svg.append(s('rect', { x: x + pas * 0.25, y: y0 - n.FF[i] * kv, width: pas * 0.5, height: n.FF[i] * kv, fill: actif ? COULEURS_VENT[2] : COULEURS_VENT[1] }));
-      svg.append(s('text', { x: x + pas / 2, y: bas + 11, 'text-anchor': 'middle', class: actif ? 'axe actif' : 'axe' }, MOIS[i][0].toUpperCase()));
-      ligne += `${ligne ? 'L' : 'M'}${(x + pas / 2).toFixed(1)} ${y(t).toFixed(1)}`;
-    });
-    svg.append(s('path', { d: ligne, fill: 'none', stroke: '#2f3b45', 'stroke-width': 1.3 }));
-    svg.append(s('line', { x1: g, x2: L - 4, y1: y0, y2: y0, class: 'grille' }), s('line', { x1: g, x2: L - 4, y1: y0 - 4 * kv, y2: y0 - 4 * kv, class: 'grille', 'stroke-dasharray': '2 2' }));
-    svg.append(s('text', { x: g - 4, y: y0 - 4 * kv + 3, 'text-anchor': 'end', class: 'axe' }, '4'), s('text', { x: L - 4, y: y0 - 4 * kv - 3, 'text-anchor': 'end', class: 'axe' }, 'vent moyen (m/s)'));
-    n.T.forEach((t, i) => {
-      const r = s('rect', { x: g + i * pas, y: 0, width: pas, height: H, class: 'cible', tabindex: 0, role: 'button', 'aria-label': MOIS[i] },
-        s('title', {}, `${MOIS[i]} : ${nombre(t)} °C, vent ${nombre(n.FF[i])} m/s, dominant ${NOMS16[dominantMois(i)]}`));
-      const choisir = () => { etat.mois = i; dessinerMois(); };
-      r.addEventListener('click', choisir);
-      r.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); choisir(); } });
-      svg.append(r);
+    const svg = graphiqueMensuel(n, {
+      actif: etat.mois, H: 170, bas: 104, haut: 10, kv: 8, dyVent: 3, classe: 'graphique graphique-mois', role: 'group',
+      aria: 'Températures et vent moyens par mois : choisir un mois', titres: false, legende: false, surligner: true,
+      choisir: (i) => { etat.mois = i; dessinerMois(); },
+      titreCible: (i) => `${MOIS[i]} : ${nombre(n.T[i])} °C, vent ${nombre(n.FF[i])} m/s, dominant ${NOMS16[dominantMois(i)]}`,
     });
     ui.mois.replaceChildren(svg);
     const i = etat.mois;
@@ -1760,23 +1771,18 @@ export function creerVent(app) {
   }
 
   // ---------------------------------------------------------------
-  // Confort : avec ou sans le projet (calque Projet de l'onglet Bâtiments)
+  // Confort : bâti de la phase affichée (15/11/2026, doublon 7) : plus de boutons « Avec / Sans le projet » ici, la barre
+  // Phase (Existant / Projet, en haut à droite, js/phase.js) est la seule commande de l'état affiché. Ligne d'état seulement ;
+  // la comparaison reste : le bilan de chaque phase est gardé (bilans), et après un changement de phase le texte du confort
+  // donne aussi celui de l'autre phase et le nombre de mailles qui changent de classe.
   // ---------------------------------------------------------------
   function majBoutonsProjet() {
     if (!ui.projet?.isConnected) return;
     const vide = projetVide();
-    ui.projet.querySelectorAll('button').forEach((b) => {
-      b.setAttribute('aria-pressed', String((b.dataset.avec === '1') === avecProjet()));
-      b.disabled = !app.projet || vide;
-    });
+    ui.phaseTexte.textContent = avecProjet() ? 'Projet' : 'Existant';
     ui.noteProjet.textContent = !app.projet ? '' : vide
       ? 'Projet vide : aucune démolition ni aucun volume (onglet Bâtiments > Projet). La carte montre le bâti existant.'
-      : 'Bascule le calque Projet de l\'onglet Bâtiments : la maquette, l\'écoulement et la carte suivent.';
-  }
-
-  function choisirProjet(avec) {
-    if (!app.projet || avec === avecProjet()) return;
-    app.projet.definirVisible(avec); // émet « bati » : écoulement et carte recalculés
+      : 'La maquette, l\'écoulement et la carte suivent la phase. Pour comparer : calculer la carte dans une phase, puis changer de phase ; le texte du confort donne les deux bilans.';
   }
 
   // ---------------------------------------------------------------
@@ -1870,7 +1876,7 @@ export function creerVent(app) {
     const selecteur = (libelle, options, valeur, change) => h('label', { class: 'champ' }, h('span', {}, libelle),
       h('select', { onchange: (e) => change(e.target.value) }, ...options.map(([v, l]) => h('option', { value: v, selected: String(v) === String(valeur) }, l))));
     const lSaison = selecteur('Période', SAISONS, etat.saison, (v) => { etat.saison = v; dessinerRose(); majRoseMaquette(); appliquerPeriode(); if (etat.confort) majConfort(); });
-    const lTemp = selecteur('Température', TEMPERATURES, etat.temperature, (v) => { etat.temperature = v; dessinerRose(); majRoseMaquette(); appliquerPeriode(); });
+    const lTemp = selecteur('Température de l\'air', TEMPERATURES, etat.temperature, (v) => { etat.temperature = v; dessinerRose(); majRoseMaquette(); appliquerPeriode(); });
     ui.casePeriode = h('input', { type: 'checkbox', checked: etat.suitPeriode, onchange: (e) => definirSuitPeriode(e.target.checked) });
     ui.textePeriode = h('p', { class: 'note texte-periode-vent', 'aria-live': 'polite', 'data-garder': '' });
     const caseRose = h('label', { class: 'case' }, h('input', { type: 'checkbox', checked: etat.roseMaquette, onchange: (e) => { etat.roseMaquette = e.target.checked; majRoseMaquette(); } }),
@@ -1898,9 +1904,10 @@ export function creerVent(app) {
         h('input', { type: 'checkbox', checked: etat.effetsVisibles[t.t], onchange: (e) => { etat.effetsVisibles[t.t] = e.target.checked; majVisibiliteEffets(); ui.majToutEffets?.(); } }),
         h('i', { style: { background: t.couleur, opacity: 0.7 } }),
         h('span', { title: t.desc }, t.nom), h('em', { 'data-type': t.t, style: { marginLeft: 'auto' } }, '')))));
-    ui.projet = h('div', { class: 'segment-vent', role: 'group', 'aria-label': 'Bâti pris en compte' },
-      ...[['1', 'Avec le projet'], ['0', 'Sans le projet']].map(([a, l]) => h('button', { type: 'button', 'data-avec': a, 'aria-pressed': 'false', onclick: () => choisirProjet(a === '1') }, l)));
-    ui.noteProjet = h('p', { class: 'note' });
+    ui.phaseTexte = h('strong', {});
+    ui.projet = h('p', { class: 'ligne-phase-vent', role: 'status', 'data-garder': '' }, 'Phase affichée : ', ui.phaseTexte,
+      h('span', { class: 'ligne-phase-aide' }, ' (changer avec la barre Existant / Projet en haut à droite)'));
+    ui.noteProjet = h('p', { class: 'note', 'data-garder': '' });
     ui.mentionLongue = h('p', { class: 'note' });
     ui.aPropos = info();
     ui.aPropos.querySelector('.info-bouton').title = 'À propos du calcul et des données';
@@ -1969,7 +1976,8 @@ export function creerVent(app) {
       // 1. Rose
       h('div', { class: 'titre-info' }, h('h3', {}, 'Rose des vents mesurée'),
         info('Cliquer un secteur de la rose, une saison ou un mois règle le vent ; les particules montrent l\'écoulement simplifié autour du bâti, à hauteur de piéton.', ui.source)),
-      ...[app.meteoSource?.bloc(), app.climat?.selecteurAnnee?.()].filter(Boolean),
+      // barre « Données météo » commune (source + année des mesures, js/meteo-source.js) ; repli : anciens blocs séparés
+      ...(app.meteoSource?.barre ? [app.meteoSource.barre({ annee: true })] : [app.meteoSource?.bloc(), app.climat?.selecteurAnnee?.()]).filter(Boolean),
       h('div', { class: 'deux-champs' }, lSaison, lTemp),
       h('label', { class: 'case case-periode-vent', title: 'Décochée dès qu\'on règle la direction à la main (curseur, secteur de la rose, mois, animation)' }, ui.casePeriode, 'Direction suivant la période (vent dominant)'),
       ui.textePeriode,
@@ -1985,7 +1993,7 @@ export function creerVent(app) {
         h('thead', {}, h('tr', {}, h('th', {}, 'Saison'), h('th', {}, '°C'), h('th', {}, 'Dominant'), h('th', {}, 'm/s'), h('th', {}, 'Fréq.'))),
         ui.saisons),
       // 3. Mois
-      h('h3', {}, 'Température et vent par mois'),
+      h('h3', {}, 'Température de l\'air et vent par mois'),
       ui.mois,
       ui.infoMois,
       h('div', { class: 'actions serrees' }, ui.boutonMois),
@@ -2030,8 +2038,9 @@ export function creerVent(app) {
       h('h3', {}, 'Particules'),
       h('div', { class: 'ligne-valeur' }, h('span', {}, 'Nombre'), ui.den),
       curDen,
-      h('div', { class: 'actions serrees' }, boutonPause,
-        app.export ? h('button', { type: 'button', class: 'bouton discret petit', onclick: () => app.export.exporterImage() }, 'Enregistrer l\'image') : null),
+      // (15/11/2026) bouton « Enregistrer l'image » retiré : doublon de l'onglet Export > Enregistrer l'image (même fonction,
+      // app.export.exporterImage : vue affichée avec la carte, les particules et la légende)
+      h('div', { class: 'actions serrees' }, boutonPause),
       ui.etat,
       h('h3', {}, 'Confort au vent piéton'),
       h('label', { class: 'case' }, curConfort, 'Afficher la carte de confort au sol'),
@@ -2133,6 +2142,7 @@ export function creerVent(app) {
   app.on('etat', batiChange);
   // bâti modifié par le projet (démolitions, volumes, calque Projet) : écoulement et confort recalculés
   app.on('bati', batiChange);
+  app.on('phase', () => majBoutonsProjet()); // barre Phase (js/phase.js) : ligne d'état
 
   // ---------------------------------------------------------------
   // Export DXF : couches du dernier calcul (repère atlas [x, z])
@@ -2166,7 +2176,7 @@ export function creerVent(app) {
   }
 
   const api = {
-    construirePanneau, etat, entitesDXF, fermer, regler, appliquerSecteur, legendeCarte, dominantPeriode, definirSuitPeriode, appliquerPeriode, champPour, demarrerAnimation, arreterAnimation,
+    construirePanneau, etat, entitesDXF, fermer, regler, appliquerSecteur, legendeCarte, dominantPeriode, definirSuitPeriode, appliquerPeriode, ventLocal, champPour, ventLocalFond: fond, demarrerAnimation, arreterAnimation,
     definirHauteur, HAUTEURS,
     definirAffichage(v) { if (AFFICHAGES.some(([a]) => a === v)) { etat.affichage = v; majAffichageUI(); } },
     get actif() { return etat.actif; },

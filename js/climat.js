@@ -6,6 +6,7 @@ import {
 } from './meteo.js';
 import { CONDITIONS, CALME, HEURES_MIN, AVERTISSEMENT, texteDominant, texteRecord, texteVent, duNom } from './meteo-extremes.js';
 import { svgRose } from './roses-saisons.js';
+import { graphiqueMensuel } from './graphique-mensuel.js'; // 15/11/2026 : graphique mensuel commun avec l'outil Vent
 import { telecharger } from './donnees.js';
 import { blocStatistiques, statsPourExport } from './climat-stats-bloc.js'; // 11/11/2026 : bloc « Statistiques du climat » (calcul : js/climat-stats.js)
 import { barreExport, blocExportOnglet } from './climat-export-ui.js'; // 11/11/2026 : export Excel (barre « Exporter », bloc de l'onglet Export)
@@ -119,36 +120,7 @@ export function creerClimat(app) {
   function svgNormales(moisActif) {
     const n = normales();
     if (!n) return h('p', { class: 'note' }, 'Normales absentes (data/meteo/meteo.json).');
-    const L = 300, H = 200, g = 26, bas = 128, haut = 12;
-    const tMin = -2, tMax = 28;
-    const y = (t) => bas - ((t - tMin) / (tMax - tMin)) * (bas - haut);
-    const pas = (L - g - 4) / 12;
-    const svg = s('svg', { viewBox: `0 0 ${L} ${H}`, class: 'graphique', role: 'img', 'aria-label': 'Températures et vent moyens par mois, mesurés à Nantes-Bouguenais' });
-    for (const t of [0, 10, 20]) {
-      svg.append(s('line', { x1: g, x2: L - 4, y1: y(t), y2: y(t), class: 'grille' }), s('text', { x: g - 4, y: y(t) + 3, 'text-anchor': 'end', class: 'axe' }, `${t}°`));
-    }
-    let ligne = '';
-    n.mois.forEach((m, i) => {
-      const x = g + i * pas;
-      svg.append(s('rect', { x: x + pas * 0.28, y: y(n.Tmax[i]), width: pas * 0.44, height: y(n.Tmin[i]) - y(n.Tmax[i]), rx: 2, class: i === moisActif ? 'temp actif' : 'temp' },
-        s('title', {}, `${MOIS[i]} : ${nombre(n.Tmin[i])} à ${nombre(n.Tmax[i])} °C (minimales et maximales moyennes), moyenne ${nombre(n.T[i])} °C`)));
-      svg.append(s('text', { x: x + pas / 2, y: bas + 11, 'text-anchor': 'middle', class: i === moisActif ? 'axe actif' : 'axe' }, MOIS[i][0].toUpperCase()));
-      ligne += `${ligne ? 'L' : 'M'}${(x + pas / 2).toFixed(1)} ${y(n.T[i]).toFixed(1)}`;
-    });
-    svg.append(s('path', { d: ligne, fill: 'none', stroke: '#2f3b45', 'stroke-width': 1.3 }));
-    // vent moyen par mois (barres sous le graphique)
-    const y0 = H - 4, kv = 9; // 9 px par m/s
-    n.FF.forEach((v, i) => {
-      const x = g + i * pas, hv = v * kv;
-      svg.append(s('rect', { x: x + pas * 0.25, y: y0 - hv, width: pas * 0.5, height: hv, fill: i === moisActif ? '#2f4f6f' : '#6f93b1' },
-        s('title', {}, `${MOIS[i]} : vent moyen ${nombre(v)} m/s, rafale maximale ${nombre(n.FXImax[i])} m/s`)));
-    });
-    svg.append(s('line', { x1: g, x2: L - 4, y1: y0, y2: y0, class: 'grille' }));
-    svg.append(s('line', { x1: g, x2: L - 4, y1: y0 - 4 * kv, y2: y0 - 4 * kv, class: 'grille', 'stroke-dasharray': '2 2' }));
-    svg.append(s('text', { x: g - 4, y: y0 - 4 * kv + 3, 'text-anchor': 'end', class: 'axe' }, '4'));
-    svg.append(s('text', { x: L - 4, y: y0 - 4 * kv - 4, 'text-anchor': 'end', class: 'axe' }, 'vent moyen (m/s)'));
-    svg.append(s('text', { x: g + 2, y: 8, class: 'axe' }, 'barres : minimales à maximales moyennes ; trait : moyenne'));
-    return svg;
+    return graphiqueMensuel(n, { actif: moisActif, aria: 'Températures et vent moyens par mois, mesurés à Nantes-Bouguenais' });
   }
 
   function texteMois(i) {
@@ -298,7 +270,8 @@ export function creerClimat(app) {
     return zone;
   }
 
-  // Sélecteur « Moyenne 2016-2025 / année » (Climat et Vent) : js/meteo.js definirAnnee, événement « meteoAnnee »
+  // Sélecteur « Moyenne 2016-2025 / année » : js/meteo.js definirAnnee, événement « meteoAnnee ». Depuis le 15/11/2026, Climat et Vent
+  // utilisent la barre « Données météo » commune (app.meteoSource.barre({ annee: true })) ; gardé pour compatibilité.
   function selecteurAnnee() {
     const liste = annees();
     if (!liste.length) return null;
@@ -334,9 +307,9 @@ export function creerClimat(app) {
     const n = normales();
     const moisActif = app.soleil ? app.soleil.date().getMonth() : new Date().getMonth();
     conteneur.append(...[
-      app.meteoSource?.bloc(),
-      selecteurAnnee(),
-      h('div', { class: 'titre-info' }, h('h3', {}, `Températures et vent par mois, ${libellePeriode()}`),
+      // barre « Données météo » commune (source + année des mesures, js/meteo-source.js) ; repli : anciens blocs séparés
+      ...(app.meteoSource?.barre ? [app.meteoSource.barre({ annee: true })] : [app.meteoSource?.bloc(), selecteurAnnee()]),
+      h('div', { class: 'titre-info' }, h('h3', {}, `Températures de l'air et vent par mois, ${libellePeriode()}`),
         info(`${mention({ annee: true })} Le centre-ville, plus minéral, est en général un peu plus chaud que l'aéroport (îlot de chaleur).`, 'La rose des vents est dans l\'outil Vent (touche W), avec le même choix de période.')),
       svgNormales(moisActif),
       n ? h('p', { class: 'resultat' }, texteMois(moisActif)) : null,
@@ -359,5 +332,6 @@ export function creerClimat(app) {
     if (o.visible != null) groupe.visible = o.visible;
   }
 
-  return { construire, construirePanneau, normalesDuMois, groupe, etat, reglerRose, selecteurAnnee, afficherRose(v) { groupe.visible = v; } };
+  // selecteurAnnee exporté : null quand la barre « Données météo » commune existe (elle porte déjà l'année : pas de doublon)
+  return { construire, construirePanneau, normalesDuMois, groupe, etat, reglerRose, selecteurAnnee: () => (app.meteoSource?.barre ? null : selecteurAnnee()), afficherRose(v) { groupe.visible = v; } };
 }

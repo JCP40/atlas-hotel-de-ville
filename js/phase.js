@@ -6,7 +6,9 @@ import { h } from './util.js';
 // - Existant : site réel, sans les volumes ni les imports du projet, sans démolitions, matériaux de l'existant (Chaleur).
 // - Projet : volumes ajoutés, démolitions et matériaux du projet (corrections de phase « projet » de l'outil Chaleur).
 // Branché sur le calque Projet (app.projet.definirVisible : bâti effectif reconstruit, événement « bati » : les outils ouverts
-// se recalculent) ; suit aussi les bascules faites ailleurs (Vent « avec / sans le projet », comparaison de Chaleur).
+// se recalculent) ; suit aussi les bascules faites ailleurs (case « Afficher le projet » de l'onglet Bâtiments, comparaison de
+// Chaleur, rétablie à la fin). Depuis le 15/11/2026 (doublon 7), c'est la seule commande de l'état affiché : Vent n'a plus ses
+// boutons « Avec / Sans le projet » (ligne d'état « Phase affichée », comparaison des deux bilans gardée).
 // Hauteurs corrigées (data/hauteurs.json) : corrections du relevé, communes aux deux phases.
 // Gardée par les points de vue dans app.couches.phase ; indiquée dans la légende automatique (section « phase ») et dans le
 // cartouche de la planche à l'échelle (texte()). Événement « phase » à chaque changement. Styles : css/etudes.css.

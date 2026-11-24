@@ -41,3 +41,8 @@
 .legende-albedo-graduations span:first-child { transform: none; }
 .legende-albedo-graduations span:last-child { transform: translateX(-100%); }
 .legende-albedo-sens { display: flex; justify-content: space-between; gap: 8px; color: var(--ardoise-doux, #556); }
+
+/* 15/11/2026 (doublons) : variantes provisoires dans la liste des corrections, bloc unique « Exporter cette carte » */
+.liste-corrections li.correction-provisoire span { font-style: italic; }
+.liste-corrections li.correction-provisoire i { border-style: dashed; }
+.bloc-export-chaleur .bouton:disabled, .choix-chaleur .bouton:disabled { opacity: 0.45; cursor: not-allowed; }

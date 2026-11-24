@@ -6,6 +6,7 @@
 import { svfProcesseur, masquesProcesseur, simulerJournee } from './chaleur-modele.js';
 import { svfCPU, masquesCPU } from './gpu.js';
 import { creerSolveur } from './vent-calcul.js';
+import { abriCiel } from './vent-abri.js';
 
 const envoyer = (m, t = []) => self.postMessage(m, t);
 
@@ -34,9 +35,9 @@ self.onmessage = async ({ data: D }) => {
       const ms = {};
       let t0 = performance.now();
       if (D.svf) { await svfProcesseur(P, g, { progres: progres('Ouverture au ciel') }); ms.svf = performance.now() - t0; }
-      // vent réduit selon l'ouverture au ciel : toutes les mailles (true) ou celles hors du champ de l'outil Vent (liste)
-      if (D.fvCiel === true) for (let i = 0; i < P.n; i++) P.fv[i] = 0.35 + 0.65 * P.svf[i];
-      else if (D.fvCiel) for (const i of D.fvCiel) P.fv[i] = 0.35 + 0.65 * P.svf[i];
+      // vent réduit selon l'ouverture au ciel (abriCiel, repli unique du vent local) : toutes les mailles (true) ou celles hors du champ de l'outil Vent (liste)
+      if (D.fvCiel === true) for (let i = 0; i < P.n; i++) P.fv[i] = abriCiel(P.svf[i]);
+      else if (D.fvCiel) for (const i of D.fvCiel) P.fv[i] = abriCiel(P.svf[i]);
       t0 = performance.now();
       const M = D.M || await masquesProcesseur(P, g, positions, { progres: progres('Ombres') });
       if (!D.M) ms.masques = performance.now() - t0;

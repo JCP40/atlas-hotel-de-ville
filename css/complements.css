@@ -38,6 +38,19 @@
 .source-meteo .boutons { display: flex; flex-wrap: wrap; gap: 4px 8px; }
 .source-meteo-ligne { margin: 4px 0 0; font-size: 12px; color: var(--ardoise-doux, #556); }
 .source-meteo-alerte { margin: 4px 0 0; font-size: 12px; color: #a33a1f; }
+/* Barre « Données météo » commune (15/11/2026, js/meteo-source.js barre()) : une ligne repliée, détail au clic */
+.donnees-meteo { padding: 4px 8px; margin: 0 0 8px; }
+.donnees-meteo-detail > summary { cursor: pointer; font-size: 12.5px; line-height: 1.35; list-style: none; display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 6px; }
+.donnees-meteo-detail > summary::-webkit-details-marker { display: none; }
+.donnees-meteo-titre { font-weight: 600; }
+.donnees-meteo-resume { color: var(--ardoise-doux, #556); flex: 1 1 auto; min-width: 0; }
+.donnees-meteo-modifier { color: var(--accent, #2a6f97); text-decoration: underline; white-space: nowrap; }
+.donnees-meteo-detail[open] .donnees-meteo-modifier { text-decoration: none; }
+.donnees-meteo-detail[open] .donnees-meteo-modifier::before { content: '▴ '; }
+.donnees-meteo-corps { margin-top: 6px; }
+.donnees-meteo .selecteur-annee { margin: 0 0 4px; }
+.donnees-meteo-aide { margin: 4px 0 0; font-size: 11.5px; color: var(--ardoise-doux, #556); }
+.donnees-meteo-note-annee { margin: 4px 0 0; font-size: 12px; }
 
 /* Vues rapides (js/vues-rapides.js), sous la barre Soleil */
 .vues-rapides {
@@ -149,3 +162,15 @@
 .progres-utci progress { flex: 0 0 120px; height: 6px; accent-color: var(--ardoise); }
 .progres-utci progress[hidden] { display: none; }
 .progres-confort-texte { font-size: 12px; color: var(--ardoise-doux); }
+
+/* Rayon d'analyse commun Confort / Chaleur (15/11/2026, js/confort.js champRayon) */
+.champ-rayon-analyse .titre-info { align-items: center; }
+.champ-rayon-analyse .titre-info .champ { margin: 0; flex: 1 1 auto; }
+.champ-rayon-analyse .note-rayon-analyse { margin: 2px 0 6px; font-size: 12px; }
+/* Bloc « Calcul : carte graphique (WebGPU) » commun (js/confort.js app.gpu.bloc) */
+.bloc-gpu .verdict-gpu-court { font-weight: 400; color: var(--ardoise-doux, #556); }
+.bloc-gpu .verdict-gpu { margin: .3rem 0; font-weight: 600; }
+.bloc-gpu .aide-gpu { margin: .3rem 0; font-size: 12px; }
+/* Vent : ligne d'état de la phase (15/11/2026 : plus de boutons Avec / Sans le projet) */
+.ligne-phase-vent { margin: 6px 0 2px; font-size: 13px; }
+.ligne-phase-vent .ligne-phase-aide { color: var(--ardoise-doux, #556); font-size: 12px; }

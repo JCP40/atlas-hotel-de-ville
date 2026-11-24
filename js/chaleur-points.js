@@ -8,13 +8,14 @@ import { versLambert93 } from './export.js';
 // ESTIMATION PÉDAGOGIQUE. Créé par js/chaleur.js (api = fonctions de l'outil Chaleur).
 // - Points chauds : mailles du sol au-dessus du 9e décile de la carte affichée (heure du soleil ou maximum du jour), regroupées par contiguïté
 //   (au moins 16 m², contact par les côtés ou les coins), classées par température moyenne (à 0,5 °C près) puis par surface ; points frais : sous le 1er décile. Étiquettes « C1… » / « F1… » sur la maquette.
-// - Variantes : matériaux de remplacement provisoires (élément OSM sous le clic ou disque), non enregistrés dans corrections.json.
+// - Variantes : matériaux de remplacement provisoires, saisis par « Corriger un matériau » (chaleur.js) avec la case « Provisoire »,
+//   non enregistrés dans corrections.json.
 // - Comparaison : existant (calque Projet masqué, sans variantes) / projet (bâti effectif avec le projet, variantes appliquées) : carte de l'écart.
 // - Exports : PNG de la carte et de sa légende, CSV (zones et mailles, Lambert-93), DXF R12 calque CHALEUR (contours et textes).
 const fmt = (v, d = 0) => v.toFixed(d).replace('.', ',');
 
 export function creerPointsChauds(app, api) {
-  const etat = { zones: null, variantes: [], classeVariante: 'dalles', capture: null, ecart: null, comparaison: false };
+  const etat = { zones: null, variantes: [], ecart: null, comparaison: false };
   const ui = {};
 
   // ------------------------------------------------------------
@@ -96,6 +97,7 @@ export function creerPointsChauds(app, api) {
   }
 
   function majListe() {
+    majExport();
     if (!ui.liste) return;
     const Z = etat.zones;
     if (!Z) { ui.liste.replaceChildren(); return; }
@@ -112,39 +114,9 @@ export function creerPointsChauds(app, api) {
   // ------------------------------------------------------------
   // Variantes et comparaison existant / projet
   // ------------------------------------------------------------
-  function clicVariante(p) {
-    if (!p) return;
-    const z = api.zoneSous(p[0], p[1]);
-    if (!z) { app.signaler('Cliquez sur le sol libre du cercle d\'analyse.'); return; }
-    const g = app.proj.versGeo(p[0], p[1]);
-    const v = z.cle
-      ? { type: 'element', cle: z.cle, nom: z.nom, classe: etat.classeVariante }
-      : { type: 'disque', lat: g.lat, lon: g.lon, rayon: 6, nom: 'disque de 6 m', classe: etat.classeVariante };
-    etat.variantes = etat.variantes.filter((x) => !(x.cle && x.cle === v.cle)).concat([v]);
-    app.signaler(`Variante : ${v.nom} en ${api.classe(v.classe).libelle.toLowerCase()}.`);
-    majVariantes();
-  }
-  function basculerCapture() {
-    if (etat.capture) { arreterCapture(); return; }
-    etat.capture = (p) => clicVariante(p);
-    app.captureSol = etat.capture;
-    majVariantes();
-  }
-  function arreterCapture() {
-    if (etat.capture && app.captureSol === etat.capture) app.captureSol = null;
-    etat.capture = null;
-    majVariantes();
-  }
-  function majVariantes() {
-    if (!ui.variantes) return;
-    ui.boutonVariante.textContent = etat.capture ? 'Arrêter' : 'Choisir des zones au clic';
-    ui.boutonVariante.classList.toggle('actif', !!etat.capture);
-    ui.variantes.replaceChildren(...(etat.variantes.length ? etat.variantes.map((v) => h('li', {},
-      h('i', { style: { background: api.classe(v.classe).couleur } }),
-      h('span', {}, `${v.nom} → ${api.classe(v.classe).libelle}`),
-      h('button', { type: 'button', class: 'mini', title: 'Retirer', 'aria-label': 'Retirer la variante', onclick: () => { etat.variantes = etat.variantes.filter((x) => x !== v); majVariantes(); } }, '×')))
-      : [h('li', { class: 'vide' }, 'Aucune variante : la comparaison porte sur le bâti du projet seul.')]));
-  }
+  // variantes (etat.variantes) : saisies par l'interface de correction de chaleur.js, case « Provisoire » (15/11/2026 : plus de
+  // sélecteur ni de capture propres ici) ; mêmes objets que les corrections (element, trait, polygone, disque, toit), phase « projet »
+  function arreterCapture() {} // gardée pour les anciens appels
 
   async function comparer() {
     if (etat.comparaison) return;
@@ -320,43 +292,64 @@ export function creerPointsChauds(app, api) {
   // ------------------------------------------------------------
   // Panneau (section ajoutée par chaleur.js)
   // ------------------------------------------------------------
+  // bloc unique « Exporter cette carte » (15/11/2026) : boutons indisponibles grisés, raison en infobulle et sous les boutons
+  function disponibilites() {
+    const T = api.etat;
+    return {
+      png: T.calque ? '' : 'Afficher d\'abord une carte.',
+      csv: T.temp && T.valeursT ? '' : 'Afficher d\'abord la carte Température de surface (valeurs par maille).',
+      dxf: etat.zones ? '' : 'Repérer d\'abord les points chauds et frais.',
+    };
+  }
+  function majExport() {
+    if (!ui.export?.isConnected) return;
+    const D = disponibilites();
+    for (const [k, b] of Object.entries(ui.boutonsExport)) { b.disabled = !!D[k]; b.title = D[k] || b.dataset.titre; }
+    const raisons = [...new Set(Object.values(D).filter(Boolean))];
+    ui.raisonsExport.textContent = raisons.length ? `Indisponible : ${raisons.join(' ')}` : '';
+  }
+  function blocExport() {
+    const bouton = (k, lib, titre, fn) => h('button', { type: 'button', class: 'bouton discret', 'data-export': k, 'data-titre': titre, title: titre, onclick: () => { if (!disponibilites()[k]) fn(); } }, lib);
+    ui.boutonsExport = {
+      png: bouton('png', 'PNG', 'Image de la carte affichée et de sa légende (nord en haut)', exporterPNG),
+      csv: bouton('csv', 'CSV', 'Zones et mailles de la carte de température (Lambert-93)', exporterCSV),
+      dxf: bouton('dxf', 'DXF (calque CHALEUR)', 'Contours et textes des points chauds et frais, DXF R12 (Lambert-93)', exporterDXF),
+    };
+    ui.raisonsExport = h('p', { class: 'note', 'data-garder': '' });
+    ui.export = h('div', { class: 'section-temperature bloc-export-chaleur' },
+      h('div', { class: 'titre-info' }, h('h3', {}, 'Exporter cette carte'), info(
+        'PNG : la carte affichée (matériaux, température ou écart) avec les codes des zones repérées et sa légende.',
+        'CSV : zones repérées et toutes les mailles de la carte de température (Lambert-93), séparateur point-virgule.',
+        'DXF R12, calque CHALEUR : contours des points chauds et frais (bandes de mailles) et textes, à superposer au plan DXF de l\'onglet Export.')),
+      h('div', { class: 'actions' }, ...Object.values(ui.boutonsExport)),
+      ui.raisonsExport);
+    queueMicrotask(majExport);
+    return ui.export;
+  }
+
   function construireSection() {
     ui.liste = h('ul', { class: 'liste-chauds' });
-    ui.variantes = h('ul', { class: 'liste-corrections' });
     ui.ecart = h('div');
-    const selVar = h('select', { 'aria-label': 'Matériau de la variante', onchange: () => { etat.classeVariante = selVar.value; } },
-      ...api.classes().filter((c) => c.type === 'sol').map((c) => h('option', { value: c.id }, c.libelle)));
-    selVar.value = etat.classeVariante;
-    ui.boutonVariante = h('button', { type: 'button', class: 'bouton discret', onclick: basculerCapture }, 'Choisir des zones au clic');
     ui.boutonComparer = h('button', { type: 'button', class: 'bouton', onclick: comparer }, 'Comparer existant / projet');
     const section = h('div', { class: 'section-temperature' },
       h('div', { class: 'titre-info' }, h('h3', {}, 'Points chauds et frais'), info(
         'Sur la carte de température affichée (heure du soleil ou maximum de la journée) : mailles du sol au-dessus du 9e décile (points chauds) ou sous le 1er décile (points frais), regroupées quand elles se touchent (16 m² au moins), classées par température moyenne (à 0,5 °C près) puis par surface. Pour chaque zone : surface, températures moyenne et maximale, matériau dominant, part d\'ombre (à l\'heure choisie, ou sur la journée de 9 h à 19 h pour le maximum).',
-        'Exports : PNG de la carte (nord en haut) avec les codes des zones ; CSV des zones et de toutes les mailles (Lambert-93) ; DXF R12, calque CHALEUR (contours des zones par bandes de mailles et textes), à superposer au plan DXF de l\'onglet Export.')),
+        'Exports (PNG avec les codes des zones, CSV, DXF des contours) : bloc « Exporter cette carte » en bas du panneau.')),
       h('div', { class: 'actions' }, h('button', { type: 'button', class: 'bouton', onclick: reperer }, 'Repérer les points chauds et frais'),
         h('button', { type: 'button', class: 'bouton discret', onclick: () => { etat.zones = null; etiqueter(null); majListe(); } }, 'Effacer les repères')),
       ui.liste,
-      h('div', { class: 'titre-info' }, h('h3', {}, 'Comparer : existant, projet, variantes'), info(
-        'Existant : calque Projet masqué (bâti actuel), matériaux corrigés. Projet : bâti effectif (volumes ajoutés, démolitions, imports) et variantes de matériaux ci-dessous, provisoires (non enregistrées). Même jour, même heure, même météo. La carte montre l\'écart projet − existant (bleu : plus frais).',
+      h('div', { class: 'titre-info' }, h('h3', {}, 'Comparer existant / projet'), info(
+        'Existant : calque Projet masqué (bâti actuel), matériaux corrigés de l\'existant. Projet : bâti effectif (volumes ajoutés, démolitions, imports), matériaux du projet et variantes provisoires (« Corriger un matériau », case « Provisoire »). Même jour, même heure, même météo. Résultat : carte « Écart » projet − existant (bleu : plus frais).',
         'Les nouveaux volumes changent les ombres et l\'ouverture au ciel ; un matériau plus clair ou végétal baisse la température de surface. Ordres de grandeur seulement.')),
-      h('label', { class: 'champ' }, h('span', {}, 'Matériau de remplacement'), selVar),
-      h('div', { class: 'actions' }, ui.boutonVariante),
-      ui.variantes,
       h('div', { class: 'actions' }, ui.boutonComparer),
-      ui.ecart,
-      h('div', { class: 'titre-info' }, h('h3', {}, 'Exporter la carte')),
-      h('div', { class: 'actions' },
-        h('button', { type: 'button', class: 'bouton discret', onclick: exporterPNG }, 'PNG'),
-        h('button', { type: 'button', class: 'bouton discret', onclick: exporterCSV }, 'CSV'),
-        h('button', { type: 'button', class: 'bouton discret', onclick: exporterDXF }, 'DXF (calque CHALEUR)')));
-    majListe(); majVariantes(); majEcart();
+      ui.ecart);
+    majListe(); majEcart();
     return section;
   }
 
-  app.on('outil', (id) => { if (id !== 'chaleur') arreterCapture(); });
 
   return {
-    etat, construireSection, reperer, comparer, exporterPNG, exporterCSV, exporterDXF, arreterCapture,
+    etat, construireSection, blocExport, majExport, reperer, comparer, exporterPNG, exporterCSV, exporterDXF, arreterCapture,
     effacer() { etat.zones = null; etiqueter(null); majListe(); },
   };
 }

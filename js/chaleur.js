@@ -8,6 +8,7 @@ import { debut, fin } from './profil.js';
 import { actif as gpuActif, noterCPU } from './gpu.js';
 import { preparerPoints, calculerSVF, positionsSoleil, calculerMasques, simulerJournee, calculEnFond, grillePourFond, temperatureA, temperatureReference, REFERENCE, PAS_INSTANTANE, NB_INSTANTANES } from './chaleur-modele.js';
 import { creerPointsChauds } from './chaleur-points.js';
+import { abriCiel } from './vent-abri.js';
 import { textureGrille, caseLissage, hauteResolution, zoneDetaillee, representants, etendre, blocResolution, suivreNote, noterDuree } from './lissage.js';
 
 // Outil Chaleur (onglet Ambiance) : matériaux de surface, albédo, échauffement et points chauds au sol.
@@ -49,6 +50,7 @@ export function creerChaleur(app) {
     grille: null, affichage: 'materiaux', calque: null, toitsColores: false,
     capture: null, classeChoisie: 'paves', modeCorrection: 'pinceau', diametre: 4, polygone: [],
     journees: null, temp: null, meteo: 'mois', vueTemp: 'heure', calcul: false, suspendu: false,
+    coloration: 'materiaux', provisoire: false, // carte « Matériaux » : coloration choisie ; correction provisoire (variante, non enregistrée)
   };
   const ui = {};
   const rayon = () => Math.min(app.config.rayonConfort || app.config.rayonPlateau, 300);
@@ -350,6 +352,7 @@ export function creerChaleur(app) {
     m.raycast = () => {};
     app.scene.add(m);
     etat.calque = m;
+    points.majExport(); // bloc « Exporter cette carte » : PNG et CSV disponibles
   }
   function effacerCalque() {
     if (!etat.calque) return;
@@ -358,6 +361,7 @@ export function creerChaleur(app) {
     etat.calque.material.map.dispose();
     etat.calque.material.dispose();
     etat.calque = null;
+    points.majExport();
   }
 
   // toits : couleur par bâtiment sur les sommets des pans (normale vers le haut), murs inchangés
@@ -391,6 +395,8 @@ export function creerChaleur(app) {
   function afficher() {
     if (!etat.mat) return;
     if (etat.affichage === 'temperature') { if (etat.temp) afficherTemperature(); else lancerCalcul(); return; }
+    // écart projet − existant : dernière comparaison (chaleur-points.js) ; sans comparaison, retour à la carte des matériaux
+    if (etat.affichage === 'ecart') { if (points.etat.ecart) { afficherEcart(points.etat.ecart); return; } etat.affichage = etat.coloration; majChoix(); }
     const G = grille();
     const mode = etat.affichage;
     // albédo et échauffement : valeur de la classe, lissable ; matériaux : catégories, jamais lissées
@@ -428,7 +434,7 @@ export function creerChaleur(app) {
     s.nb.forEach((v, c) => { albMoy += etat.classes[c].albedo * v; });
     albMoy /= Math.max(s.total, 1);
     const ech = etat.affichage === 'echauffement';
-    const ligne = (c, nCell) => h('li', {}, h('i', { style: { background: etat.affichage === 'materiaux' ? c.couleur : `rgb(${couleurClasse(c, etat.affichage).join(',')})` } }),
+    const ligne = (c, nCell) => h('li', {}, // sans pastille de couleur : couleurs dans la légende automatique (js/legende.js), 15/11/2026
       `${c.libelle} — ${ech ? `${fmt(c.tref)} °C de référence, ` : ''}albédo ${fmt(c.albedo, 2)}${nCell ? ` · ${Math.round((nCell * m2) / 10) * 10} m²` : ''}`);
     const sol = etat.classes.filter((c) => c.type === 'sol' && s.nb.get(etat.idx[c.id]));
     const toits = etat.classes.filter((c) => c.type === 'toit' && s.toits.get(c.id));
@@ -470,9 +476,22 @@ export function creerChaleur(app) {
   // phase affichée (js/phase.js) : en Projet, les corrections sont des matériaux du projet
   const phaseCourante = () => app.phase?.phase || (app.projet?.visible === false ? 'existant' : 'projet');
   const phaseDe = (c) => (c.phase === 'projet' ? 'projet' : 'existant');
-  function correctionsActives() { return etat.corrections.filter((c) => phaseDe(c) === 'existant' || app.projet?.visible !== false); }
+  // variantes provisoires (case « Provisoire », non enregistrées : points.etat.variantes) : matériaux du projet, après les corrections enregistrées
+  const variantes = () => points?.etat.variantes || [];
+  function correctionsActives() {
+    const L = etat.corrections.filter((c) => phaseDe(c) === 'existant' || app.projet?.visible !== false);
+    return app.projet?.visible !== false && variantes().length ? L.concat(variantes()) : L;
+  }
   function ordonner(L) { return [...L].sort((a, b) => (phaseDe(a) === 'projet') - (phaseDe(b) === 'projet')); }
   function ajouterCorrection(c) {
+    if (etat.provisoire) { // variante : comparaison existant / projet (chaleur-points.js), jamais dans corrections.json
+      const v = { id: nouvelId(), ...c, phase: 'projet', provisoire: true };
+      v.nom = v.nom || decrireCorrection(v);
+      points.etat.variantes = variantes().filter((k) => !(k.type === v.type && v.cle && k.cle === v.cle)).concat([v]);
+      invalider();
+      majCorrections();
+      return;
+    }
     c.phase = phaseCourante();
     const liste = etat.corrections.filter((k) => !(k.type === c.type && c.cle && k.cle === c.cle && phaseDe(k) === c.phase));
     liste.push({ id: nouvelId(), ...c, date: new Date().toISOString().slice(0, 10) });
@@ -502,14 +521,12 @@ export function creerChaleur(app) {
       majCorrections();
       return;
     }
+    // élément OSM sous le clic (le mode « Disque » a été retiré le 15/11/2026 : le pinceau le remplace ; les anciens disques restent lus)
     const zz = G.zones[G.zone[k]];
-    if (etat.modeCorrection === 'element' && zz?.cle) {
+    if (zz?.cle) {
       ajouterCorrection({ type: 'element', cle: zz.cle, nom: zz.nom, lat: r7(g.lat), lon: r7(g.lon), classe: cl.id });
-      app.signaler(`${zz.nom} : ${cl.libelle}.`);
-    } else {
-      ajouterCorrection({ type: 'disque', lat: r7(g.lat), lon: r7(g.lon), rayon: etat.diametre / 2, classe: cl.id });
-      app.signaler(`Disque de ${etat.diametre} m de diamètre : ${cl.libelle}.`);
-    }
+      app.signaler(`${zz.nom} : ${cl.libelle}${etat.provisoire ? ' (provisoire)' : ''}.`);
+    } else app.signaler('Aucun élément OSM sous le clic : utilisez le pinceau ou une zone dessinée.');
   }
   // tracé provisoire du polygone
   const ligneTrace = new THREE.Line(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: 0xd4452a, depthTest: false }));
@@ -525,7 +542,7 @@ export function creerChaleur(app) {
   function terminerPolygone() {
     if (etat.polygone.length >= 3) {
       ajouterCorrection({ type: 'polygone', points: etat.polygone, classe: etat.classeChoisie });
-      app.signaler(`Zone de ${etat.polygone.length} sommets : ${classe(etat.classeChoisie).libelle}.`);
+      app.signaler(`Zone de ${etat.polygone.length} sommets : ${classe(etat.classeChoisie).libelle}${etat.provisoire ? ' (provisoire)' : ''}.`);
     }
     etat.polygone = [];
     dessinerPolygone();
@@ -591,7 +608,7 @@ export function creerChaleur(app) {
       const groupes = new Map();
       t.points.forEach((pt, i) => { const r = t.rayons[i]; if (!groupes.has(r)) groupes.set(r, []); groupes.get(r).push(pt); });
       for (const [r, pts] of groupes) ajouterCorrection({ type: 'trait', points: pts, rayon: r, classe: t.classe });
-      app.signaler(`Pinceau : ${classe(t.classe).libelle}${phaseCourante() === 'projet' ? ' (matériau du projet)' : ''}.`);
+      app.signaler(`Pinceau : ${classe(t.classe).libelle}${etat.provisoire ? ' (provisoire)' : phaseCourante() === 'projet' ? ' (matériau du projet)' : ''}.`);
     }
     function brancher() {
       const cv = app.renderer?.domElement;
@@ -638,7 +655,7 @@ export function creerChaleur(app) {
 
   function commencerCapture() {
     pinceau.brancher();
-    if (!etat.calque) { etat.affichage = ['albedo', 'echauffement'].includes(etat.affichage) ? etat.affichage : 'materiaux'; afficher(); }
+    if (!etat.calque) { etat.affichage = ['albedo', 'echauffement'].includes(etat.affichage) ? etat.affichage : 'materiaux'; majChoix(); afficher(); }
     const f = (p) => clic(p);
     app.captureSol = f;
     etat.capture = f;
@@ -657,6 +674,7 @@ export function creerChaleur(app) {
     etat.modifie = false;
     majCorrections();
   }
+  const decrireCorrection = (c) => (c.type === 'toit' ? 'toiture' : c.type === 'element' ? (c.nom || c.cle) : c.type === 'disque' ? `disque de ${fmt(2 * c.rayon)} m` : c.type === 'trait' ? `trait de pinceau (⌀ ${fmt(2 * c.rayon)} m, ${c.points.length} points)` : `zone de ${c.points.length} sommets`);
   function majCorrections() {
     if (!ui.corrections) return;
     ui.boutonCapture.textContent = etat.capture ? 'Arrêter la correction' : 'Corriger au clic';
@@ -664,16 +682,24 @@ export function creerChaleur(app) {
     ui.terminer.hidden = !(etat.capture && etat.modeCorrection === 'polygone');
     ui.terminer.textContent = `Terminer la zone (${etat.polygone.length} points)`;
     ui.rayon.hidden = etat.modeCorrection === 'polygone' || etat.modeCorrection === 'element';
-    if (ui.notePhase) ui.notePhase.textContent = phaseCourante() === 'projet'
-      ? 'Phase Projet (en haut à droite) : les corrections sont enregistrées comme matériaux du projet, appliqués seulement en phase Projet.'
-      : 'Phase Existant (en haut à droite) : les corrections décrivent le site réel (communes aux deux phases).';
+    if (ui.provisoire) ui.provisoire.checked = etat.provisoire;
+    if (ui.notePhase) ui.notePhase.textContent = etat.provisoire
+      ? 'Provisoire : variantes de matériaux, non enregistrées, appliquées en phase Projet et dans « Comparer existant / projet » (perdues au rechargement).'
+      : phaseCourante() === 'projet'
+        ? 'Phase Projet (en haut à droite) : les corrections sont enregistrées comme matériaux du projet, appliqués seulement en phase Projet.'
+        : 'Phase Existant (en haut à droite) : les corrections décrivent le site réel (communes aux deux phases).';
     const L = ordonner(etat.corrections);
-    const decrireC = (c) => (c.type === 'toit' ? 'toiture' : c.type === 'element' ? (c.nom || c.cle) : c.type === 'disque' ? `disque de ${fmt(2 * c.rayon)} m` : c.type === 'trait' ? `trait de pinceau (⌀ ${fmt(2 * c.rayon)} m, ${c.points.length} points)` : `zone de ${c.points.length} sommets`);
-    ui.corrections.replaceChildren(...(L.length ? L.map((c) => h('li', { class: phaseDe(c) === 'projet' ? 'correction-projet' : null },
+    const supprimer = (c) => {
+      if (c.provisoire) points.etat.variantes = variantes().filter((k) => k !== c);
+      else { etat.corrections = etat.corrections.filter((k) => k !== c); etat.modifie = true; }
+      invalider(); majCorrections();
+    };
+    const ligne = (c) => h('li', { class: c.provisoire ? 'correction-provisoire' : phaseDe(c) === 'projet' ? 'correction-projet' : null },
       h('i', { style: { background: classe(c.classe)?.couleur } }),
-      h('span', {}, `${classe(c.classe)?.libelle} — ${decrireC(c)}${phaseDe(c) === 'projet' ? ' · projet' : ''}`),
-      h('button', { type: 'button', class: 'mini', title: 'Supprimer', 'aria-label': 'Supprimer la correction', onclick: () => { etat.corrections = etat.corrections.filter((k) => k !== c); etat.modifie = true; invalider(); majCorrections(); } }, '×')))
-      : [h('li', { class: 'vide' }, 'Aucune correction.')]));
+      h('span', {}, `${classe(c.classe)?.libelle} — ${decrireCorrection(c)}${c.provisoire ? ' · provisoire' : phaseDe(c) === 'projet' ? ' · projet' : ''}`),
+      h('button', { type: 'button', class: 'mini', title: 'Supprimer', 'aria-label': c.provisoire ? 'Retirer la variante' : 'Supprimer la correction', onclick: () => supprimer(c) }, '×'));
+    const tout = [...L, ...variantes()];
+    ui.corrections.replaceChildren(...(tout.length ? tout.map(ligne) : [h('li', { class: 'vide' }, 'Aucune correction.')]));
     ui.enregistrer.disabled = !etat.modifie;
     ui.enregistrer.textContent = etat.modifie ? 'Enregistrer les corrections' : 'Corrections enregistrées';
   }
@@ -745,19 +771,20 @@ export function creerChaleur(app) {
     // est recopiée de celle du bloc (idx, valeursTemperature)
     const P = preparerPoints(G.rep ? { ...G, cls: G.cls.map((c, k) => (c < BATI && G.rep[k] !== k ? HORS : c)) } : G, etat.classes, { HORS, BATI });
     fin('Chaleur : calcul complet / preparerPoints', t0, { points: P.n, sol: P.nSol });
-    // vent local : champ 2D de l'outil Vent s'il a été calculé, sinon vitesse réduite selon l'ouverture au ciel
-    const V = app.vent?.etat, sv = V?.solveur, out = [0, 0];
-    const champ = sv?.etat?.direction != null && V.vitesse > 0;
+    // vent local (app.vent.ventLocal, référence unique, 15/11/2026) : champ 2D que l'outil Vent a déjà calculé (rapport ≤ 1,6),
+    // sinon repli abriCiel (vitesse réduite selon l'ouverture au ciel)
+    const VL = (await app.vent?.ventLocal?.({ calculer: false, plafond: 1.6 })) || null;
+    const champ = !!VL;
     const { lat, lon } = app.config.soleil;
     const positions = positionsSoleil({ annee: d.annee, mois: d.mois, jour: d.jour, lat, lon });
     // feuillage des caducs au jour calculé (même règle que l'affichage et la grille des hauteurs de Soleil)
     const f = feuillage({ mois: d.mois, jour: d.jour });
     const options = { tauCaduc: transmissionCaduc(f), caducsDansGrille: (app.arbres?.f ?? f) >= 0.5 };
-    const fvCiel = () => { for (let i = 0; i < P.n; i++) P.fv[i] = 0.35 + 0.65 * P.svf[i]; };
-    // vent du champ de l'outil Vent : ne dépend pas de l'ouverture au ciel (mailles hors du champ : rempli après)
+    const fvCiel = () => { for (let i = 0; i < P.n; i++) P.fv[i] = abriCiel(P.svf[i]); };
+    // vent du champ de l'outil Vent : ne dépend pas de l'ouverture au ciel (mailles hors du champ : repli, rempli après)
     const horsChamp = [];
-    if (champ) for (let i = 0; i < P.n; i++) { if (sv.echantillon(P.x[i], -P.z[i], out)) P.fv[i] = Math.min(1.6, Math.hypot(out[0], out[1]) / V.vitesse); else horsChamp.push(i); }
-    const fvReste = () => { if (!champ) fvCiel(); else for (const i of horsChamp) P.fv[i] = 0.35 + 0.65 * P.svf[i]; };
+    if (champ) for (let i = 0; i < P.n; i++) { const r = VL.rapport(P.x[i], P.z[i]); if (Number.isFinite(r)) P.fv[i] = r; else horsChamp.push(i); }
+    const fvReste = () => { if (!champ) fvCiel(); else for (const i of horsChamp) P.fv[i] = abriCiel(P.svf[i]); };
     // carte graphique (WebGPU) : ouverture au ciel et ombres sur le fil principal (rapides) ; sinon tout le calcul en arrière-plan
     const surGPU = await gpuActif();
     let M = null, R = null;
@@ -886,10 +913,10 @@ export function creerChaleur(app) {
       h('table', { class: 'table-chaleur' },
         h('thead', {}, h('tr', {}, h('th', {}, 'Matériau'), h('th', {}, mode === 'max' ? 'Moyenne' : 'Au soleil'), h('th', {}, mode === 'max' ? 'Maximum' : 'À l\'ombre'))),
         h('tbody', {}, ...lignes.map(([c, a]) => h('tr', {},
-          h('td', {}, h('i', { style: { background: etat.classes[c].couleur } }), etat.classes[c].libelle),
+          h('td', {}, etat.classes[c].libelle),
           h('td', {}, mode === 'max' ? `${fmt((a.s + a.o) / Math.max(a.ns + a.no, 1))} °C` : a.ns ? `${fmt(a.s / a.ns)} °C` : '—'),
           h('td', {}, mode === 'max' ? `${fmt(a.max)} °C` : a.no ? `${fmt(a.o / a.no)} °C` : '—'))))),
-      h('p', { class: 'note', 'data-garder': '' }, `Vent : ${res.champ ? 'champ local de l\'outil Vent' : 'vitesse mesurée réduite selon l\'ouverture au ciel (calculer le vent dans l\'outil Vent pour l\'affiner)'}. Estimation : ±5 °C au mieux.`),
+      h('p', { class: 'note', 'data-garder': '' }, `Vent : ${res.champ ? 'champ local de l\'outil Vent' : 'vitesse mesurée réduite selon l\'ouverture au ciel (calculer le vent dans l\'outil Vent pour l\'affiner)'}.`),
     );
   }
 
@@ -925,14 +952,16 @@ export function creerChaleur(app) {
   }
 
   function construireSectionTemperature() {
-    ui.selMeteo = h('select', { 'aria-label': 'Météo', onchange: () => { etat.meteo = ui.selMeteo.value; if (etat.temp) { etat.temp = null; if (etat.affichage === 'temperature') lancerCalcul(); } } },
+    ui.selMeteo = h('select', { 'aria-label': 'Journée de référence', onchange: () => { etat.meteo = ui.selMeteo.value; if (etat.temp) { etat.temp = null; if (etat.affichage === 'temperature') lancerCalcul(); } } },
       ...sourcesMeteo().map(([k, l]) => h('option', { value: k }, l)));
     ui.selMeteo.value = etat.meteo;
-    const bCalc = h('button', { type: 'button', class: 'bouton', onclick: () => { etat.affichage = 'temperature'; majChoix(); etat.temp = null; lancerCalcul(); } }, 'Calculer au jour et à l\'heure du soleil');
+    // 15/11/2026 : plus de bouton « Calculer au jour et à l'heure du soleil » (doublon de la carte Température, qui suit la barre Soleil) ;
+    // « Recalculer » refait la journée avec les réglages actuels (vent calculé entre-temps, journée de référence…)
+    const bCalc = h('button', { type: 'button', class: 'bouton discret', title: 'Refaire le calcul de la journée (après un calcul du vent, par exemple)', onclick: () => { etat.affichage = 'temperature'; majChoix(); etat.temp = null; lancerCalcul(); } }, 'Recalculer');
     const bChaude = h('button', { type: 'button', class: 'bouton discret', onclick: () => prereglage('chaude') }, 'Journée chaude type (21 juin, 15 h)');
     const rec = profils().record;
     const bRecord = rec ? h('button', { type: 'button', class: 'bouton discret', onclick: () => prereglage('record') }, `Jour le plus chaud (${rec.date.split('-').reverse().join('/')}, 15 h)`) : null;
-    ui.boutonsTemp = [bCalc, bChaude, bRecord].filter(Boolean);
+    ui.boutonsTemp = [bChaude, bRecord, bCalc].filter(Boolean);
     const choixVue = h('div', { class: 'choix-chaleur', role: 'group', 'aria-label': 'Valeur affichée' },
       ...[['heure', 'À l\'heure du soleil'], ['max', 'Maximum de la journée']].map(([id, lib]) => h('button', {
         type: 'button', class: `bouton discret${etat.vueTemp === id ? ' actif' : ''}`, 'data-vue-temp': id,
@@ -940,7 +969,9 @@ export function creerChaleur(app) {
       }, lib)));
     ui.temp = h('div', { class: 'section-temperature' },
       h('div', { class: 'titre-info' }, h('h3', {}, 'Température de surface'), infoTemperature()),
-      h('label', { class: 'champ' }, h('span', {}, 'Météo'), ui.selMeteo),
+      h('label', { class: 'champ' }, h('span', {}, 'Journée de référence', info(
+        'Profil météo heure par heure de la journée simulée : moyenne du mois de la date choisie dans la barre Soleil, journée chaude type ou jour le plus chaud mesuré.',
+        'Ces profils sont tirés de la source météo choisie plus haut (« Source météo » : base Météo-France ou fichier EPW).')), ui.selMeteo),
       h('div', { class: 'actions' }, ...ui.boutonsTemp),
       choixVue,
       h('p', { class: 'note', 'data-garder': '' }, 'Date et heure : barre Soleil en haut à droite (la carte suit l\'heure ; un autre jour relance le calcul).'));
@@ -999,8 +1030,12 @@ export function creerChaleur(app) {
   }
   function dansVariante(G, k, v) {
     if (v.type === 'element') return G.zones[G.zone[k]]?.cle === v.cle;
-    const p = app.proj.versLocal(v.lat, v.lon);
+    if (v.type === 'toit') return false; // sol seulement
     const x = G.x0 + ((k % G.n) + 0.5) * G.pas, z = G.z0 + (Math.floor(k / G.n) + 0.5) * G.pas;
+    const loc = ([la, lo]) => { const q = app.proj.versLocal(la, lo); return [q.x, q.z]; };
+    if (v.type === 'trait') return (v.points || []).some((pt) => { const [px, pz] = loc(pt); return Math.hypot(x - px, z - pz) <= v.rayon; });
+    if (v.type === 'polygone') return pointDansPolygone(x, z, v.points.map(loc));
+    const p = app.proj.versLocal(v.lat, v.lon);
     return Math.hypot(x - p.x, z - p.z) <= v.rayon;
   }
   const points = creerPointsChauds(app, {
@@ -1013,11 +1048,12 @@ export function creerChaleur(app) {
   // Panneau
   // ------------------------------------------------------------
   function bandeau() {
-    return h('p', { class: 'chaleur-bandeau', 'data-garder': '' }, h('strong', {}, 'Estimation pédagogique'), ' : ordres de grandeur pour comparer des matériaux et des situations, pas une simulation thermique certifiée.');
+    return h('p', { class: 'chaleur-bandeau', 'data-garder': '' }, h('strong', {}, 'Estimation pédagogique'), ' : ordres de grandeur (température de surface à ±5 °C au mieux) pour comparer des matériaux et des situations, pas une simulation thermique certifiée ; hypothèses et limites dans les boutons « i ».');
   }
   function infoMateriaux() {
     const refs = etat.mat?.references || [];
     return info(
+      'Cartes : Matériaux = la table des classes (sans date ni ombre), colorée par classe, par échauffement (température de surface d\'équilibre de chaque matériau dans les mêmes conditions de référence) ou par albédo ; Température = température de surface estimée au jour et à l\'heure de la barre Soleil ; Écart = projet − existant de la dernière comparaison (« Comparer existant / projet »).',
       'Classes de matériaux déduites d\'OpenStreetMap (surface=*, landuse, leisure ; voirie de l\'atlas : chaussées, bandes de trottoir de 2,5 m, cheminements), complétées par l\'orthophoto IGN (végétal, sol clair) là où OSM ne dit rien, puis du sol sous les arbres et de vos corrections.',
       `Toitures : ${etat.toitures?.description || ''} Sources : ${etat.toitures?.source || ''}.`,
       etat.mat?.verification || '',
@@ -1027,31 +1063,44 @@ export function creerChaleur(app) {
     );
   }
 
+  // 15/11/2026 (doublons) : trois cartes (Matériaux avec sa coloration, Température, Écart), une seule interface de correction
+  // (case « Provisoire » pour les variantes), un seul bloc d'export ; les valeurs de etat.affichage ne changent pas (points de vue)
+  const COLORATIONS = [['materiaux', 'Classes de matériaux'], ['echauffement', 'Échauffement (température de surface de référence)'], ['albedo', 'Albédo']];
+  const estMateriaux = (a) => COLORATIONS.some(([id]) => id === a);
   function construirePanneau(conteneur) {
     ui.etat = h('p', { class: 'note', role: 'status' });
     ui.legende = h('div');
     ui.pointeur = h('p', { class: 'coordonnees' });
     ui.toits = h('input', { type: 'checkbox', checked: etat.toitsColores, onchange: () => afficher() });
+    if (estMateriaux(etat.affichage)) etat.coloration = etat.affichage;
     const choixAffichage = h('div', { class: 'choix-chaleur', role: 'group', 'aria-label': 'Carte affichée' },
-      ...[['materiaux', 'Matériaux'], ['echauffement', 'Échauffement des matériaux'], ['albedo', 'Albédo seul'], ['temperature', 'Température']].map(([id, lib]) => h('button', {
-        type: 'button', class: `bouton discret${etat.affichage === id ? ' actif' : ''}`, 'data-carte': id,
-        onclick: () => { etat.affichage = id; majChoix(); afficher(); },
+      ...[['materiaux', 'Matériaux'], ['temperature', 'Température de surface'], ['ecart', 'Écart']].map(([id, lib]) => h('button', {
+        type: 'button', class: 'bouton discret', 'data-carte': id,
+        onclick: () => {
+          if (id === 'ecart' && !points.etat.ecart) return;
+          etat.affichage = id === 'materiaux' ? etat.coloration : id;
+          majChoix(); afficher();
+        },
       }, lib)));
     ui.choix = choixAffichage;
+    ui.selColoration = h('select', { 'aria-label': 'Coloration de la carte des matériaux', onchange: () => { etat.coloration = etat.affichage = ui.selColoration.value; majChoix(); afficher(); } },
+      ...COLORATIONS.map(([v, l]) => h('option', { value: v }, l)));
+    ui.coloration = h('label', { class: 'champ' }, h('span', {}, 'Coloration'), ui.selColoration);
     // corrections
     const selClasse = h('select', { 'aria-label': 'Matériau à appliquer', onchange: () => { etat.classeChoisie = selClasse.value; } },
       h('optgroup', { label: 'Sol' }, ...etat.classes.filter((c) => c.type === 'sol').map((c) => h('option', { value: c.id }, c.libelle))),
       h('optgroup', { label: 'Toiture (clic sur un bâtiment)' }, ...etat.classes.filter((c) => c.type === 'toit').map((c) => h('option', { value: c.id }, c.libelle))));
     selClasse.value = etat.classeChoisie;
+    if (etat.modeCorrection === 'disque') etat.modeCorrection = 'pinceau'; // mode retiré le 15/11/2026
     const selMode = h('select', { 'aria-label': 'Étendue de la correction', onchange: () => { etat.modeCorrection = selMode.value; if (etat.polygone.length) { etat.polygone = []; dessinerPolygone(); } if (etat.modeCorrection !== 'pinceau') pinceau.cacher(); majCorrections(); } },
       h('option', { value: 'pinceau' }, 'Pinceau (cercle, cliquer-glisser)'),
       h('option', { value: 'element' }, 'Élément OSM sous le clic (rue, place, jardin…)'),
-      h('option', { value: 'disque' }, 'Disque autour du clic'),
       h('option', { value: 'polygone' }, 'Zone dessinée (clics successifs)'));
     selMode.value = etat.modeCorrection;
     ui.diametre = h('input', { type: 'range', min: 1, max: 30, step: 1, value: etat.diametre, 'aria-label': 'Diamètre du pinceau (m)', oninput: () => pinceau.diametre(+ui.diametre.value) });
     ui.texteDiametre = h('output', { class: 'valeur' }, `${etat.diametre} m`);
     ui.rayon = h('label', { class: 'champ champ-pinceau' }, h('span', {}, 'Diamètre (m)'), ui.diametre, ui.texteDiametre);
+    ui.provisoire = h('input', { type: 'checkbox', checked: etat.provisoire, onchange: () => { etat.provisoire = ui.provisoire.checked; majCorrections(); } });
     ui.notePhase = h('p', { class: 'note', 'data-garder': '' });
     ui.boutonCapture = h('button', { type: 'button', class: 'bouton', onclick: () => (etat.capture ? arreterCapture() : commencerCapture()) }, 'Corriger au clic');
     ui.terminer = h('button', { type: 'button', class: 'bouton', hidden: true, onclick: terminerPolygone }, 'Terminer la zone');
@@ -1060,36 +1109,56 @@ export function creerChaleur(app) {
 
     conteneur.append(
       bandeau(),
-      app.meteoSource?.bloc(),
-      h('div', { class: 'titre-info' }, h('h3', {}, 'Matériaux et albédo'), infoMateriaux()),
+      app.meteoSource?.barre?.() ?? app.meteoSource?.bloc(), // barre « Données météo » commune (js/meteo-source.js)
+      h('div', { class: 'titre-info' }, h('h3', {}, 'Carte affichée'), infoMateriaux()),
       choixAffichage,
+      ui.coloration,
       h('label', { class: 'case' }, ui.toits, ' Colorer les toitures'),
       caseLissage(app),
+      // rayon d'analyse commun avec Confort (js/confort.js champRayon : une valeur, événement « rayonAnalyse »)
+      ...[app.confort?.champRayon?.({ outil: 'chaleur' })].filter(Boolean),
       blocResolution(app, { outil: 'chaleur', rayon }),
       ui.legende,
       ui.pointeur,
       h('div', { class: 'actions' }, h('button', { type: 'button', class: 'bouton discret', onclick: effacerTout }, 'Effacer la carte')),
       ui.etat,
       construireSectionTemperature(),
+      // bloc « Calcul : carte graphique (WebGPU) » commun avec Confort (js/confort.js app.gpu.bloc), inséré ici explicitement
+      ...[app.gpu?.bloc?.()].filter(Boolean),
       points.construireSection(),
-      h('div', { class: 'titre-info' }, h('h3', {}, 'Corriger un matériau'), info(
-        'Choisir le matériau, l\'étendue, puis « Corriger au clic » : au pinceau, un cercle suit la souris ; cliquer-glisser peint le matériau (diamètre de 1 à 30 m : curseur, ou molette pendant la peinture, ou Maj + molette). Ou cliquer un élément OSM (toute la rue, la place ou le jardin), un disque, une zone dessinée point par point (« Terminer la zone »). Un clic sur un bâtiment corrige sa toiture (choisir un matériau de toiture).',
-        'Phase Existant : corrections du site réel. Phase Projet : matériaux du projet, enregistrés à part (champ phase) et appliqués seulement en phase Projet ; la comparaison existant / projet de la température en tient compte.',
-        'Les corrections sont enregistrées dans data/chaleur/corrections.json (coordonnées WGS84) par le serveur local de l\'atlas, sinon le fichier est téléchargé : le copier dans data/chaleur/.')),
+      h('div', { class: 'titre-info section-temperature' }, h('h3', {}, 'Corriger un matériau'), info(
+        'Choisir le matériau, l\'étendue, puis « Corriger au clic » : au pinceau, un cercle suit la souris ; cliquer-glisser peint le matériau (diamètre de 1 à 30 m : curseur, ou molette pendant la peinture, ou Maj + molette). Ou cliquer un élément OSM (toute la rue, la place ou le jardin), ou dessiner une zone point par point (« Terminer la zone »). Un clic sur un bâtiment corrige sa toiture (choisir un matériau de toiture).',
+        'Phase Existant : corrections du site réel. Phase Projet : matériaux du projet, enregistrés à part (champ phase) et appliqués seulement en phase Projet ; la comparaison existant / projet en tient compte.',
+        'Case « Provisoire » : variantes à essayer, non enregistrées (perdues au rechargement), appliquées comme matériaux du projet : en phase Projet et dans « Comparer existant / projet », qui donne leur effet zone par zone.',
+        'Les corrections sont enregistrées dans data/chaleur/corrections.json (coordonnées WGS84) par le serveur local de l\'atlas, sinon le fichier est téléchargé : le copier dans data/chaleur/. Les anciennes corrections en disque restent lues.')),
       h('label', { class: 'champ' }, h('span', {}, 'Matériau'), selClasse),
       h('label', { class: 'champ' }, h('span', {}, 'Étendue'), selMode),
       ui.rayon,
+      h('label', { class: 'case' }, ui.provisoire, ' Provisoire (variante, non enregistrée)'),
       ui.notePhase,
       h('div', { class: 'actions' }, ui.boutonCapture, ui.terminer),
       ui.corrections,
       h('div', { class: 'actions' }, ui.enregistrer),
+      points.blocExport(),
     );
     majCorrections();
+    majChoix();
     afficher();
   }
 
   function majChoix() {
-    ui.choix?.querySelectorAll('button').forEach((b) => b.classList.toggle('actif', b.dataset.carte === etat.affichage));
+    if (estMateriaux(etat.affichage)) etat.coloration = etat.affichage;
+    const carte = estMateriaux(etat.affichage) ? 'materiaux' : etat.affichage;
+    ui.choix?.querySelectorAll('button').forEach((b) => {
+      b.classList.toggle('actif', b.dataset.carte === carte);
+      if (b.dataset.carte === 'ecart') {
+        const ok = !!points.etat.ecart;
+        b.disabled = !ok;
+        b.title = ok ? 'Écart projet − existant de la dernière comparaison' : 'Lancer d\'abord « Comparer existant / projet » (plus bas)';
+      }
+    });
+    if (ui.selColoration) { ui.selColoration.value = etat.coloration; ui.coloration.hidden = carte !== 'materiaux'; }
+    points.majExport?.();
   }
 
   async function construire(conteneur) {
@@ -1100,6 +1169,8 @@ export function creerChaleur(app) {
   app.on('outil', (id) => { if (id !== 'chaleur') { arreterCapture(); } });
   app.on('phase', () => majCorrections());
   app.on('resolution', () => { if (etat.grille || etat.temp) invalider(); });
+  // rayon d'analyse changé (champ commun Confort / Chaleur) : grille des matériaux et température à refaire
+  app.on('rayonAnalyse', () => { if (etat.grille || etat.temp) invalider(); });
   app.on('lissage', () => { if (etat.calque && etat.pose) poserTexture(...etat.pose); });
   app.on('bati', () => { if (etat.grille && !etat.suspendu) invalider(); });
   app.on('arbres', () => { if (etat.grille) invalider(); }); // arbres relevés ajoutés ou supprimés (outil Relevé)

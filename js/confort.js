@@ -3,15 +3,16 @@ import { getPosition } from '../lib/suncalc.js';
 import { h, info, lireLS, ecrireLS, dateDepuisJour, MOIS as MOIS_UTIL } from './util.js';
 import { modifierReglageCentre } from './centre.js';
 import { dateParis } from './geo.js';
-import { chargerMeteo, horaire, partAuDessus, mention, libelleSaison, sourceEPW, journeesTypes } from './meteo.js';
+import { chargerMeteo, horaire, mention, sourceEPW, journeesTypes } from './meteo.js';
 import { utci as calculUTCI, CLASSES_UTCI, couleurContinue, versDixMetres, tmrtSimplifiee, dansDomaine } from './utci.js';
 import { meteoA, positionsSoleil, calculEnFond, grillePourFond, prechaufferFond } from './chaleur-modele.js';
-import { ouvertureCiel, ombres, noterCPU, blocGPU } from './gpu.js';
+import { ouvertureCiel, ombres, noterCPU, blocGPU, info as infoGPU, resultatBanc, reglage as reglageGPU, surChangement as surChangementGPU } from './gpu.js';
 import { debut, fin, installer as installerProfil } from './profil.js';
 import { transmissionCaduc } from './maquette.js';
 import { telecharger } from './donnees.js';
 import { versLambert93 } from './export.js';
-import { textureGrille, dessinerTexture, caseLissage, hauteResolution, representants, etendre, signatureResolution, blocResolution, suivreNote, noterDuree, pointsEstimes } from './lissage.js';
+import { abriCiel } from './vent-abri.js';
+import { textureGrille, dessinerTexture, caseLissage, hauteResolution, representants, etendre, signatureResolution, blocResolution, suivreNote, noterDuree, pointsEstimes, zoneDetaillee } from './lissage.js';
 
 // Rayonnement et confort de l'espace public.
 // Modèle volontairement simple et explicite (calcul dans le navigateur, sans réflexions multiples) :
@@ -19,7 +20,8 @@ import { textureGrille, dessinerTexture, caseLissage, hauteResolution, represent
 // - rayonnement solaire cumulé : direct (s'il n'est pas masqué) + diffus (pondéré par l'ouverture au ciel),
 //   à partir de la météo horaire moyenne par mois et par heure mesurée par Météo-France à Nantes-Bouguenais
 //   (data/meteo/meteo_horaire.json : global mesuré, direct et diffus estimés par le modèle d'Erbs) ;
-// - température radiante moyenne et température ressentie (Steadman, avec rayonnement) pour des scénarios types.
+// - (retiré le 15/11/2026 : température ressentie de Steadman à 5 scénarios fixes, doublon de l'UTCI ; un point de vue
+//   qui l'affichait rouvre la carte UTCI, voir regler()).
 // - carte UTCI (07/11/2026) : Universal Thermal Climate Index (polynôme officiel, js/utci.js) au jour et à l'heure de la barre
 //   du temps, Tmrt estimée par les facteurs d'angle (ciel, murs, sol, soleil direct masqué par le bâti et les arbres), vent local
 //   du champ de l'outil Vent (direction et vitesse du panneau, qui suivent la période) ramené à 10 m.
@@ -28,7 +30,6 @@ import { textureGrille, dessinerTexture, caseLissage, hauteResolution, represent
 const RAD = Math.PI / 180;
 const SIGMA = 5.67e-8;
 const JOURS = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
-const MOIS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
 
 export const PERIODES = {
   annee: { libelle: 'Année', mois: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11] },
@@ -36,24 +37,6 @@ export const PERIODES = {
   hiver: { libelle: 'Hiver (décembre à février)', mois: [11, 0, 1] },
   intersaisons: { libelle: 'Printemps et automne', mois: [2, 3, 4, 8, 9, 10] },
 };
-
-export const SCENARIOS = {
-  'ete-chaud': { libelle: 'Après-midi chaud d\'été (juillet, 15 h, 10 % des jours les plus chauds)', mois: 6, heure: 15, chaud: true },
-  'ete': { libelle: 'Après-midi d\'été moyen (juillet, 15 h)', mois: 6, heure: 15 },
-  'ete-matin': { libelle: 'Matinée d\'été (juillet, 10 h)', mois: 6, heure: 10 },
-  'mi-saison': { libelle: 'Midi de mi-saison (avril, 13 h)', mois: 3, heure: 13 },
-  'hiver': { libelle: 'Midi d\'hiver (janvier, 13 h)', mois: 0, heure: 13 },
-};
-
-const CLASSES_RESSENTI = [
-  { max: 0, libelle: 'très froid', couleur: [40, 60, 140] },
-  { max: 10, libelle: 'froid', couleur: [90, 130, 200] },
-  { max: 18, libelle: 'frais', couleur: [150, 200, 220] },
-  { max: 26, libelle: 'confortable', couleur: [150, 205, 140] },
-  { max: 32, libelle: 'chaud', couleur: [245, 200, 90] },
-  { max: 38, libelle: 'très chaud', couleur: [230, 120, 50] },
-  { max: Infinity, libelle: 'chaleur extrême', couleur: [180, 40, 50] },
-];
 
 // dégradé générique (bleu nuit -> jaune)
 const STOPS_DEGRADE = [[0, [40, 50, 110]], [0.25, [60, 110, 170]], [0.5, [120, 180, 170]], [0.75, [230, 210, 110]], [1, [245, 150, 40]]];
@@ -132,7 +115,7 @@ export function creerConfort(app) {
   const suiviFond = (etape, progres = null) => (p) => { const u = Number.isFinite(p.u) ? p.u : Number((/(\d+) %/.exec(p.texte || '') || [])[1]) / 100; if (!Number.isFinite(u)) return; if (progres) progres(u); else note(`${etape} : ${Math.round(u * 100)} %`); };
   // ouverture au ciel réutilisable par l'UTCI tant que le bâti, le rayon et le feuillage (caducs dans la grille) n'ont pas changé
   const cleSVF = () => `${signatureResolution()}|${rayon()}|${(app.arbres?.f ?? 1) >= 0.5}|${Math.round((app.arbres?.echelle ?? 1) * 10)}`;
-  // 08/11/2026 : les boutons Ouverture au ciel, Rayonnement au sol et Confort thermique la réutilisent aussi (elle était
+  // 08/11/2026 : les boutons Ouverture au ciel et Rayonnement au sol (et autrefois Confort thermique, retiré le 15/11/2026) la réutilisent aussi (elle était
   // recalculée à chaque clic) ; effacée par les événements bati, etat, arbres (bâti, époque, arbres relevés modifiés)
   const svfValide = () => !!(etat.svf && etat.grille && etat.svfCle === cleSVF() && etat.svf.length === etat.grille.nx * etat.grille.nz);
 
@@ -343,63 +326,6 @@ export function creerConfort(app) {
     app.cadastre?.majBatiments(true);
   }
 
-  // Dépassements de vent mesurés (Météo-France) pour la saison du scénario
-  function texteVent(m) {
-    const saison = [11, 0, 1].includes(m) ? 'hiver' : m <= 4 ? 'printemps' : m <= 7 ? 'ete' : 'automne';
-    const p5 = partAuDessus(5, saison), p8 = partAuDessus(8, saison);
-    if (p5 == null) return '';
-    return `${libelleSaison(saison).replace(/ \(.*/, '')} : vent de 5 m/s ou plus à la station ${fmt(0)(p5)} % du temps, de 8 m/s ou plus ${fmt(1)(p8)} % (le vent dans les rues est plus faible : voir l'outil Vent).`;
-  }
-
-  // ---------------------------------------------------------------
-  // Confort : température radiante moyenne et température ressentie
-  // ---------------------------------------------------------------
-  function meteoScenario(sc) {
-    const c = etat.climato;
-    return sc.chaud ? c.chaudJuillet15h : c.moyennes[sc.mois][sc.heure];
-  }
-
-  async function calculerConfort(cle) {
-    await climatologie();
-    const sc = SCENARIOS[cle];
-    const met = meteoScenario(sc);
-    const { zone, g, nx, nz } = etat.grille || preparerGrille();
-    const svf = svfValide() ? etat.svf : await calculerSVF();
-    const annee = new Date().getFullYear();
-    const pSol = getPosition(dateParis(annee, sc.mois, 15, sc.heure - 0.5), lat, lon);
-    const alt = pSol.altitude * RAD, az = pSol.azimuth * RAD;
-    const sx = Math.sin(az), sz = -Math.cos(az), tanAlt = Math.tan(Math.max(alt, 0.001));
-    const Ta = met.ta, TaK = Ta + 273.15;
-    const e = (met.hr / 100) * 6.105 * Math.exp((17.27 * Ta) / (237.7 + Ta)); // pression de vapeur (hPa)
-    const epsCiel = Math.min(1, 1.24 * Math.pow(e / TaK, 1 / 7)); // Brutsaert, ciel clair
-    const Lciel = epsCiel * SIGMA * TaK ** 4;
-    const Lenv = 0.95 * SIGMA * TaK ** 4;
-    const betaDeg = Math.max(pSol.altitude, 0);
-    const fp = 0.308 * Math.cos(RAD * betaDeg * (0.998 - (betaDeg * betaDeg) / 50000)); // aire projetée d'une personne debout
-    const tmrt = new Float32Array(nx * nz).fill(NaN);
-    const ressenti = new Float32Array(nx * nz).fill(NaN);
-    for (let j = 0; j < nz; j++) {
-      for (let i = 0; i < nx; i++) {
-        const k = j * nx + i;
-        const f = svf[k];
-        if (!Number.isFinite(f)) continue;
-        const x = zone.x0 + (i + 0.5) * pas, z = zone.z0 + (j + 0.5) * pas;
-        const soleil = alt > 0.02 && met.dni > 0 && auSoleil(g, x, z, 1.2, sx, sz, tanAlt) ? 1 : 0;
-        const solSol = soleil * met.dni * Math.max(Math.sin(alt), 0) + met.dhi * f; // rayonnement reçu par le sol
-        const K = 0.7 * (fp * met.dni * soleil + 0.5 * met.dhi * f + 0.5 * 0.2 * solSol);
-        const Tsol = TaK + 0.02 * solSol; // un sol ensoleillé chauffe
-        const L = 0.97 * (0.5 * (f * Lciel + (1 - f) * Lenv) + 0.5 * 0.95 * SIGMA * Tsol ** 4);
-        const tr = Math.pow((K + L) / (0.97 * SIGMA), 0.25) - 273.15;
-        tmrt[k] = tr;
-        // vent à hauteur de piéton : profil vertical et abri des façades
-        const v = Math.max(0.3, met.v * 0.66 * (0.35 + 0.65 * f));
-        // température ressentie de Steadman (1994), avec rayonnement absorbé Q
-        ressenti[k] = Ta + 0.348 * e - 0.70 * v + (0.70 * K) / (v + 10) - 4.25;
-      }
-      if (j % 10 === 0) { note(`Confort : ${Math.round((j / nz) * 100)} %`); await pause(); }
-    }
-    return { tmrt, ressenti, met, soleilHaut: pSol.altitude };
-  }
 
 
   // ---------------------------------------------------------------
@@ -452,18 +378,103 @@ export function creerConfort(app) {
     const soleils = positionsSoleil({ annee: q.annee, mois: q.mois, jour: q.jour, lat, lon }).filter((p) => p.alt > 0.02);
     return { g, pts: P, soleils, zone: `cercle d'analyse de Confort (rayon ${Math.round(rayon())} m, maille ${pas} m), soleil du ${q.jour} ${MOIS_UTIL[q.mois]}` };
   }
-  const blocWebGPU = () => blocGPU({ h, info }, async () => preparerDiagnostic());
-  // même bloc dans le panneau Chaleur, après la section « Température de surface » (inséré ici : chaleur.js inchangé)
-  app.on('outil', (id) => {
-    if (id !== 'chaleur') return;
-    let essais = 0;
-    const inserer = () => {
-      const p = document.querySelector('#panneau-outil');
-      const ancre = p?.querySelector('.section-temperature');
-      if (!ancre) { if (++essais < 60) setTimeout(inserer, 250); return; } // panneau construit après la lecture des matériaux
-      if (!p.querySelector('.bloc-gpu')) ancre.after(blocWebGPU());
+  // Bloc « Calcul : carte graphique (WebGPU) » (15/11/2026, doublon 16) : un seul composant, app.gpu.bloc(), appelé
+  // explicitement par Confort (fin du panneau) ET par Chaleur (après la section Température) : même case mémorisée
+  // (localStorage atlas-hdv-webgpu), même diagnostic (zone : cercle d'analyse commun), verdict de l'auto-test
+  // (atlas-hdv-webgpu-bench : « accélère / n'accélère pas » sur cette machine), adaptateur détecté, aide carte NVIDIA.
+  // Plus de sondage du DOM pour l'insérer dans Chaleur.
+  function verdictGPU() {
+    const I = infoGPU();
+    if (!I) return 'Recherche de la carte graphique…';
+    const r = reglageGPU(), b = resultatBanc();
+    const force = r === true ? ' Réglage forcé : carte graphique (case cochée).' : r === false ? ' Réglage forcé : processeur (case décochée).' : '';
+    const adapt = I.nom ? ` Adaptateur détecté : ${I.nom}${I.fallback ? ' (logiciel)' : ''}.` : '';
+    if (!I.disponible) return `Sur cette machine, WebGPU est indisponible : calcul sur le processeur (mêmes résultats).${adapt}${force}`;
+    if (I.fallback) return `Sur cette machine, WebGPU n'accélère pas (adaptateur logiciel de secours, plus lent que le processeur).${adapt}${force}`;
+    if (!b) return `Sur cette machine : auto-test pas encore fait (au premier calcul d'ombres ou d'ouverture au ciel, en réglage automatique).${adapt}${force}`;
+    if (b.erreur) return `Sur cette machine, WebGPU n'accélère pas (erreur à l'auto-test : ${b.erreur}).${adapt}${force}`;
+    const ms = (v) => `${Math.round(v)} ms`;
+    return `Sur cette machine, WebGPU ${b.choix === 'gpu' ? 'accélère' : 'n\'accélère pas'} (auto-test : carte ${ms(b.gpu.total)} transferts compris, processeur ${ms(b.cpu.total)}).${adapt}${force}`;
+  }
+  const blocWebGPU = () => {
+    const b = blocGPU({ h, info }, async () => preparerDiagnostic());
+    const s = b.querySelector('summary');
+    const court = h('span', { class: 'verdict-gpu-court' });
+    if (s) s.replaceChildren('Calcul : carte graphique (WebGPU)', court);
+    const verdict = h('p', { class: 'note verdict-gpu', role: 'status', 'data-garder': '' });
+    const aide = h('p', { class: 'note aide-gpu', 'data-garder': '' },
+      'Si votre PC a une carte NVIDIA (ou AMD) que Chrome n\'utilise pas (adaptateur « intel » ci-dessus) : Windows > Paramètres > Système > Affichage > Graphiques > Google Chrome > Options > Hautes performances, puis relancer Chrome et refaire « Tester WebGPU ».');
+    const majV = () => {
+      verdict.textContent = verdictGPU();
+      const I = infoGPU(), B = resultatBanc(), r = reglageGPU();
+      court.textContent = !I ? '' : r === true ? ' · forcé (carte)' : r === false ? ' · forcé (processeur)' : !I.disponible ? ' · indisponible'
+        : I.fallback || B?.erreur ? ' · n\'accélère pas ici' : !B ? ' · auto-test à faire' : B.choix === 'gpu' ? ' · accélère ici' : ' · n\'accélère pas ici';
+      aide.hidden = !!I && /nvidia|geforce|rtx/i.test(I.nom || '');
     };
-    setTimeout(inserer, 0);
+    (s ? s.after(verdict) : b.prepend(verdict));
+    (b.querySelector('.etat-gpu') || verdict).after(aide);
+    const off = surChangementGPU(() => { if (b.isConnected) { b.dataset.vuV = '1'; majV(); } else if (b.dataset.vuV) off(); });
+    majV();
+    return b;
+  };
+  app.gpu = { bloc: blocWebGPU, verdict: verdictGPU };
+
+  // ---------------------------------------------------------------
+  // Rayon d'analyse (15/11/2026, doublon 14) : UNE valeur (config.rayonConfort, gardée par modifierReglageCentre) et UN événement
+  // « rayonAnalyse », pour Confort (cercle bleu) et Chaleur (grille des matériaux, bornée à 300 m). champRayon() est inséré dans
+  // les deux panneaux (app.confort.champRayon, appelé explicitement par chaleur.js) ; tous les champs affichés suivent.
+  // Bouton « i » commun « Quel rayon fait quoi ? » : les cinq réglages de rayon de l'atlas.
+  // ---------------------------------------------------------------
+  const champsRayon = new Set();
+  function definirRayon(v) {
+    v = Math.round(parseFloat(v));
+    if (!(v >= 30 && v <= 600) || v === Math.round(rayon())) return false;
+    app.config.rayonConfort = v;
+    modifierReglageCentre({ rayonConfort: v });
+    app.emettre('rayonAnalyse', v);
+    return true;
+  }
+  function infoRayons() {
+    const c = app.config, v = app.vent?.etat?.emprise;
+    const d = (r) => `${Math.round(r)} m (${Math.round(2 * r)} m de diamètre)`;
+    return info(
+      h('strong', {}, 'Quel rayon fait quoi ?'),
+      `1. Plateau de la maquette (rayonPlateau, ${d(c.rayonPlateau)}) : cercle de la maquette physique, vue maquette coupée (touche M), planche à l'échelle. Réglé dans config.json ou l'outil Centre.`,
+      `2. Périmètre d'étude (rayonEtude, ${d(c.rayonEtude)}) : données chargées autour du centre (bâti, cadastre, réseaux, relief). Outil Centre.`,
+      `3. Rayon d'analyse (rayonConfort, ${d(rayon())}) : CE champ, commun à Confort et Chaleur. Confort : cercle bleu (ouverture au ciel, rayonnement, confort, UTCI ; maille de 2 m, 3 m au-delà de 200 m, 4 m au-delà de 300 m). Chaleur : grille des matériaux et température de surface, bornée à 300 m (maille de 2 m, 3 m au-delà de 150 m). Le changer dans un outil le change dans l'autre (calculs à refaire).`,
+      `4. Zone de calcul du Vent (${v === 0 ? 'tout le périmètre' : v ? d(v) : 'curseur du panneau Vent'}) : curseur « Zone de calcul et d'affichage » du panneau Vent (50 à 200 m, ou tout), indépendant des autres.`,
+      `5. Zone détaillée (${hauteResolution() ? d(zoneDetaillee()) : `${zoneDetaillee()} m, inactive`}) : curseur de la case « Haute résolution » (50 à 150 m, maille de 1 m près du centre), commun à Confort et Chaleur.`);
+  }
+  function champRayon({ outil = 'confort' } = {}) {
+    const input = h('input', { type: 'number', min: 30, max: 600, step: 5, value: Math.round(rayon()), 'aria-label': 'Rayon d\'analyse (m), commun à Confort et Chaleur' });
+    const noteChaleur = h('p', { class: 'note note-rayon-analyse', 'data-garder': '' });
+    const bloc = h('div', { class: 'champ-rayon-analyse', 'data-garder': '', 'data-outil': outil },
+      h('div', { class: 'titre-info' },
+        h('label', { class: 'champ' }, h('span', {}, 'Rayon d\'analyse (m)'), input),
+        infoRayons()),
+      noteChaleur);
+    const maj = () => {
+      input.value = Math.round(rayon());
+      const r = rayon();
+      noteChaleur.textContent = outil === 'chaleur'
+        ? `Commun avec Confort${r > 300 ? ` : Chaleur limitée à 300 m (cercle de Confort : ${Math.round(r)} m)` : ''}.`
+        : 'Commun avec Chaleur (limitée à 300 m).';
+    };
+    input.addEventListener('change', () => { if (!definirRayon(input.value)) maj(); });
+    bloc.maj = maj;
+    champsRayon.add(bloc);
+    maj();
+    return bloc;
+  }
+  app.on('rayonAnalyse', (v) => {
+    majCercle();
+    effacerCarte(); etat.grille = null; etat.svf = null; etat.resUTCI = null;
+    if (ui.resultat?.isConnected) {
+      ui.resultat.replaceChildren();
+      note(`Cercle d'analyse de ${Math.round(v * 2)} m de diamètre${v > 200 ? ' : calculs plus longs (maille de ' + (v <= 300 ? 3 : 4) + ' m)' : ''}.`);
+    }
+    for (const b of [...champsRayon]) { if (b.isConnected) b.maj(); else champsRayon.delete(b); }
+    document.querySelectorAll('.bloc-resolution').forEach((b) => b.maj?.()); // durée estimée (dépend du rayon)
   });
 
   function meteoUTCI(q) {
@@ -544,10 +555,10 @@ export function creerConfort(app) {
     let champ = null, texteVent = '';
     const V = app.vent?.etat;
     const tV = debut();
-    if (R.vent !== 'ciel' && app.vent?.champPour) {
-      try { champ = await app.vent.champPour((u) => progresUTCI('Écoulement du vent', 0.6 + 0.1 * u)); attente += champ.attente || 0; tReprise = performance.now(); } catch (e) { console.warn('UTCI : champ du vent indisponible', e); champ = null; }
+    if (R.vent !== 'ciel' && app.vent?.ventLocal) { // vent local : app.vent.ventLocal, référence unique (15/11/2026)
+      try { champ = await app.vent.ventLocal({ calculer: true, plafond: 2.5, progres: (u) => progresUTCI('Écoulement du vent', 0.6 + 0.1 * u) }); attente += champ.attente || 0; tReprise = performance.now(); } catch (e) { console.warn('UTCI : champ du vent indisponible', e); champ = null; }
     }
-    fin('Confort : UTCI complet / champ du vent (champPour)', tV);
+    fin('Confort : UTCI complet / champ du vent (ventLocal)', tV);
     const vRef = R.vent === 'panneau' && champ ? champ.vitesse : met.v;
     if (champ) texteVent = `vent de ${champ.direction}° (outil Vent${V?.suitPeriode ? `, dominant ${({ annee: 'de l\'année', hiver: 'd\'hiver', printemps: 'de printemps', ete: 'd\'été', automne: 'd\'automne' })[V.saison] || ''}` : ', réglage manuel'}), ${fmt(1)(vRef)} m/s à la station${R.vent === 'meteo' ? ' (météo de l\'heure)' : ''}, écoulement 2D autour du bâti`;
     else texteVent = `${fmt(1)(vRef)} m/s à la station (météo de l'heure), abri estimé par l'ouverture au ciel (0,35 + 0,65 SVF)`;
@@ -568,7 +579,6 @@ export function creerConfort(app) {
     const alb = albedoSol();
     const N = nx * nz;
     const tmrt = new Float32Array(N).fill(NaN), va = new Float32Array(N).fill(NaN), u = new Float32Array(N).fill(NaN);
-    const out = [0, 0];
     let horsDomaine = 0;
     for (let j = 0; j < nz; j++) {
       for (let i = 0; i < nx; i++) {
@@ -587,9 +597,9 @@ export function creerConfort(app) {
         const rho = alb.en(x, z);
         const Tsol = TaK + 0.025 * (1 - rho) * Gsol;
         const tr = tmrtSimplifiee({ I, D: met.dhi, fp, svf: f, albedoSol: rho, Gsol, Lciel, Lmurs: Lair, Lsol: 0.95 * SIGMA * Tsol ** 4 });
-        // vent local : rapport du champ 2D (vitesse locale / vent libre), sinon abri estimé par l'ouverture au ciel
-        let rapport = 0.35 + 0.65 * (Number.isFinite(svf[k]) ? svf[k] : 0.3);
-        if (champ && champ.vitesse > 0 && champ.echantillon(x, z, out)) rapport = Math.min(2.5, Math.hypot(out[0], out[1]) / champ.vitesse);
+        // vent local : rapport du champ 2D (vitesse locale / vent libre, ventLocal), sinon son repli (abri par l'ouverture au ciel)
+        const rc = champ ? champ.rapport(x, z) : NaN;
+        const rapport = Number.isFinite(rc) ? rc : abriCiel(svf[k]);
         const v10 = Math.max(0.5, Math.min(17, versDixMetres(KPED * rapport * vRef, HAUTEUR_CHAMP)));
         if (!dansDomaine(Ta, tr, v10)) horsDomaine++;
         tmrt[k] = tr; va[k] = v10;
@@ -722,8 +732,19 @@ export function creerConfort(app) {
   function regler(r) {
     if (!r) return;
     if (r.utci) { Object.assign(etat.reglUTCI, Object.fromEntries(Object.entries(r.utci).filter(([k]) => k in REGL_UTCI))); memoriserUTCI(); }
-    etat.relancerUTCI = r.carte === 'utci';
+    // 'ressenti' / 'confort' : anciens points de vue (température ressentie de Steadman, retirée le 15/11/2026) → carte UTCI
+    etat.relancerUTCI = ['utci', 'ressenti', 'confort'].includes(r.carte);
   }
+
+  // API pour la barre des études (js/etudes.js) : ouvre la carte demandée (seule 'utci' existe ; tout autre nom, dont l'ancien
+  // 'ressenti', retombe sur l'UTCI), la garde si elle est déjà affichée pour le moment de la barre du temps ; pret() = carte affichée
+  async function ouvrirCarte(type = 'utci') {
+    void type;
+    const q = momentBarre();
+    if (etat.calque && etat.info?.utci && etat.resUTCI?.q.libelle === q.libelle && etat.resUTCI?.q.annee === q.annee) return;
+    await lancerUTCI();
+  }
+  function pret() { return !etat.calculUTCI && !!etat.calque && !!etat.info?.utci; }
   app.on('outil', (id) => {
     if (id !== 'confort') { etat.relancerUTCI = false; return; } // une vue qui ouvre un autre outil n'a pas à relancer l'UTCI plus tard
     if (!etat.relancerUTCI) return;
@@ -805,7 +826,6 @@ export function creerConfort(app) {
     chargerMeteo().then(majSource);
     ui.pointeur = h('p', { class: 'coordonnees' });
     const selPeriode = h('select', { 'aria-label': 'Période' }, ...Object.entries(PERIODES).map(([k, p]) => h('option', { value: k }, p.libelle)));
-    const selScenario = h('select', { 'aria-label': 'Scénario' }, ...Object.entries(SCENARIOS).map(([k, s]) => h('option', { value: k }, s.libelle)));
     const bouton = (libelle, fn, discret = false) => { fn.profil = libelle; return h('button', { type: 'button', class: `bouton${discret ? ' discret' : ''}`, onclick: () => lancer(fn) }, libelle); };
 
     const bSVF = bouton('Ouverture au ciel', async () => {
@@ -834,17 +854,6 @@ export function creerConfort(app) {
         h('p', { class: 'note' }, 'Les ombres portées par les bâtiments voisins et les arbres sont prises en compte ; les façades reçoivent aussi le rayonnement réfléchi par le sol.'));
       note('');
     });
-    const bConf = bouton('Confort thermique', async () => {
-      preparerGrille(); if (!svfValide()) etat.svf = null;
-      const r = await calculerConfort(selScenario.value);
-      const sc = SCENARIOS[selScenario.value];
-      const classeDe = (v) => CLASSES_RESSENTI.find((c) => v < c.max);
-      afficher(r.ressenti, (v) => classeDe(v).couleur, {
-        titre: `Température ressentie, ${MOIS[sc.mois]} à ${sc.heure} h`, format: (v) => `${fmt(1)(v)} °C`, classes: CLASSES_RESSENTI, classeDe,
-        note: `Air ${fmt(1)(r.met.ta)} °C, humidité ${Math.round(r.met.hr)} %, vent ${fmt(1)(r.met.v)} m/s à 10 m, soleil à ${Math.round(r.soleilHaut)}°${sc.chaud ? ` (moyenne des ${r.met.n} heures de juillet à 15 h les plus chaudes)` : ''}. Température radiante moyenne de ${fmt(0)(Math.min(...[...r.tmrt].filter(Number.isFinite)))} à ${fmt(0)(Math.max(...[...r.tmrt].filter(Number.isFinite)))} °C. ${texteVent(sc.mois)} Indice de Steadman avec rayonnement : ordre de grandeur, pas une norme. ${mention({ court: true })}`,
-      });
-      note('');
-    });
     // carte UTCI (07/11/2026)
     const R = etat.reglUTCI;
     const bUTCI = h('button', { type: 'button', class: 'bouton', onclick: () => lancerUTCI() }, 'Carte UTCI');
@@ -868,14 +877,17 @@ export function creerConfort(app) {
     ui.progres = h('progress', { class: 'progres-confort', max: 1, value: 0, hidden: true });
     ui.progresTexte = h('span', { class: 'progres-confort-texte', 'aria-live': 'off' });
     const blocUTCI = [
-      h('div', { class: 'titre-info' }, h('h3', {}, 'Carte UTCI (stress thermique)'),
+      h('div', { class: 'titre-info' }, h('h3', {}, 'Température ressentie : UTCI'),
         info('UTCI (Universal Thermal Climate Index, °C) : température d\'un environnement de référence (ombre, vent faible, 50 % d\'humidité) qui produirait la même contrainte physiologique qu\'ici. Calcul : polynôme d\'approximation officiel « UTCI_approx » (6e ordre, 210 termes) de Bröde P., Fiala D., Błażejczyk K. et al. (2012), « Deriving the operational procedure for the Universal Thermal Climate Index (UTCI) », International Journal of Biometeorology 56 : 481-494 ; www.utci.org. Domaine : Ta −50 à 50 °C, Tmrt − Ta −30 à 70 K, vent à 10 m de 0,5 à 17 m/s (hors domaine : entrées bornées). Classes de stress de Błażejczyk et al. (2013).',
           'Entrées : air et humidité de la météo choisie au jour et à l\'heure de la barre du temps (moyenne du mois à cette heure, ou journée type de l\'outil Chaleur, tirée de l\'EPW si cette source est choisie) ; température radiante moyenne (Tmrt) estimée par maille à 1,1 m du sol : méthode des facteurs d\'angle d\'une personne debout (moitié haute : ciel selon l\'ouverture au ciel et façades à la température de l\'air ; moitié basse : sol chauffé par le soleil qu\'il reçoit ; soleil direct sur l\'aire projetée du corps s\'il n\'est masqué ni par le bâti ni par les arbres ; αk 0,7, εp 0,97 ; Tmrt = (Sstr / (εp σ))^¼ − 273,15) ; albédo du sol de la grille des matériaux de Chaleur si elle est calculée, sinon 0,2 ; sous une couronne : soleil et ciel filtrés (12 %, caducs 12 à 65 % selon la saison).',
           'Vent : champ 2D de l\'outil Vent pour la direction et la vitesse de son panneau (qui suivent la période choisie si la case « Direction suivant la période » est cochée) : vent piéton = 0,70 × rapport local × vent de la station, ramené à 10 m (hauteur attendue par l\'UTCI) par une loi en puissance d\'exposant 0,18 : v10 = v(1,5 m) × (10 / 1,5)^0,18 ≈ 1,41 v(1,5 m). Variantes : vitesse de la météo de l\'heure, ou abri estimé par l\'ouverture au ciel (0,35 + 0,65 SVF, comme Chaleur).',
           'Limites : Tmrt simplifiée (façades à la température de l\'air, pas de réflexions multiples ni de façades chauffées au soleil, ciel clair de Brutsaert), vent 2D estimé, météo moyenne : écart de l\'ordre de 3 à 5 °C sur l\'UTCI. À lire pour comparer les lieux entre eux. Pour une étude validée : Ladybug Tools (UTCI avec SolarCal et Radiance) avec un fichier EPW.')),
       h('p', { class: 'note confort-bandeau', 'data-garder': '' }, h('strong', {}, 'Estimation pédagogique'), ' : UTCI à ±3 à 5 °C, Tmrt et vent simplifiés.'),
+      h('p', { class: 'note temperatures-confort', 'data-garder': '' }, 'Quatre températures à ne pas confondre : ', h('strong', {}, 'température de l\'air'), ' (météo, à l\'ombre) ; ',
+        h('strong', {}, 'température de surface (Chaleur)'), ' (sols et toits, outil Chaleur) ; température radiante moyenne (Tmrt, rayonnement reçu par le corps) ; ',
+        h('strong', {}, 'température ressentie : UTCI'), ' (air, Tmrt, vent et humidité réunis : la carte ci-dessous).'),
       ui.momentUTCI,
-      h('label', { class: 'champ' }, h('span', {}, 'Météo'), selMeteo),
+      h('label', { class: 'champ' }, h('span', {}, 'Température de l\'air et humidité'), selMeteo),
       h('label', { class: 'champ' }, h('span', {}, 'Vent'), selVent),
       h('div', { class: 'segment-vent segment-utci', role: 'group', 'aria-label': 'Affichage de la carte UTCI' }, ...boutonsAff),
       h('div', { class: 'actions' }, bUTCI,
@@ -883,31 +895,16 @@ export function creerConfort(app) {
         h('button', { type: 'button', class: 'bouton discret', onclick: exporterCSV, title: 'Valeurs par maille, Lambert-93' }, 'CSV')),
       h('div', { class: 'progres-utci', 'data-garder': '' }, ui.progres, ui.progresTexte),
     ];
-    ui.boutons = [bSVF, bRay, bFac, bConf, bUTCI];
+    ui.boutons = [bSVF, bRay, bFac, bUTCI];
     conteneur.append(...[
-      app.meteoSource?.bloc(),
+      app.meteoSource?.barre?.() ?? app.meteoSource?.bloc(), // barre « Données météo » commune (js/meteo-source.js)
       h('p', { class: 'note' }, `Analyses dans le cercle bleu, centré sur le centre du projet, à partir de la météo horaire moyenne de la source choisie ci-dessus (par défaut Météo-France à Nantes-Bouguenais, 2016-2025, rayonnement direct et diffus estimés à partir du global mesuré ; ou fichier EPW), du bâti et des arbres.`),
-      h('label', { class: 'champ' }, h('span', {}, 'Rayon d\'analyse (m)'), (() => {
-        const input = h('input', { type: 'number', min: 30, max: 600, step: 5, value: Math.round(rayon()) });
-        input.addEventListener('change', () => {
-          const v = parseFloat(input.value);
-          if (!(v >= 30 && v <= 600)) { input.value = Math.round(rayon()); return; }
-          app.config.rayonConfort = v;
-          modifierReglageCentre({ rayonConfort: v });
-          majCercle();
-          effacerCarte(); etat.grille = null; etat.svf = null; ui.resultat.replaceChildren();
-          note(`Cercle d'analyse de ${Math.round(v * 2)} m de diamètre${v > 200 ? ' : calculs plus longs (maille de ' + (v <= 300 ? 3 : 4) + ' m)' : ''}.`);
-        });
-        return input;
-      })()),
+      champRayon({ outil: 'confort' }), // rayon d'analyse commun à Confort et Chaleur (même champ dans Chaleur)
       h('h3', {}, 'Ouverture au ciel'),
       h('div', { class: 'actions' }, bSVF),
       h('h3', {}, 'Rayonnement solaire cumulé'),
       h('label', { class: 'champ' }, h('span', {}, 'Période'), selPeriode),
       h('div', { class: 'actions' }, bRay, bFac, bouton('Façades en blanc', async () => effacerFacades(), true)),
-      h('h3', {}, 'Confort thermique extérieur'),
-      h('label', { class: 'champ' }, h('span', {}, 'Scénario'), selScenario),
-      h('div', { class: 'actions' }, bConf),
       ...blocUTCI,
       caseLissage(app),
       blocResolution(app, { outil: 'confort', rayon }),
@@ -945,7 +942,7 @@ export function creerConfort(app) {
     if (ui.resultat?.isConnected) { ui.resultat.replaceChildren(); note('Source météo changée : relancer le calcul.'); ui.majSource?.(); }
   });
 
-  // légende automatique (js/legende.js) : carte affichée (classes de température ressentie ou dégradé gradué)
+  // légende automatique (js/legende.js) : carte affichée (classes de stress UTCI ou dégradé gradué)
   function legendeAuto() {
     const L = [legendeCarte()];
     if (etat.facadesActives && etat.facadesMax) L.push({ id: 'confort-facades', titre: `Rayonnement reçu par les façades et toits, ${etat.facadesPeriode || ''}`.replace(/, $/, ''),
@@ -970,6 +967,6 @@ export function creerConfort(app) {
       degrade: { stops: I.stops || STOPS_DEGRADE, graduations: grad } };
   }
 
-  return { construirePanneau, calculerSVF, preparerDiagnostic, blocWebGPU, legendeAuto, calculerRayonnement, calculerConfort, climatologie, effacerCarte, effacerFacades, etat,
-    calculerUTCI, lancerUTCI, afficherUTCI, exporterPNG, exporterCSV, reglages, regler };
+  return { construirePanneau, calculerSVF, preparerDiagnostic, blocWebGPU, champRayon, definirRayon, legendeAuto, calculerRayonnement, climatologie, effacerCarte, effacerFacades, etat,
+    calculerUTCI, lancerUTCI, afficherUTCI, exporterPNG, exporterCSV, reglages, regler, ouvrirCarte, pret };
 }

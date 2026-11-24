@@ -7,9 +7,9 @@
 // le mélange s'écarte du calcul exact de 0,07 à 0,17 m/s en moyenne à 7,5° des voisines (jusqu'à 2 m/s en bord de sillage),
 // au-delà de la tolérance de 0,05 m/s ; `melanger: true` le permet quand même (aperçu). Échantillonnage vectorisé : rapports
 // (vitesse locale / vent libre) de toutes les mailles demandées en un passage. Sans worker : null (calcul exact
-// d'origine). Branchement (08/11/2026) : installerVentLocal(app) remplace app.vent.champPour (appelé par l'UTCI de confort.js, inchangé)
-// par une version qui passe d'abord par ce module, puis par la fonction d'origine ; chargé par index.html (script module),
-// installé dès que window.atlas.vent existe.
+// d'origine). Branchement (15/11/2026) : créé par js/vent.js (creerVentLocal) et appelé par app.vent.ventLocal({ calculer: true }),
+// fonction publique unique du vent local (Chaleur, Confort, UTCI) ; plus de remplacement de app.vent.champPour à l'exécution
+// (avant : installerVentLocal, minuterie de 250 ms). index.html le charge encore en script module : sans effet (aucun code au chargement).
 import { N, HALF, preparerBatiments, creerGrille, filtrerHauteur, echantillonChamp, SECTEURS_BIBLIO, HAUTEUR_PIETON } from './vent-calcul.js';
 import { visibiliteBatiment } from './maquette.js';
 import { calculEnFond } from './chaleur-modele.js';
@@ -89,23 +89,4 @@ export function creerVentLocal(app) {
     };
   }
   return { champ, voisines, get cache() { return cache; }, vider() { cache = { sig: null, grille: null, champs: new Map() }; } };
-}
-
-// remplace app.vent.champPour (UTCI de Confort) : champ en arrière-plan, sinon calcul d'origine ; renvoie false si déjà fait
-export function installerVentLocal(app) {
-  const V = app?.vent;
-  if (!V?.champPour || V.champPour.ventLocal) return false;
-  const origine = V.champPour, vl = creerVentLocal(app);
-  const champPour = async (progres = () => {}) => {
-    try { const c = await vl.champ(V.etat.direction, V.etat.vitesse, progres); if (c) return c; } catch (e) { if (!e.indisponible) console.warn('Vent de l\'UTCI en arrière-plan indisponible :', e); }
-    return origine(progres);
-  };
-  champPour.ventLocal = vl;
-  champPour.origine = origine;
-  V.champPour = champPour;
-  return true;
-}
-if (typeof window !== 'undefined') {
-  let essais = 0;
-  const t = setInterval(() => { if (installerVentLocal(window.atlas) || window.atlas?.vent?.champPour?.ventLocal || ++essais > 600) clearInterval(t); }, 250);
 }
